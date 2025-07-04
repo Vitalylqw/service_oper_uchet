@@ -57,7 +57,7 @@ src/
 ### Предварительные требования
 
 - Python 3.9+
-- MS SQL Server 2014+
+- PostgreSQL 16+
 - 1С Предприятие с настроенным API
 - Git
 
@@ -87,9 +87,9 @@ pip install -r requirements.txt
 ```env
 # Database Configuration
 DB_HOST=192.168.31.2
-DB_PORT=1433
+DB_PORT=5432
 DB_NAME=corp
-DB_USER=sql
+DB_USER=etl
 DB_PASSWORD=your_password
 
 # 1C Integration
@@ -264,7 +264,7 @@ test: add unit tests for validation module
 - **ОС**: Windows 10+, Linux, macOS
 - **RAM**: минимум 4 GB, рекомендуется 8 GB
 - **Диск**: 10 GB свободного места
-- **Сеть**: доступ к MS SQL Server и 1С
+- **Сеть**: доступ к PostgreSQL и 1С
 
 ### Развертывание
 
@@ -292,7 +292,7 @@ python scripts/install_service.py
 
 ```
 **Тип проблемы**: Bug/Feature Request/Question
-**Окружение**: Windows 10, Python 3.9, MS SQL Server 2019
+**Окружение**: Windows 10, Python 3.9, PostgreSQL 16
 **Описание**: Детальное описание проблемы
 **Шаги воспроизведения**: 1. ... 2. ... 3. ...
 **Ожидаемый результат**: Что должно произойти
@@ -323,5 +323,5 @@ MIT License - см. файл [LICENSE](LICENSE)
 
 **Разработано для**: Корпоративные системы управления продажами  
 **Платформа**: Cross-platform (Windows, Linux, macOS)  
-**Интеграция**: MS SQL Server, 1С Предприятие, Excel  
+**Интеграция**: PostgreSQL, 1С Предприятие, Excel  
 **Архитектура**: DDD, Event Sourcing, CQRS 
