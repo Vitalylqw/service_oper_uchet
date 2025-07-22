@@ -1,8 +1,9 @@
 # ФИНАЛЬНЫЙ АРХИТЕКТУРНЫЙ ПЛАН ПРОЕКТА
+
 **Система синхронизации Excel → PostgreSQL с версионностью**
 
-*Архитектор: Senior Solutions Architect*  
-*Версия: 1.0 (Final)*  
+*Архитектор: Senior Solutions Architect*
+*Версия: 1.0 (Final)*
 *Дата: 2025-01-XX*
 
 ---
@@ -40,9 +41,11 @@ service_oper_uchet/
 ## 🏗️ КОМПОНЕНТЫ СИСТЕМЫ
 
 ### 1. **Domain Layer** (`src/domain/`)
+
 **Назначение**: Чистая бизнес-логика без зависимостей
 
 **Компоненты**:
+
 - `models.py` — Pydantic модели (Deal, DealItem, SyncSession)
 - `value_objects.py` — Money, Period, HashKey, Status
 - `interfaces.py` — Абстракции репозиториев
@@ -52,11 +55,13 @@ service_oper_uchet/
 **Покрытие тестами**: 100%
 
 ### 2. **Application Layer** (`src/application/`)
+
 **Назначение**: Сценарии использования (Use Cases)
 
 **Компоненты**:
+
 - `excel_parser/` — **Переработка существующего** `excel_parser.py`
-- `change_detector/` — Алгоритмы сравнения данных  
+- `change_detector/` — Алгоритмы сравнения данных
 - `sync_orchestrator/` — Управление процессом синхронизации
 - `data_validator/` — Валидация и сверка с 1С
 
@@ -64,9 +69,11 @@ service_oper_uchet/
 **Покрытие тестами**: 95% (критичные компоненты)
 
 ### 3. **Infrastructure Layer** (`src/infrastructure/`)
+
 **Назначение**: Работа с внешними системами
 
 **Компоненты**:
+
 - `database/` — PostgreSQL, Event Store, Read Models
 - `file_system/` — Получение файлов (SMB/FTP/HTTP)
 - `scheduler/` — APScheduler + Windows Task Scheduler резерв
@@ -77,9 +84,11 @@ service_oper_uchet/
 **Покрытие тестами**: 85%
 
 ### 4. **Presentation Layer** (`src/presentation/`)
+
 **Назначение**: Внешние интерфейсы
 
 **Компоненты**:
+
 - `api/` — FastAPI REST сервис
 - `cli/` — Командная строка для админов
 - `web/` — React SPA для аналитиков
@@ -92,18 +101,21 @@ service_oper_uchet/
 ## 🔄 EVENT SOURCING & CQRS
 
 ### Event Store
+
 - **Таблица**: `event_store` с JSONB полями
 - **Партиции**: По месяцам автоматически
 - **Индексы**: GIN по event_data, B-tree по aggregate_id
 - **Retention**: 2 года (настраиваемо)
 
 ### Read Models
+
 - **`read_deals`** — Оптимизированная выборка сделок
 - **`read_positions`** — Позиции товаров с аггрегатами
 - **`read_audit`** — История изменений
 - **`read_stats`** — Аналитические метрики
 
 ### Command/Query Separation
+
 - **Commands** → Event Store → Workers → Read Models
 - **Queries** → Read Models (только чтение)
 
@@ -112,6 +124,7 @@ service_oper_uchet/
 ## 🚀 DEPLOYMENT АРХИТЕКТУРА
 
 ### Production Setup
+
 ```
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
 │   API GW    │    │ Sync Service│    │ PostgreSQL  │
@@ -126,6 +139,7 @@ service_oper_uchet/
 ```
 
 ### Контейнеризация
+
 - **Один Docker Compose** для всех сервисов
 - **Multi-stage build** для production образов
 - **Volumes** для персистентных данных
@@ -136,17 +150,19 @@ service_oper_uchet/
 ## 📋 ROADMAP РЕАЛИЗАЦИИ
 
 ### 🎯 Sprint 0: Фундамент (1 неделя)
+
 **Цель**: Подготовить базовую архитектуру
 
-- [ ] Рефакторинг `excel_parser.py` → `src/application/excel_parser/`
-- [ ] Создание domain моделей на основе существующих классов
-- [ ] Event Store схема + миграции Alembic
+- [X] Рефакторинг `excel_parser.py` → `src/application/excel_parser/`
+- [X] Создание domain моделей на основе существующих классов
+- [X] Event Store схема + миграции Alembic
 - [ ] CI/CD pipeline (GitHub Actions)
 - [ ] Базовые integration тесты
 
 **Deliverable**: Парсер работает, события пишутся в БД
 
-### 🏗️ Sprint 1: Core Logic (2 недели)  
+### 🏗️ Sprint 1: Core Logic (2 недели)
+
 **Цель**: Основная бизнес-логика
 
 - [ ] Change Detector с хешированием
@@ -158,6 +174,7 @@ service_oper_uchet/
 **Deliverable**: Полный цикл синхронизации работает
 
 ### 🌐 Sprint 2: Интерфейсы (2 недели)
+
 **Цель**: API и UI для пользователей
 
 - [ ] FastAPI с основными эндпоинтами
@@ -169,6 +186,7 @@ service_oper_uchet/
 **Deliverable**: Пользователи могут работать с системой
 
 ### 🎛️ Sprint 3: Production Ready (1 неделя)
+
 **Цель**: Готовность к продакшену
 
 - [ ] Monitoring stack (Prometheus + Grafana)
@@ -180,6 +198,7 @@ service_oper_uchet/
 **Deliverable**: Система готова к production
 
 ### 📈 Sprint 4: Optimization (1 неделя)
+
 **Цель**: Финальная полировка
 
 - [ ] Оптимизация БД запросов
@@ -195,15 +214,17 @@ service_oper_uchet/
 ## 🛠️ ТЕХНОЛОГИЧЕСКИЙ СТЕК
 
 ### Backend
+
 - **Python 3.9+** — основной язык
-- **FastAPI** — веб-фреймворк  
+- **FastAPI** — веб-фреймворк
 - **SQLAlchemy 2.0** — ORM
 - **Pydantic v2** — валидация данных
 - **pandas** — обработка Excel
 - **Redis** — кеш и очереди
 - **Loguru** — структурированное логирование
 
-### Frontend  
+### Frontend
+
 - **React 18** — UI фреймворк
 - **TypeScript** — типизация
 - **Vite** — build tool
@@ -211,12 +232,14 @@ service_oper_uchet/
 - **TanStack Query** — state management
 
 ### Infrastructure
+
 - **PostgreSQL 16** — основная БД
 - **Docker + Compose** — контейнеризация
 - **Prometheus + Grafana** — мониторинг
 - **GitHub Actions** — CI/CD
 
 ### Quality Assurance
+
 - **pytest** — тестирование
 - **ruff** — линтер
 - **mypy** — type checker
@@ -227,18 +250,21 @@ service_oper_uchet/
 ## 📊 КРИТЕРИИ УСПЕХА
 
 ### MVP (Sprint 1)
+
 - ✅ Ежедневная синхронизация без участия человека
-- ✅ Обнаружение 100% изменений в данных  
+- ✅ Обнаружение 100% изменений в данных
 - ✅ Сохранение полной истории версий
 - ✅ Основные REST API работают
 
 ### Production (Sprint 3)
+
 - ✅ Синхронизация 1000 сделок за < 5 минут
 - ✅ API отвечает за < 2 секунды
 - ✅ Покрытие тестами > 90%
 - ✅ Zero-downtime deployment
 
-### Business Ready (Sprint 4) 
+### Business Ready (Sprint 4)
+
 - ✅ Интеграция с 1С функционирует
 - ✅ Web UI интуитивно понятен пользователям
 - ✅ Система алертов настроена
@@ -249,18 +275,23 @@ service_oper_uchet/
 ## ⚡ КЛЮЧЕВЫЕ РЕШЕНИЯ
 
 ### 1. **Переиспользование существующего кода**
+
 `excel_parser.py` уже хорошо написан — рефакторим в application layer
 
-### 2. **Моно-репозиторий для MVP**  
+### 2. **Моно-репозиторий для MVP**
+
 Упрощает DevOps, ускоряет разработку, снижает overhead
 
 ### 3. **Event Sourcing + Read Models**
+
 Обеспечивает требования по версионности без потери производительности
 
 ### 4. **Прагматичная CQRS**
+
 Разделение команд и запросов без фанатизма
 
 ### 5. **Готовность к масштабированию**
+
 Архитектура позволяет выделить сервисы при росте нагрузки
 
 ---
@@ -268,7 +299,7 @@ service_oper_uchet/
 ## 🎯 NEXT STEPS
 
 1. **Утверждение плана** — финализация архитектурных решений
-2. **Team Setup** — назначение ролей и ответственности  
+2. **Team Setup** — назначение ролей и ответственности
 3. **Environment** — настройка dev/staging окружений
 4. **Sprint 0 Kickoff** — начало реализации
 
@@ -276,4 +307,4 @@ service_oper_uchet/
 
 *Создано с учетом лучших практик Enterprise Architecture и реальных потребностей бизнеса.*
 
-**Ключевой принцип**: *Архитектура должна служить бизнесу, а не наоборот.* 
+**Ключевой принцип**: *Архитектура должна служить бизнесу, а не наоборот.*
