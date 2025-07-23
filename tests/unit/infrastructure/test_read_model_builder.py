@@ -40,9 +40,7 @@ class TestReadModelBuilder:
 
     @pytest.fixture
     def read_model_builder(
-        self,
-        mock_session: AsyncSession,
-        mock_event_store: EventStore
+        self, mock_session: AsyncSession, mock_event_store: EventStore
     ) -> ReadModelBuilder:
         """Create Read Model Builder instance."""
         return ReadModelBuilder(session=mock_session, event_store=mock_event_store)
@@ -63,7 +61,7 @@ class TestReadModelBuilder:
             total_margin=Money(amount=Decimal("200.00")),
             total_cost=Money(amount=Decimal("800.00")),
             period=Period(month="Январь", year="2024", full_name="Январь 2024"),
-            items=[]
+            items=[],
         )
 
         return {
@@ -71,13 +69,9 @@ class TestReadModelBuilder:
             "aggregate_id": deal.id,
             "aggregate_type": "Deal",
             "event_type": "DealCreated",
-            "event_data": {
-                "deal": deal.model_dump()
-            },
-            "metadata": {
-                "sync_session_id": uuid.uuid4()
-            },
-            "created_at": "2024-01-15T10:00:00"
+            "event_data": {"deal": deal.model_dump()},
+            "metadata": {"sync_session_id": uuid.uuid4()},
+            "created_at": "2024-01-15T10:00:00",
         }
 
     @pytest.fixture
@@ -92,7 +86,7 @@ class TestReadModelBuilder:
             quantity=Decimal("10.0"),
             purchase_price=Money(amount=Decimal("80.00")),
             sale_price=Money(amount=Decimal("100.00")),
-            pickup_date="2024-01-10"
+            pickup_date="2024-01-10",
         )
 
         return {
@@ -100,20 +94,14 @@ class TestReadModelBuilder:
             "aggregate_id": deal_id,
             "aggregate_type": "Deal",
             "event_type": "DealItemCreated",
-            "event_data": {
-                "deal_item": item.model_dump()
-            },
-            "metadata": {
-                "sync_session_id": uuid.uuid4()
-            },
-            "created_at": "2024-01-15T10:00:00"
+            "event_data": {"deal_item": item.model_dump()},
+            "metadata": {"sync_session_id": uuid.uuid4()},
+            "created_at": "2024-01-15T10:00:00",
         }
 
     @pytest.mark.asyncio
     async def test_process_latest_events_empty(
-        self,
-        read_model_builder: ReadModelBuilder,
-        mock_event_store: EventStore
+        self, read_model_builder: ReadModelBuilder, mock_event_store: EventStore
     ):
         """Test processing when no events available."""
         # Arrange
@@ -132,14 +120,16 @@ class TestReadModelBuilder:
         read_model_builder: ReadModelBuilder,
         mock_event_store: EventStore,
         mock_session: AsyncSession,
-        sample_deal_event: dict
+        sample_deal_event: dict,
     ):
         """Test processing events successfully."""
         # Arrange
         mock_event_store.get_latest_events.return_value = [sample_deal_event]
 
         # Mock the read model creation
-        with patch.object(read_model_builder, '_process_single_event', new_callable=AsyncMock) as mock_process:
+        with patch.object(
+            read_model_builder, "_process_single_event", new_callable=AsyncMock
+        ) as mock_process:
             # Act
             result = await read_model_builder.process_latest_events(limit=100)
 
@@ -154,14 +144,16 @@ class TestReadModelBuilder:
         read_model_builder: ReadModelBuilder,
         mock_event_store: EventStore,
         mock_session: AsyncSession,
-        sample_deal_event: dict
+        sample_deal_event: dict,
     ):
         """Test error handling during event processing."""
         # Arrange
         mock_event_store.get_latest_events.return_value = [sample_deal_event]
 
         # Mock processing to raise an exception
-        with patch.object(read_model_builder, '_process_single_event', new_callable=AsyncMock) as mock_process:
+        with patch.object(
+            read_model_builder, "_process_single_event", new_callable=AsyncMock
+        ) as mock_process:
             mock_process.side_effect = Exception("Processing error")
 
             # Act & Assert
@@ -172,126 +164,108 @@ class TestReadModelBuilder:
 
     @pytest.mark.asyncio
     async def test_process_single_event_deal_created(
-        self,
-        read_model_builder: ReadModelBuilder,
-        sample_deal_event: dict
+        self, read_model_builder: ReadModelBuilder, sample_deal_event: dict
     ):
         """Test processing DealCreated event."""
         # Arrange
-        with patch.object(read_model_builder, '_handle_deal_event', new_callable=AsyncMock) as mock_handle:
+        with patch.object(
+            read_model_builder, "_handle_deal_event", new_callable=AsyncMock
+        ) as mock_handle:
             # Act
             await read_model_builder._process_single_event(sample_deal_event)
 
         # Assert
         mock_handle.assert_called_once_with(
-            "DealCreated",
-            sample_deal_event["event_data"],
-            sample_deal_event
+            "DealCreated", sample_deal_event["event_data"], sample_deal_event
         )
 
     @pytest.mark.asyncio
     async def test_process_single_event_deal_item_created(
-        self,
-        read_model_builder: ReadModelBuilder,
-        sample_deal_item_event: dict
+        self, read_model_builder: ReadModelBuilder, sample_deal_item_event: dict
     ):
         """Test processing DealItemCreated event."""
         # Arrange
-        with patch.object(read_model_builder, '_handle_deal_item_event', new_callable=AsyncMock) as mock_handle:
+        with patch.object(
+            read_model_builder, "_handle_deal_item_event", new_callable=AsyncMock
+        ) as mock_handle:
             # Act
             await read_model_builder._process_single_event(sample_deal_item_event)
 
         # Assert
         mock_handle.assert_called_once_with(
-            "DealItemCreated",
-            sample_deal_item_event["event_data"],
-            sample_deal_item_event
+            "DealItemCreated", sample_deal_item_event["event_data"], sample_deal_item_event
         )
 
     @pytest.mark.asyncio
     async def test_handle_deal_event_created(
-        self,
-        read_model_builder: ReadModelBuilder,
-        sample_deal_event: dict
+        self, read_model_builder: ReadModelBuilder, sample_deal_event: dict
     ):
         """Test handling DealCreated event."""
         # Arrange
-        with patch.object(read_model_builder, '_create_deal_read_model', new_callable=AsyncMock) as mock_create:
+        with patch.object(
+            read_model_builder, "_create_deal_read_model", new_callable=AsyncMock
+        ) as mock_create:
             # Act
             await read_model_builder._handle_deal_event(
-                "DealCreated",
-                sample_deal_event["event_data"],
-                sample_deal_event
+                "DealCreated", sample_deal_event["event_data"], sample_deal_event
             )
 
         # Assert
-        mock_create.assert_called_once_with(
-            sample_deal_event["event_data"],
-            sample_deal_event
-        )
+        mock_create.assert_called_once_with(sample_deal_event["event_data"], sample_deal_event)
 
     @pytest.mark.asyncio
     async def test_handle_deal_event_updated(
-        self,
-        read_model_builder: ReadModelBuilder,
-        sample_deal_event: dict
+        self, read_model_builder: ReadModelBuilder, sample_deal_event: dict
     ):
         """Test handling DealUpdated event."""
         # Arrange
         sample_deal_event["event_type"] = "DealUpdated"
 
-        with patch.object(read_model_builder, '_update_deal_read_model', new_callable=AsyncMock) as mock_update:
+        with patch.object(
+            read_model_builder, "_update_deal_read_model", new_callable=AsyncMock
+        ) as mock_update:
             # Act
             await read_model_builder._handle_deal_event(
-                "DealUpdated",
-                sample_deal_event["event_data"],
-                sample_deal_event
+                "DealUpdated", sample_deal_event["event_data"], sample_deal_event
             )
 
         # Assert
-        mock_update.assert_called_once_with(
-            sample_deal_event["event_data"],
-            sample_deal_event
-        )
+        mock_update.assert_called_once_with(sample_deal_event["event_data"], sample_deal_event)
 
     @pytest.mark.asyncio
     async def test_handle_deal_event_deleted(
-        self,
-        read_model_builder: ReadModelBuilder,
-        sample_deal_event: dict
+        self, read_model_builder: ReadModelBuilder, sample_deal_event: dict
     ):
         """Test handling DealDeleted event."""
         # Arrange
         sample_deal_event["event_type"] = "DealDeleted"
 
-        with patch.object(read_model_builder, '_delete_deal_read_model', new_callable=AsyncMock) as mock_delete:
+        with patch.object(
+            read_model_builder, "_delete_deal_read_model", new_callable=AsyncMock
+        ) as mock_delete:
             # Act
             await read_model_builder._handle_deal_event(
-                "DealDeleted",
-                sample_deal_event["event_data"],
-                sample_deal_event
+                "DealDeleted", sample_deal_event["event_data"], sample_deal_event
             )
 
         # Assert
-        mock_delete.assert_called_once_with(
-            sample_deal_event["event_data"],
-            sample_deal_event
-        )
+        mock_delete.assert_called_once_with(sample_deal_event["event_data"], sample_deal_event)
 
     @pytest.mark.asyncio
     async def test_create_deal_read_model(
         self,
         read_model_builder: ReadModelBuilder,
         mock_session: AsyncSession,
-        sample_deal_event: dict
+        sample_deal_event: dict,
     ):
         """Test creating deal read model."""
         # Arrange
-        with patch.object(read_model_builder, '_create_audit_entry', new_callable=AsyncMock) as mock_audit:
+        with patch.object(
+            read_model_builder, "_create_audit_entry", new_callable=AsyncMock
+        ) as mock_audit:
             # Act
             await read_model_builder._create_deal_read_model(
-                sample_deal_event["event_data"],
-                sample_deal_event
+                sample_deal_event["event_data"], sample_deal_event
             )
 
         # Assert
@@ -312,22 +286,20 @@ class TestReadModelBuilder:
         self,
         read_model_builder: ReadModelBuilder,
         mock_session: AsyncSession,
-        sample_deal_event: dict
+        sample_deal_event: dict,
     ):
         """Test updating deal read model."""
         # Arrange
         sample_deal_event["event_data"]["changes"] = {
-            "client_name": {
-                "old_value": "Old Client",
-                "new_value": "New Client"
-            }
+            "client_name": {"old_value": "Old Client", "new_value": "New Client"}
         }
 
-        with patch.object(read_model_builder, '_create_audit_entry', new_callable=AsyncMock) as mock_audit:
+        with patch.object(
+            read_model_builder, "_create_audit_entry", new_callable=AsyncMock
+        ) as mock_audit:
             # Act
             await read_model_builder._update_deal_read_model(
-                sample_deal_event["event_data"],
-                sample_deal_event
+                sample_deal_event["event_data"], sample_deal_event
             )
 
         # Assert
@@ -347,24 +319,18 @@ class TestReadModelBuilder:
 
     @pytest.mark.asyncio
     async def test_delete_deal_read_model(
-        self,
-        read_model_builder: ReadModelBuilder,
-        mock_session: AsyncSession
+        self, read_model_builder: ReadModelBuilder, mock_session: AsyncSession
     ):
         """Test soft deleting deal read model."""
         # Arrange
         deal_id = uuid.uuid4()
         deal_key = "test|deal|key"
-        event_data = {
-            "deal_id": str(deal_id),
-            "deal_key": deal_key
-        }
-        event = {
-            "event_id": uuid.uuid4(),
-            "metadata": {"sync_session_id": uuid.uuid4()}
-        }
+        event_data = {"deal_id": str(deal_id), "deal_key": deal_key}
+        event = {"event_id": uuid.uuid4(), "metadata": {"sync_session_id": uuid.uuid4()}}
 
-        with patch.object(read_model_builder, '_create_audit_entry', new_callable=AsyncMock) as mock_audit:
+        with patch.object(
+            read_model_builder, "_create_audit_entry", new_callable=AsyncMock
+        ) as mock_audit:
             # Act
             await read_model_builder._delete_deal_read_model(event_data, event)
 
@@ -386,7 +352,7 @@ class TestReadModelBuilder:
         self,
         read_model_builder: ReadModelBuilder,
         mock_session: AsyncSession,
-        sample_deal_item_event: dict
+        sample_deal_item_event: dict,
     ):
         """Test creating deal item read model."""
         # Arrange
@@ -394,17 +360,20 @@ class TestReadModelBuilder:
             "deal_key": "test|deal|key",
             "client_name": "Test Client",
             "period_month": "01",
-            "period_year": "2024"
+            "period_year": "2024",
         }
 
-        with patch.object(read_model_builder, '_get_deal_context', new_callable=AsyncMock) as mock_context:
-            with patch.object(read_model_builder, '_create_audit_entry', new_callable=AsyncMock) as mock_audit:
+        with patch.object(
+            read_model_builder, "_get_deal_context", new_callable=AsyncMock
+        ) as mock_context:
+            with patch.object(
+                read_model_builder, "_create_audit_entry", new_callable=AsyncMock
+            ) as mock_audit:
                 mock_context.return_value = deal_context
 
                 # Act
                 await read_model_builder._create_deal_item_read_model(
-                    sample_deal_item_event["event_data"],
-                    sample_deal_item_event
+                    sample_deal_item_event["event_data"], sample_deal_item_event
                 )
 
         # Assert
@@ -424,9 +393,7 @@ class TestReadModelBuilder:
 
     @pytest.mark.asyncio
     async def test_get_deal_context_success(
-        self,
-        read_model_builder: ReadModelBuilder,
-        mock_session: AsyncSession
+        self, read_model_builder: ReadModelBuilder, mock_session: AsyncSession
     ):
         """Test getting deal context successfully."""
         # Arrange
@@ -449,15 +416,13 @@ class TestReadModelBuilder:
             "deal_key": "test|deal|key",
             "client_name": "Test Client",
             "period_month": "01",
-            "period_year": "2024"
+            "period_year": "2024",
         }
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_deal_context_not_found(
-        self,
-        read_model_builder: ReadModelBuilder,
-        mock_session: AsyncSession
+        self, read_model_builder: ReadModelBuilder, mock_session: AsyncSession
     ):
         """Test getting deal context when deal not found."""
         # Arrange
@@ -475,10 +440,7 @@ class TestReadModelBuilder:
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_deal_context_none_id(
-        self,
-        read_model_builder: ReadModelBuilder
-    ):
+    async def test_get_deal_context_none_id(self, read_model_builder: ReadModelBuilder):
         """Test getting deal context with None ID."""
         # Act
         context = await read_model_builder._get_deal_context(None)
@@ -488,9 +450,7 @@ class TestReadModelBuilder:
 
     @pytest.mark.asyncio
     async def test_create_audit_entry(
-        self,
-        read_model_builder: ReadModelBuilder,
-        mock_session: AsyncSession
+        self, read_model_builder: ReadModelBuilder, mock_session: AsyncSession
     ):
         """Test creating audit entry."""
         # Arrange
@@ -508,7 +468,7 @@ class TestReadModelBuilder:
             sync_session_id=sync_session_id,
             field_name="client_name",
             old_value="Old Client",
-            new_value="New Client"
+            new_value="New Client",
         )
 
         # Assert
@@ -533,21 +493,22 @@ class TestReadModelBuilder:
         read_model_builder: ReadModelBuilder,
         mock_event_store: EventStore,
         mock_session: AsyncSession,
-        sample_deal_event: dict
+        sample_deal_event: dict,
     ):
         """Test processing events by specific type."""
         # Arrange
         mock_event_store.get_events_by_type.return_value = [sample_deal_event]
 
-        with patch.object(read_model_builder, '_process_single_event', new_callable=AsyncMock) as mock_process:
+        with patch.object(
+            read_model_builder, "_process_single_event", new_callable=AsyncMock
+        ) as mock_process:
             # Act
             result = await read_model_builder.process_events_by_type("DealCreated", limit=50)
 
         # Assert
         assert result == 1
         mock_event_store.get_events_by_type.assert_called_once_with(
-            event_type="DealCreated",
-            limit=50
+            event_type="DealCreated", limit=50
         )
         mock_process.assert_called_once_with(sample_deal_event)
         mock_session.commit.assert_called_once()
@@ -558,15 +519,19 @@ class TestReadModelBuilder:
         read_model_builder: ReadModelBuilder,
         mock_event_store: EventStore,
         mock_session: AsyncSession,
-        sample_deal_event: dict
+        sample_deal_event: dict,
     ):
         """Test rebuilding read model for specific aggregate."""
         # Arrange
         aggregate_id = uuid.uuid4()
         mock_event_store.get_events.return_value = [sample_deal_event]
 
-        with patch.object(read_model_builder, '_clear_read_models_for_aggregate', new_callable=AsyncMock) as mock_clear:
-            with patch.object(read_model_builder, '_process_single_event', new_callable=AsyncMock) as mock_process:
+        with patch.object(
+            read_model_builder, "_clear_read_models_for_aggregate", new_callable=AsyncMock
+        ) as mock_clear:
+            with patch.object(
+                read_model_builder, "_process_single_event", new_callable=AsyncMock
+            ) as mock_process:
                 # Act
                 await read_model_builder.rebuild_read_model(aggregate_id)
 
@@ -581,7 +546,7 @@ class TestReadModelBuilder:
         self,
         read_model_builder: ReadModelBuilder,
         mock_event_store: EventStore,
-        mock_session: AsyncSession
+        mock_session: AsyncSession,
     ):
         """Test rebuilding read model when no events found."""
         # Arrange
@@ -598,9 +563,7 @@ class TestReadModelBuilder:
 
     @pytest.mark.asyncio
     async def test_clear_read_models_for_aggregate(
-        self,
-        read_model_builder: ReadModelBuilder,
-        mock_session: AsyncSession
+        self, read_model_builder: ReadModelBuilder, mock_session: AsyncSession
     ):
         """Test clearing read models for specific aggregate."""
         # Arrange
@@ -618,32 +581,32 @@ class TestReadModelBuilder:
         self,
         read_model_builder: ReadModelBuilder,
         mock_session: AsyncSession,
-        sample_deal_item_event: dict
+        sample_deal_item_event: dict,
     ):
         """Test updating deal item read model."""
         # Arrange
         sample_deal_item_event["event_data"]["changes"] = {
-            "product_name": {
-                "old_value": "Old Product",
-                "new_value": "New Product"
-            }
+            "product_name": {"old_value": "Old Product", "new_value": "New Product"}
         }
 
         deal_context = {
             "deal_key": "test|deal|key",
             "client_name": "Test Client",
             "period_month": "Январь",
-            "period_year": "2024"
+            "period_year": "2024",
         }
 
-        with patch.object(read_model_builder, '_get_deal_context', new_callable=AsyncMock) as mock_context:
-            with patch.object(read_model_builder, '_create_audit_entry', new_callable=AsyncMock) as mock_audit:
+        with patch.object(
+            read_model_builder, "_get_deal_context", new_callable=AsyncMock
+        ) as mock_context:
+            with patch.object(
+                read_model_builder, "_create_audit_entry", new_callable=AsyncMock
+            ) as mock_audit:
                 mock_context.return_value = deal_context
 
                 # Act
                 await read_model_builder._update_deal_item_read_model(
-                    sample_deal_item_event["event_data"],
-                    sample_deal_item_event
+                    sample_deal_item_event["event_data"], sample_deal_item_event
                 )
 
         # Assert
@@ -666,24 +629,18 @@ class TestReadModelBuilder:
 
     @pytest.mark.asyncio
     async def test_delete_deal_item_read_model(
-        self,
-        read_model_builder: ReadModelBuilder,
-        mock_session: AsyncSession
+        self, read_model_builder: ReadModelBuilder, mock_session: AsyncSession
     ):
         """Test soft deleting deal item read model."""
         # Arrange
         item_id = uuid.uuid4()
         item_key = "test|item|key"
-        event_data = {
-            "deal_item_id": str(item_id),
-            "item_key": item_key
-        }
-        event = {
-            "event_id": uuid.uuid4(),
-            "metadata": {"sync_session_id": uuid.uuid4()}
-        }
+        event_data = {"deal_item_id": str(item_id), "item_key": item_key}
+        event = {"event_id": uuid.uuid4(), "metadata": {"sync_session_id": uuid.uuid4()}}
 
-        with patch.object(read_model_builder, '_create_audit_entry', new_callable=AsyncMock) as mock_audit:
+        with patch.object(
+            read_model_builder, "_create_audit_entry", new_callable=AsyncMock
+        ) as mock_audit:
             # Act
             await read_model_builder._delete_deal_item_read_model(event_data, event)
 
@@ -702,16 +659,12 @@ class TestReadModelBuilder:
 
     @pytest.mark.asyncio
     async def test_update_stats_after_sync(
-        self,
-        read_model_builder: ReadModelBuilder,
-        mock_session: AsyncSession
+        self, read_model_builder: ReadModelBuilder, mock_session: AsyncSession
     ):
         """Test updating statistics after sync completion."""
         # Arrange
         event_data = {
-            "sync_session": {
-                "sync_type": "incremental"
-            },
+            "sync_session": {"sync_type": "incremental"},
             "stats": {
                 "total_processed": 100,
                 "new_deals": 10,
@@ -723,13 +676,10 @@ class TestReadModelBuilder:
                 "total_cost": 40000.00,
                 "total_quantity": 1000.00,
                 "shipped_deals": 80,
-                "paid_deals": 75
-            }
+                "paid_deals": 75,
+            },
         }
-        event = {
-            "event_id": uuid.uuid4(),
-            "metadata": {"sync_session_id": uuid.uuid4()}
-        }
+        event = {"event_id": uuid.uuid4(), "metadata": {"sync_session_id": uuid.uuid4()}}
 
         # Act
         await read_model_builder._update_stats_after_sync(event_data, event)
@@ -739,16 +689,13 @@ class TestReadModelBuilder:
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_unknown_event_type_warning(
-        self,
-        read_model_builder: ReadModelBuilder
-    ):
+    async def test_unknown_event_type_warning(self, read_model_builder: ReadModelBuilder):
         """Test handling of unknown event types."""
         # Arrange
         unknown_event = {
             "event_type": "UnknownEvent",
             "event_data": {},
-            "aggregate_id": uuid.uuid4()
+            "aggregate_id": uuid.uuid4(),
         }
 
         # Act - should not raise exception, just process silently

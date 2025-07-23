@@ -30,19 +30,24 @@ class TestDealEndpoints:
         if data["items"]:
             deal = data["items"][0]
             required_fields = [
-                "id", "deal_key", "client_name", "saller",
-                "invoice_number", "invoice_date", "revenue",
-                "margin", "is_shipped", "is_paid", "items_count"
+                "id",
+                "deal_key",
+                "client_name",
+                "saller",
+                "invoice_number",
+                "invoice_date",
+                "revenue",
+                "margin",
+                "is_shipped",
+                "is_paid",
+                "items_count",
             ]
             for field in required_fields:
                 assert field in deal
 
     def test_list_deals_with_pagination(self, client, auth_headers_viewer):
         """Test deals listing with pagination parameters."""
-        response = client.get(
-            "/api/v1/deals/?page=1&limit=10",
-            headers=auth_headers_viewer
-        )
+        response = client.get("/api/v1/deals/?page=1&limit=10", headers=auth_headers_viewer)
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -53,8 +58,7 @@ class TestDealEndpoints:
     def test_list_deals_with_filters(self, client, auth_headers_viewer):
         """Test deals listing with filters."""
         response = client.get(
-            "/api/v1/deals/?client_name=Компания&is_shipped=true",
-            headers=auth_headers_viewer
+            "/api/v1/deals/?client_name=Компания&is_shipped=true", headers=auth_headers_viewer
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -79,10 +83,22 @@ class TestDealEndpoints:
 
         # Check deal structure
         required_fields = [
-            "id", "deal_key", "client_name", "saller",
-            "invoice_number", "invoice_date", "revenue",
-            "margin", "cost", "is_shipped", "is_paid",
-            "period_month", "period_year", "created_at", "updated_at", "items"
+            "id",
+            "deal_key",
+            "client_name",
+            "saller",
+            "invoice_number",
+            "invoice_date",
+            "revenue",
+            "margin",
+            "cost",
+            "is_shipped",
+            "is_paid",
+            "period_month",
+            "period_year",
+            "created_at",
+            "updated_at",
+            "items",
         ]
 
         for field in required_fields:
@@ -121,9 +137,14 @@ class TestDealEndpoints:
 
         # Check statistics structure
         required_fields = [
-            "total_deals", "total_revenue", "total_margin",
-            "shipped_deals", "paid_deals", "avg_revenue",
-            "top_clients", "revenue_by_month"
+            "total_deals",
+            "total_revenue",
+            "total_margin",
+            "shipped_deals",
+            "paid_deals",
+            "avg_revenue",
+            "top_clients",
+            "revenue_by_month",
         ]
 
         for field in required_fields:
@@ -138,7 +159,7 @@ class TestDealEndpoints:
         """Test deals statistics with period filters."""
         response = client.get(
             "/api/v1/deals/stats/summary?period_month=01&period_year=2024",
-            headers=auth_headers_viewer
+            headers=auth_headers_viewer,
         )
 
         assert response.status_code == status.HTTP_200_OK

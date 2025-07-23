@@ -63,9 +63,12 @@ describe('LoginPage', () => {
     renderLoginPage()
 
     expect(screen.getByText('Демо-пользователи:')).toBeInTheDocument()
-    expect(screen.getByText(/admin.*password.*Администратор/)).toBeInTheDocument()
-    expect(screen.getByText(/analyst.*password.*Аналитик/)).toBeInTheDocument()
-    expect(screen.getByText(/viewer.*password.*Наблюдатель/)).toBeInTheDocument()
+    expect(screen.getByText('admin')).toBeInTheDocument()
+    expect(screen.getByText('/ password (Администратор)')).toBeInTheDocument()
+    expect(screen.getByText('analyst')).toBeInTheDocument()
+    expect(screen.getByText('/ password (Аналитик)')).toBeInTheDocument()
+    expect(screen.getByText('viewer')).toBeInTheDocument()
+    expect(screen.getByText('/ password (Наблюдатель)')).toBeInTheDocument()
   })
 
   it('enables submit button only when both fields are filled', () => {

@@ -100,34 +100,23 @@ class EventStore(ABC):
         aggregate_id: UUID,
         event_type: str,
         event_data: dict[str, Any],
-        metadata: dict[str, Any] | None = None
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Append event to event store."""
         pass
 
     @abstractmethod
-    async def append_events(
-        self,
-        events: list[dict[str, Any]]
-    ) -> None:
+    async def append_events(self, events: list[dict[str, Any]]) -> None:
         """Append multiple events in batch."""
         pass
 
     @abstractmethod
-    async def get_events(
-        self,
-        aggregate_id: UUID,
-        from_version: int = 0
-    ) -> list[dict[str, Any]]:
+    async def get_events(self, aggregate_id: UUID, from_version: int = 0) -> list[dict[str, Any]]:
         """Get events for aggregate."""
         pass
 
     @abstractmethod
-    async def get_events_by_type(
-        self,
-        event_type: str,
-        limit: int = 100
-    ) -> list[dict[str, Any]]:
+    async def get_events_by_type(self, event_type: str, limit: int = 100) -> list[dict[str, Any]]:
         """Get events by type."""
         pass
 
@@ -162,28 +151,19 @@ class ReadModelRepository(ABC):
 
     @abstractmethod
     async def get_deal_stats(
-        self,
-        period_month: str | None = None,
-        period_year: str | None = None
+        self, period_month: str | None = None, period_year: str | None = None
     ) -> dict[str, Any]:
         """Get deal statistics from read model."""
         pass
 
     @abstractmethod
-    async def get_position_stats(
-        self,
-        supplier_name: str | None = None
-    ) -> dict[str, Any]:
+    async def get_position_stats(self, supplier_name: str | None = None) -> dict[str, Any]:
         """Get position statistics from read model."""
         pass
 
     @abstractmethod
     async def search_deals(
-        self,
-        query: str,
-        filters: dict[str, Any] | None = None,
-        limit: int = 100,
-        offset: int = 0
+        self, query: str, filters: dict[str, Any] | None = None, limit: int = 100, offset: int = 0
     ) -> dict[str, Any]:
         """Search deals with filters and pagination."""
         pass

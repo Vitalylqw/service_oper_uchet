@@ -85,10 +85,7 @@ class ReadModelBuilder:
             Number of events processed
         """
         try:
-            events = await self.event_store.get_events_by_type(
-                event_type=event_type,
-                limit=limit
-            )
+            events = await self.event_store.get_events_by_type(event_type=event_type, limit=limit)
 
             processed_count = 0
 
@@ -160,10 +157,7 @@ class ReadModelBuilder:
             logger.warning(f"Unknown event type: {event_type}")
 
     async def _handle_deal_event(
-        self,
-        event_type: str,
-        event_data: dict[str, Any],
-        full_event: dict[str, Any]
+        self, event_type: str, event_data: dict[str, Any], full_event: dict[str, Any]
     ) -> None:
         """Handle Deal-related events."""
         if event_type == "DealCreated":
@@ -176,10 +170,7 @@ class ReadModelBuilder:
             logger.warning(f"Unknown deal event type: {event_type}")
 
     async def _handle_deal_item_event(
-        self,
-        event_type: str,
-        event_data: dict[str, Any],
-        full_event: dict[str, Any]
+        self, event_type: str, event_data: dict[str, Any], full_event: dict[str, Any]
     ) -> None:
         """Handle DealItem-related events."""
         if event_type == "DealItemCreated":
@@ -192,10 +183,7 @@ class ReadModelBuilder:
             logger.warning(f"Unknown deal item event type: {event_type}")
 
     async def _handle_sync_event(
-        self,
-        event_type: str,
-        event_data: dict[str, Any],
-        full_event: dict[str, Any]
+        self, event_type: str, event_data: dict[str, Any], full_event: dict[str, Any]
     ) -> None:
         """Handle Sync-related events."""
         if event_type == "SyncSessionStarted":
@@ -206,9 +194,7 @@ class ReadModelBuilder:
             logger.warning(f"Unknown sync event type: {event_type}")
 
     async def _create_deal_read_model(
-        self,
-        event_data: dict[str, Any],
-        full_event: dict[str, Any]
+        self, event_data: dict[str, Any], full_event: dict[str, Any]
     ) -> None:
         """Create read model entry for new deal."""
         try:
@@ -221,39 +207,32 @@ class ReadModelBuilder:
                 id=deal.id,
                 deal_key=deal.deal_key,
                 hash_key=str(deal.hash_key),
-
                 # Basic info
                 client_name=deal.client_name,
                 invoice_info=deal.invoice_info,
                 invoice_number=deal.invoice_number,
                 invoice_date=deal.invoice_date,
-
                 # Period
                 period_month=deal.period.month,
                 period_year=deal.period.year,
                 period_full_name=str(deal.period),
-
                 # Status
                 is_shipped=str(deal.is_shipped) if deal.is_shipped else None,
                 is_paid=str(deal.is_paid) if deal.is_paid else None,
-
                 # Documents
                 upd_number=deal.upd_number,
                 seller=deal.seller,
-
                 # Financial data
                 total_revenue_amount=deal.total_revenue.amount if deal.total_revenue else None,
                 total_revenue_currency=deal.total_revenue.currency if deal.total_revenue else "RUB",
-
                 total_margin_amount=deal.total_margin.amount if deal.total_margin else None,
                 total_margin_currency=deal.total_margin.currency if deal.total_margin else "RUB",
-
                 total_cost_amount=deal.total_cost.amount if deal.total_cost else None,
                 total_cost_currency=deal.total_cost.currency if deal.total_cost else "RUB",
-
                 kickback_amount_value=deal.kickback_amount.amount if deal.kickback_amount else None,
-                kickback_amount_currency=deal.kickback_amount.currency if deal.kickback_amount else "RUB",
-
+                kickback_amount_currency=deal.kickback_amount.currency
+                if deal.kickback_amount
+                else "RUB",
                 # Aggregated fields
                 items_count=len(deal.items),
                 total_quantity=sum(item.quantity or 0 for item in deal.items),
@@ -261,10 +240,7 @@ class ReadModelBuilder:
 
             # Use upsert to handle conflicts
             stmt = insert(ReadModelDeal).values(**read_deal.__dict__)
-            stmt = stmt.on_conflict_do_update(
-                index_elements=['id'],
-                set_=stmt.excluded
-            )
+            stmt = stmt.on_conflict_do_update(index_elements=["id"], set_=stmt.excluded)
 
             await self.session.execute(stmt)
 
@@ -275,7 +251,7 @@ class ReadModelBuilder:
                 entity_key=deal.deal_key,
                 change_type="INSERT",
                 event_id=full_event["event_id"],
-                sync_session_id=full_event.get("metadata", {}).get("sync_session_id")
+                sync_session_id=full_event.get("metadata", {}).get("sync_session_id"),
             )
 
             logger.debug(f"Created read model for deal {deal.deal_key}")
@@ -285,9 +261,7 @@ class ReadModelBuilder:
             raise
 
     async def _update_deal_read_model(
-        self,
-        event_data: dict[str, Any],
-        full_event: dict[str, Any]
+        self, event_data: dict[str, Any], full_event: dict[str, Any]
     ) -> None:
         """Update existing deal read model."""
         try:
@@ -314,17 +288,15 @@ class ReadModelBuilder:
                 "total_revenue_amount": deal.total_revenue.amount if deal.total_revenue else None,
                 "total_margin_amount": deal.total_margin.amount if deal.total_margin else None,
                 "total_cost_amount": deal.total_cost.amount if deal.total_cost else None,
-                "kickback_amount_value": deal.kickback_amount.amount if deal.kickback_amount else None,
+                "kickback_amount_value": deal.kickback_amount.amount
+                if deal.kickback_amount
+                else None,
                 "items_count": len(deal.items),
                 "total_quantity": sum(item.quantity or 0 for item in deal.items),
-                "version": ReadModelDeal.version + 1
+                "version": ReadModelDeal.version + 1,
             }
 
-            stmt = (
-                update(ReadModelDeal)
-                .where(ReadModelDeal.id == deal.id)
-                .values(**update_data)
-            )
+            stmt = update(ReadModelDeal).where(ReadModelDeal.id == deal.id).values(**update_data)
 
             await self.session.execute(stmt)
 
@@ -339,7 +311,7 @@ class ReadModelBuilder:
                     old_value=str(change_data.get("old_value")),
                     new_value=str(change_data.get("new_value")),
                     event_id=full_event["event_id"],
-                    sync_session_id=full_event.get("metadata", {}).get("sync_session_id")
+                    sync_session_id=full_event.get("metadata", {}).get("sync_session_id"),
                 )
 
             logger.debug(f"Updated read model for deal {deal.deal_key}")
@@ -349,9 +321,7 @@ class ReadModelBuilder:
             raise
 
     async def _delete_deal_read_model(
-        self,
-        event_data: dict[str, Any],
-        full_event: dict[str, Any]
+        self, event_data: dict[str, Any], full_event: dict[str, Any]
     ) -> None:
         """Soft delete deal read model."""
         try:
@@ -383,7 +353,7 @@ class ReadModelBuilder:
                 entity_key=deal_key,
                 change_type="DELETE",
                 event_id=full_event["event_id"],
-                sync_session_id=full_event.get("metadata", {}).get("sync_session_id")
+                sync_session_id=full_event.get("metadata", {}).get("sync_session_id"),
             )
 
             logger.debug(f"Deleted read model for deal {deal_key}")
@@ -393,9 +363,7 @@ class ReadModelBuilder:
             raise
 
     async def _create_deal_item_read_model(
-        self,
-        event_data: dict[str, Any],
-        full_event: dict[str, Any]
+        self, event_data: dict[str, Any], full_event: dict[str, Any]
     ) -> None:
         """Create read model entry for new deal item."""
         try:
@@ -409,18 +377,18 @@ class ReadModelBuilder:
                 id=item.id,
                 deal_id=item.deal_id,
                 deal_key=deal_context.get("deal_key", ""),
-
                 # Item info
                 position_key=item.item_key,
                 hash_key=str(item.hash_key),
                 product_name=item.product_name,
                 supplier_name=item.supplier_name,
                 pickup_date=item.pickup_date,
-
                 # Quantities and pricing
                 quantity=item.quantity,
                 purchase_price_amount=item.purchase_price.amount if item.purchase_price else None,
-                purchase_price_currency=item.purchase_price.currency if item.purchase_price else "RUB",
+                purchase_price_currency=item.purchase_price.currency
+                if item.purchase_price
+                else "RUB",
                 sale_price_amount=item.sale_price.amount if item.sale_price else None,
                 sale_price_currency=item.sale_price.currency if item.sale_price else "RUB",
                 revenue_amount=item.revenue.amount if item.revenue else None,
@@ -429,7 +397,6 @@ class ReadModelBuilder:
                 margin_currency=item.margin.currency if item.margin else "RUB",
                 cost_amount=item.cost.amount if item.cost else None,
                 cost_currency=item.cost.currency if item.cost else "RUB",
-
                 # Deal context (denormalized)
                 client_name=deal_context.get("client_name", ""),
                 period_month=deal_context.get("period_month", ""),
@@ -438,10 +405,7 @@ class ReadModelBuilder:
 
             # Use upsert to handle conflicts
             stmt = insert(ReadModelPosition).values(**read_position.__dict__)
-            stmt = stmt.on_conflict_do_update(
-                index_elements=['id'],
-                set_=stmt.excluded
-            )
+            stmt = stmt.on_conflict_do_update(index_elements=["id"], set_=stmt.excluded)
 
             await self.session.execute(stmt)
 
@@ -452,7 +416,7 @@ class ReadModelBuilder:
                 entity_key=item.item_key,
                 change_type="INSERT",
                 event_id=full_event["event_id"],
-                sync_session_id=full_event.get("metadata", {}).get("sync_session_id")
+                sync_session_id=full_event.get("metadata", {}).get("sync_session_id"),
             )
 
             logger.debug(f"Created read model for position {item.item_key}")
@@ -462,9 +426,7 @@ class ReadModelBuilder:
             raise
 
     async def _update_deal_item_read_model(
-        self,
-        event_data: dict[str, Any],
-        full_event: dict[str, Any]
+        self, event_data: dict[str, Any], full_event: dict[str, Any]
     ) -> None:
         """Update existing deal item read model."""
         try:
@@ -484,8 +446,12 @@ class ReadModelBuilder:
                 "supplier_name": item.supplier_name,
                 "pickup_date": item.pickup_date,
                 "quantity": item.quantity,
-                "purchase_price_amount": item.purchase_price.amount if item.purchase_price else None,
-                "purchase_price_currency": item.purchase_price.currency if item.purchase_price else "RUB",
+                "purchase_price_amount": item.purchase_price.amount
+                if item.purchase_price
+                else None,
+                "purchase_price_currency": item.purchase_price.currency
+                if item.purchase_price
+                else "RUB",
                 "sale_price_amount": item.sale_price.amount if item.sale_price else None,
                 "sale_price_currency": item.sale_price.currency if item.sale_price else "RUB",
                 "revenue_amount": item.revenue.amount if item.revenue else None,
@@ -498,7 +464,7 @@ class ReadModelBuilder:
                 "client_name": deal_context.get("client_name", ""),
                 "period_month": deal_context.get("period_month", ""),
                 "period_year": deal_context.get("period_year", ""),
-                "version": ReadModelPosition.version + 1
+                "version": ReadModelPosition.version + 1,
             }
 
             stmt = (
@@ -520,7 +486,7 @@ class ReadModelBuilder:
                     old_value=str(change_data.get("old_value")),
                     new_value=str(change_data.get("new_value")),
                     event_id=full_event["event_id"],
-                    sync_session_id=full_event.get("metadata", {}).get("sync_session_id")
+                    sync_session_id=full_event.get("metadata", {}).get("sync_session_id"),
                 )
 
             logger.debug(f"Updated read model for position {item.item_key}")
@@ -530,9 +496,7 @@ class ReadModelBuilder:
             raise
 
     async def _delete_deal_item_read_model(
-        self,
-        event_data: dict[str, Any],
-        full_event: dict[str, Any]
+        self, event_data: dict[str, Any], full_event: dict[str, Any]
     ) -> None:
         """Soft delete deal item read model."""
         try:
@@ -555,7 +519,7 @@ class ReadModelBuilder:
                 entity_key=item_key,
                 change_type="DELETE",
                 event_id=full_event["event_id"],
-                sync_session_id=full_event.get("metadata", {}).get("sync_session_id")
+                sync_session_id=full_event.get("metadata", {}).get("sync_session_id"),
             )
 
             logger.debug(f"Deleted read model for position {item_key}")
@@ -565,9 +529,7 @@ class ReadModelBuilder:
             raise
 
     async def _update_stats_after_sync(
-        self,
-        event_data: dict[str, Any],
-        full_event: dict[str, Any]
+        self, event_data: dict[str, Any], full_event: dict[str, Any]
     ) -> None:
         """Update statistics after sync completion."""
         try:
@@ -577,6 +539,7 @@ class ReadModelBuilder:
 
             # Extract sync date for grouping
             from datetime import datetime
+
             sync_date = datetime.now().strftime("%Y-%m")  # YYYY-MM format
 
             # Calculate key metrics from stats
@@ -606,25 +569,26 @@ class ReadModelBuilder:
                 total_cost=Decimal(str(total_cost)),
                 total_quantity=Decimal(str(total_quantity)),
                 shipped_deals_count=stats.get("shipped_deals", 0),
-                paid_deals_count=stats.get("paid_deals", 0)
+                paid_deals_count=stats.get("paid_deals", 0),
             )
 
             # Use upsert to handle conflicts
             from sqlalchemy.dialects.postgresql import insert
+
             stmt = insert(ReadModelStats).values(**daily_stats.__dict__)
             stmt = stmt.on_conflict_do_update(
-                index_elements=['stat_type', 'stat_date', 'dimension_type', 'dimension_value'],
+                index_elements=["stat_type", "stat_date", "dimension_type", "dimension_value"],
                 set_={
-                    'deals_count': stmt.excluded.deals_count,
-                    'positions_count': stmt.excluded.positions_count,
-                    'total_revenue': stmt.excluded.total_revenue,
-                    'total_margin': stmt.excluded.total_margin,
-                    'total_cost': stmt.excluded.total_cost,
-                    'total_quantity': stmt.excluded.total_quantity,
-                    'shipped_deals_count': stmt.excluded.shipped_deals_count,
-                    'paid_deals_count': stmt.excluded.paid_deals_count,
-                    'calculated_at': func.now()
-                }
+                    "deals_count": stmt.excluded.deals_count,
+                    "positions_count": stmt.excluded.positions_count,
+                    "total_revenue": stmt.excluded.total_revenue,
+                    "total_margin": stmt.excluded.total_margin,
+                    "total_cost": stmt.excluded.total_cost,
+                    "total_quantity": stmt.excluded.total_quantity,
+                    "shipped_deals_count": stmt.excluded.shipped_deals_count,
+                    "paid_deals_count": stmt.excluded.paid_deals_count,
+                    "calculated_at": func.now(),
+                },
             )
 
             await self.session.execute(stmt)
@@ -668,7 +632,7 @@ class ReadModelBuilder:
         sync_session_id: uuid.UUID | None = None,
         field_name: str | None = None,
         old_value: str | None = None,
-        new_value: str | None = None
+        new_value: str | None = None,
     ) -> None:
         """Create audit trail entry."""
         try:
@@ -681,7 +645,7 @@ class ReadModelBuilder:
                 old_value=old_value,
                 new_value=new_value,
                 sync_session_id=sync_session_id or uuid.uuid4(),
-                event_id=event_id
+                event_id=event_id,
             )
 
             self.session.add(audit_entry)

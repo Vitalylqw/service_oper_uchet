@@ -64,7 +64,7 @@ class Money(BaseModel):
         """Validate amount precision."""
         if v < 0:
             raise ValueError("Amount cannot be negative")
-        return v.quantize(Decimal('0.01'))  # Округляем до копеек
+        return v.quantize(Decimal("0.01"))  # Округляем до копеек
 
     @field_validator("currency")
     @classmethod
@@ -115,8 +115,18 @@ class Period(BaseModel):
     def validate_month(cls, v: str) -> str:
         """Validate month name."""
         valid_months = {
-            "январь", "февраль", "март", "апрель", "май", "июнь",
-            "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"
+            "январь",
+            "февраль",
+            "март",
+            "апрель",
+            "май",
+            "июнь",
+            "июль",
+            "август",
+            "сентябрь",
+            "октябрь",
+            "ноябрь",
+            "декабрь",
         }
         month_lower = v.lower().strip()
         if month_lower not in valid_months:
@@ -146,10 +156,18 @@ class Period(BaseModel):
 
         # Словарь месяцев
         months_map = {
-            "январь": "Январь", "февраль": "Февраль", "март": "Март",
-            "апрель": "Апрель", "май": "Май", "июнь": "Июнь",
-            "июль": "Июль", "август": "Август", "сентябрь": "Сентябрь",
-            "октябрь": "Октябрь", "ноябрь": "Ноябрь", "декабрь": "Декабрь",
+            "январь": "Январь",
+            "февраль": "Февраль",
+            "март": "Март",
+            "апрель": "Апрель",
+            "май": "Май",
+            "июнь": "Июнь",
+            "июль": "Июль",
+            "август": "Август",
+            "сентябрь": "Сентябрь",
+            "октябрь": "Октябрь",
+            "ноябрь": "Ноябрь",
+            "декабрь": "Декабрь",
         }
 
         sheet_lower = sheet_name.lower().strip()
@@ -171,11 +189,7 @@ class Period(BaseModel):
 
         found_year = year_match.group(1)
 
-        return cls(
-            month=found_month,
-            year=found_year,
-            full_name=sheet_name.strip()
-        )
+        return cls(month=found_month, year=found_year, full_name=sheet_name.strip())
 
     model_config = {"frozen": True}  # Неизменяемый объект
 
@@ -216,13 +230,13 @@ class HashKey(BaseModel):
         # Сортируем ключи для консистентности
         sorted_data = {k: v for k, v in sorted(data.items()) if v is not None}
         json_str = json.dumps(sorted_data, ensure_ascii=False, sort_keys=True)
-        hash_value = hashlib.md5(json_str.encode('utf-8')).hexdigest()
+        hash_value = hashlib.md5(json_str.encode("utf-8")).hexdigest()
         return cls(value=hash_value, algorithm="md5")
 
     @classmethod
     def from_string(cls, text: str) -> HashKey:
         """Create hash key from string."""
-        hash_value = hashlib.md5(text.encode('utf-8')).hexdigest()
+        hash_value = hashlib.md5(text.encode("utf-8")).hexdigest()
         return cls(value=hash_value, algorithm="md5")
 
     model_config = {"frozen": True}  # Неизменяемый объект

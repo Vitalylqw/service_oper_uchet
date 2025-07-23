@@ -48,9 +48,7 @@ class FileSystemConfig(BaseSettings):
     http_verify_ssl: bool = Field(default=True, description="Verify SSL certificates")
 
     # Local file system
-    local_source_directory: str = Field(
-        default="data/input", description="Local source directory"
-    )
+    local_source_directory: str = Field(default="data/input", description="Local source directory")
 
     # Destination configuration
     local_destination_directory: str = Field(
@@ -68,7 +66,9 @@ class FileSystemConfig(BaseSettings):
     )
 
     # File validation
-    validate_file_integrity: bool = Field(default=True, description="Validate downloaded file integrity")
+    validate_file_integrity: bool = Field(
+        default=True, description="Validate downloaded file integrity"
+    )
     expected_file_extensions: list[str] = Field(
         default_factory=lambda: [".xlsx", ".xls"], description="Allowed file extensions"
     )
@@ -90,7 +90,9 @@ class FileSystemConfig(BaseSettings):
     retry_delay_seconds: int = Field(default=30, description="Delay between retry attempts")
 
     # Security settings
-    allow_insecure_connections: bool = Field(default=False, description="Allow insecure connections")
+    allow_insecure_connections: bool = Field(
+        default=False, description="Allow insecure connections"
+    )
     verify_host_keys: bool = Field(default=True, description="Verify host keys for SSH/SFTP")
 
     # Logging and monitoring
@@ -170,9 +172,7 @@ class FileSystemConfig(BaseSettings):
         ext = file_path.suffix
 
         backup_filename = self.backup_filename_format.format(
-            name=name,
-            timestamp=timestamp,
-            ext=ext
+            name=name, timestamp=timestamp, ext=ext
         )
 
         return Path(self.backup_directory) / backup_filename
@@ -202,12 +202,14 @@ class FileSystemConfig(BaseSettings):
             }
 
             if self.protocol == "sftp":
-                params.update({
-                    "private_key_path": self.ssh_private_key_path,
-                    "known_hosts_path": self.ssh_known_hosts_path,
-                    "key_passphrase": self.ssh_key_passphrase,
-                    "verify_host_key": self.verify_host_keys,
-                })
+                params.update(
+                    {
+                        "private_key_path": self.ssh_private_key_path,
+                        "known_hosts_path": self.ssh_known_hosts_path,
+                        "key_passphrase": self.ssh_key_passphrase,
+                        "verify_host_key": self.verify_host_keys,
+                    }
+                )
 
             return params
 
@@ -235,7 +237,11 @@ class FileSystemConfig(BaseSettings):
         if self.protocol == "http" and self.http_auth_type == "bearer" and not self.http_auth_token:
             errors.append("http_auth_token is required when using bearer authentication")
 
-        if self.protocol == "sftp" and self.ssh_private_key_path and not Path(self.ssh_private_key_path).exists():
+        if (
+            self.protocol == "sftp"
+            and self.ssh_private_key_path
+            and not Path(self.ssh_private_key_path).exists()
+        ):
             errors.append(f"SSH private key file not found: {self.ssh_private_key_path}")
 
         if self.max_file_size_mb <= 0:

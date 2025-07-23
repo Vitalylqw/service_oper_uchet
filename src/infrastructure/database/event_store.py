@@ -35,7 +35,7 @@ class EventStoreImplementation(EventStore):
         aggregate_id: uuid.UUID,
         event_type: str,
         event_data: dict[str, Any],
-        metadata: dict[str, Any] | None = None
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """
         Append single event to event store.
@@ -66,7 +66,7 @@ class EventStoreImplementation(EventStore):
                 event_data=event_data,
                 event_metadata=metadata or {},
                 sequence_number=sequence_number,
-                created_at=datetime.now()
+                created_at=datetime.now(),
             )
 
             self.session.add(event_record)
@@ -115,7 +115,7 @@ class EventStoreImplementation(EventStore):
                     event_data=event["event_data"],
                     event_metadata=event.get("metadata", {}),
                     sequence_number=sequence_number,
-                    created_at=datetime.now()
+                    created_at=datetime.now(),
                 )
                 event_records.append(event_record)
 
@@ -129,9 +129,7 @@ class EventStoreImplementation(EventStore):
             raise
 
     async def get_events(
-        self,
-        aggregate_id: uuid.UUID,
-        from_version: int = 0
+        self, aggregate_id: uuid.UUID, from_version: int = 0
     ) -> list[dict[str, Any]]:
         """
         Get events for specific aggregate.
@@ -163,9 +161,7 @@ class EventStoreImplementation(EventStore):
                     "event_type": event_model.event_type,
                     "event_version": event_model.event_version,
                     "event_data": await self._upcast_event_data(
-                        event_model.event_data,
-                        event_model.event_type,
-                        event_model.event_version
+                        event_model.event_data, event_model.event_type, event_model.event_version
                     ),
                     "metadata": event_model.event_metadata,
                     "sequence_number": event_model.sequence_number,
@@ -180,11 +176,7 @@ class EventStoreImplementation(EventStore):
             logger.error(f"Failed to get events for aggregate {aggregate_id}: {e}")
             raise
 
-    async def get_events_by_type(
-        self,
-        event_type: str,
-        limit: int = 100
-    ) -> list[dict[str, Any]]:
+    async def get_events_by_type(self, event_type: str, limit: int = 100) -> list[dict[str, Any]]:
         """
         Get events by type with pagination.
 
@@ -215,9 +207,7 @@ class EventStoreImplementation(EventStore):
                     "event_type": event_model.event_type,
                     "event_version": event_model.event_version,
                     "event_data": await self._upcast_event_data(
-                        event_model.event_data,
-                        event_model.event_type,
-                        event_model.event_version
+                        event_model.event_data, event_model.event_type, event_model.event_version
                     ),
                     "metadata": event_model.event_metadata,
                     "sequence_number": event_model.sequence_number,
@@ -243,11 +233,7 @@ class EventStoreImplementation(EventStore):
             List of latest events ordered by creation time (newest first)
         """
         try:
-            query = (
-                select(EventStoreModel)
-                .order_by(desc(EventStoreModel.created_at))
-                .limit(limit)
-            )
+            query = select(EventStoreModel).order_by(desc(EventStoreModel.created_at)).limit(limit)
 
             result = await self.session.execute(query)
             event_models = result.scalars().all()
@@ -261,9 +247,7 @@ class EventStoreImplementation(EventStore):
                     "event_type": event_model.event_type,
                     "event_version": event_model.event_version,
                     "event_data": await self._upcast_event_data(
-                        event_model.event_data,
-                        event_model.event_type,
-                        event_model.event_version
+                        event_model.event_data, event_model.event_type, event_model.event_version
                     ),
                     "metadata": event_model.event_metadata,
                     "sequence_number": event_model.sequence_number,
@@ -281,9 +265,8 @@ class EventStoreImplementation(EventStore):
     async def _get_next_sequence_number(self, aggregate_id: uuid.UUID) -> int:
         """Get next sequence number for aggregate."""
         try:
-            query = (
-                select(func.max(EventStoreModel.sequence_number))
-                .where(EventStoreModel.aggregate_id == aggregate_id)
+            query = select(func.max(EventStoreModel.sequence_number)).where(
+                EventStoreModel.aggregate_id == aggregate_id
             )
 
             result = await self.session.execute(query)
@@ -313,10 +296,7 @@ class EventStoreImplementation(EventStore):
             return event_type.split("Created")[0].split("Updated")[0].split("Deleted")[0]
 
     async def _upcast_event_data(
-        self,
-        event_data: dict[str, Any],
-        event_type: str,
-        event_version: int
+        self, event_data: dict[str, Any], event_type: str, event_version: int
     ) -> dict[str, Any]:
         """
         Upcast event data to current version (Upcaster Pattern).
@@ -359,9 +339,8 @@ class EventStoreImplementation(EventStore):
     async def get_aggregate_version(self, aggregate_id: uuid.UUID) -> int:
         """Get current version (highest sequence number) for aggregate."""
         try:
-            query = (
-                select(func.max(EventStoreModel.sequence_number))
-                .where(EventStoreModel.aggregate_id == aggregate_id)
+            query = select(func.max(EventStoreModel.sequence_number)).where(
+                EventStoreModel.aggregate_id == aggregate_id
             )
 
             result = await self.session.execute(query)

@@ -44,7 +44,7 @@ def sample_deal():
         sale_price=Money(amount=Decimal("150")),
         revenue=Money(amount=Decimal("1500")),
         cost=Money(amount=Decimal("1000")),
-        margin=Money(amount=Decimal("500"))
+        margin=Money(amount=Decimal("500")),
     )
 
     item2 = DealItem(
@@ -55,7 +55,7 @@ def sample_deal():
         sale_price=Money(amount=Decimal("300")),
         revenue=Money(amount=Decimal("1500")),
         cost=Money(amount=Decimal("1000")),
-        margin=Money(amount=Decimal("500"))
+        margin=Money(amount=Decimal("500")),
     )
 
     deal = Deal(
@@ -70,7 +70,7 @@ def sample_deal():
         total_cost=Money(amount=Decimal("2000")),
         total_margin=Money(amount=Decimal("1000")),
         period=Period(month="Январь", year="2025", full_name="Январь 2025"),
-        items=[item1, item2]
+        items=[item1, item2],
     )
 
     return deal
@@ -80,9 +80,7 @@ def sample_deal():
 def sample_parse_result(sample_deal):
     """Create sample ParseResult."""
     sync_session = SyncSession(
-        session_id="test-session",
-        sync_type=SyncType.FULL,
-        started_at="2025-01-01T10:00:00"
+        session_id="test-session", sync_type=SyncType.FULL, started_at="2025-01-01T10:00:00"
     )
 
     return ParseResult(
@@ -90,7 +88,7 @@ def sample_parse_result(sample_deal):
         sync_session=sync_session,
         file_path="/test/file.xlsx",
         file_size=1024,
-        file_hash="testhash"
+        file_hash="testhash",
     )
 
 
@@ -132,7 +130,7 @@ class TestDataValidatorFileValidation:
         finally:
             Path(tmp_path).unlink()
 
-    @patch('pandas.ExcelFile')
+    @patch("pandas.ExcelFile")
     def test_validate_excel_read_error(self, mock_excel_file, validator):
         """Test handling of Excel read errors."""
         mock_excel_file.side_effect = Exception("Excel read error")
@@ -153,8 +151,8 @@ class TestDataValidatorFileValidation:
         finally:
             Path(tmp_path).unlink()
 
-    @patch('pandas.ExcelFile')
-    @patch('pandas.read_excel')
+    @patch("pandas.ExcelFile")
+    @patch("pandas.read_excel")
     def test_validate_valid_excel_structure(self, mock_read_excel, mock_excel_file, validator):
         """Test validation of valid Excel structure."""
         # Мокаем ExcelFile
@@ -163,24 +161,26 @@ class TestDataValidatorFileValidation:
         mock_excel_file.return_value = mock_file
 
         # Мокаем DataFrame с правильными заголовками
-        mock_df = pd.DataFrame({
-            "Клиент": ["Тест"],
-            "Продавец": ["Тест"],
-            "Счет": ["123"],
-            "Номер счета": ["123"],
-            "Дата счета": ["01.01.2025"],
-            "УПД": ["УПД123"],
-            "Отгружен": ["Да"],
-            "Оплачен": ["Нет"],
-            "Выручка": ["1000"],
-            "Маржа": ["500"],
-            "Стоимость": ["500"],
-            "Товар": ["Товар1"],
-            "Поставщик": ["Поставщик1"],
-            "Количество": ["10"],
-            "Цена закупки": ["50"],
-            "Цена продажи": ["100"]
-        })
+        mock_df = pd.DataFrame(
+            {
+                "Клиент": ["Тест"],
+                "Продавец": ["Тест"],
+                "Счет": ["123"],
+                "Номер счета": ["123"],
+                "Дата счета": ["01.01.2025"],
+                "УПД": ["УПД123"],
+                "Отгружен": ["Да"],
+                "Оплачен": ["Нет"],
+                "Выручка": ["1000"],
+                "Маржа": ["500"],
+                "Стоимость": ["500"],
+                "Товар": ["Товар1"],
+                "Поставщик": ["Поставщик1"],
+                "Количество": ["10"],
+                "Цена закупки": ["50"],
+                "Цена продажи": ["100"],
+            }
+        )
         mock_read_excel.return_value = mock_df
 
         with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
@@ -196,8 +196,8 @@ class TestDataValidatorFileValidation:
         finally:
             Path(tmp_path).unlink()
 
-    @patch('pandas.ExcelFile')
-    @patch('pandas.read_excel')
+    @patch("pandas.ExcelFile")
+    @patch("pandas.read_excel")
     def test_validate_missing_headers(self, mock_read_excel, mock_excel_file, validator):
         """Test detection of missing headers."""
         # Мокаем ExcelFile
@@ -206,10 +206,7 @@ class TestDataValidatorFileValidation:
         mock_excel_file.return_value = mock_file
 
         # Мокаем DataFrame с неполными заголовками
-        mock_df = pd.DataFrame({
-            "Неизвестная колонка": ["Тест"],
-            "Еще одна": ["Тест"]
-        })
+        mock_df = pd.DataFrame({"Неизвестная колонка": ["Тест"], "Еще одна": ["Тест"]})
         mock_read_excel.return_value = mock_df
 
         with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
@@ -228,8 +225,8 @@ class TestDataValidatorFileValidation:
         finally:
             Path(tmp_path).unlink()
 
-    @patch('pandas.ExcelFile')
-    @patch('pandas.read_excel')
+    @patch("pandas.ExcelFile")
+    @patch("pandas.read_excel")
     def test_validate_empty_sheet(self, mock_read_excel, mock_excel_file, validator):
         """Test handling of empty sheets."""
         # Мокаем ExcelFile
@@ -410,7 +407,7 @@ class TestValidationModels:
             message="Test error message",
             sheet_name="Sheet1",
             row_number=5,
-            column_name="Column A"
+            column_name="Column A",
         )
 
         assert error.is_blocking
@@ -421,33 +418,25 @@ class TestValidationModels:
 
     def test_validation_warning_creation(self):
         """Test ValidationWarning convenience class."""
-        warning = ValidationWarning(
-            code="TEST_WARNING",
-            message="Test warning message"
-        )
+        warning = ValidationWarning(code="TEST_WARNING", message="Test warning message")
 
         assert warning.severity == ErrorSeverity.WARNING
         assert not warning.is_blocking
 
     def test_validation_result_statistics(self):
         """Test ValidationResult statistics."""
-        result = ValidationResult(
-            is_valid=True,
-            file_path="/test/file.xlsx"
-        )
+        result = ValidationResult(is_valid=True, file_path="/test/file.xlsx")
 
         # Добавляем различные типы ошибок
-        result.add_error(ValidationError(
-            severity=ErrorSeverity.CRITICAL,
-            code="CRITICAL_ERROR",
-            message="Critical error"
-        ))
+        result.add_error(
+            ValidationError(
+                severity=ErrorSeverity.CRITICAL, code="CRITICAL_ERROR", message="Critical error"
+            )
+        )
 
-        result.add_error(ValidationError(
-            severity=ErrorSeverity.ERROR,
-            code="ERROR",
-            message="Error"
-        ))
+        result.add_error(
+            ValidationError(severity=ErrorSeverity.ERROR, code="ERROR", message="Error")
+        )
 
         result.add_warning("WARNING", "Warning message")
 
@@ -462,24 +451,23 @@ class TestValidationModels:
 
     def test_validation_result_filtering(self):
         """Test ValidationResult filtering methods."""
-        result = ValidationResult(
-            is_valid=True,
-            file_path="/test/file.xlsx"
-        )
+        result = ValidationResult(is_valid=True, file_path="/test/file.xlsx")
 
         # Добавляем ошибки с разными атрибутами
-        result.add_error(ValidationError(
-            severity=ErrorSeverity.ERROR,
-            code="SHEET_ERROR",
-            message="Sheet error",
-            sheet_name="Sheet1"
-        ))
+        result.add_error(
+            ValidationError(
+                severity=ErrorSeverity.ERROR,
+                code="SHEET_ERROR",
+                message="Sheet error",
+                sheet_name="Sheet1",
+            )
+        )
 
-        result.add_error(ValidationError(
-            severity=ErrorSeverity.WARNING,
-            code="GENERAL_WARNING",
-            message="General warning"
-        ))
+        result.add_error(
+            ValidationError(
+                severity=ErrorSeverity.WARNING, code="GENERAL_WARNING", message="General warning"
+            )
+        )
 
         # Тестируем фильтрацию
         errors = result.get_errors_by_severity(ErrorSeverity.ERROR)

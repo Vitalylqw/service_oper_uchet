@@ -48,8 +48,8 @@ class TestMainApplication:
             headers={
                 "Origin": "http://localhost:3000",
                 "Access-Control-Request-Method": "GET",
-                "Access-Control-Request-Headers": "Authorization"
-            }
+                "Access-Control-Request-Headers": "Authorization",
+            },
         )
 
         # CORS should be configured to allow the request

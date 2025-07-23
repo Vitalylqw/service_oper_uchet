@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     Handles startup and shutdown events for the FastAPI application.
     """
-        # Startup
+    # Startup
     logger.info(f"Starting FastAPI application in {config.environment} mode")
 
     # TODO: Initialize database connections, repositories, etc.
@@ -55,7 +55,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
         docs_url="/docs",
         redoc_url="/redoc",
-        openapi_url="/openapi.json"
+        openapi_url="/openapi.json",
     )
 
     # CORS middleware
@@ -81,7 +81,7 @@ def create_app() -> FastAPI:
             "name": "Service Oper Uchet API",
             "version": "1.0.0",
             "docs": "/docs",
-            "health": "/health"
+            "health": "/health",
         }
 
     return app

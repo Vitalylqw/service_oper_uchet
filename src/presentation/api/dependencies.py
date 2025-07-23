@@ -32,7 +32,7 @@ class MockDealService:
                 "is_shipped": True,
                 "is_paid": True,
                 "items_count": 5,
-                "updated_at": datetime(2024, 1, 15, 10, 0, 0)
+                "updated_at": datetime(2024, 1, 15, 10, 0, 0),
             },
             {
                 "id": "deal-2",
@@ -46,15 +46,16 @@ class MockDealService:
                 "is_shipped": False,
                 "is_paid": False,
                 "items_count": 3,
-                "updated_at": datetime(2024, 1, 16, 14, 30, 0)
-            }
+                "updated_at": datetime(2024, 1, 16, 14, 30, 0),
+            },
         ]
 
         # Apply basic filtering
         filtered_deals = mock_deals
         if filters.get("client_name"):
             filtered_deals = [
-                d for d in filtered_deals
+                d
+                for d in filtered_deals
                 if filters["client_name"].lower() in d["client_name"].lower()
             ]
 
@@ -69,7 +70,7 @@ class MockDealService:
             "total": total,
             "page": page,
             "limit": limit,
-            "pages": (total + limit - 1) // limit
+            "pages": (total + limit - 1) // limit,
         }
 
     async def get_deal_by_id(self, deal_id: str) -> dict | None:
@@ -95,7 +96,7 @@ class MockDealService:
             "period_year": "2024",
             "created_at": datetime(2024, 1, 15, 10, 0, 0),
             "updated_at": datetime(2024, 1, 15, 10, 0, 0),
-            "items": []
+            "items": [],
         }
 
 
@@ -116,7 +117,7 @@ class MockSyncService:
                 "duration_seconds": 330.0,
                 "total_deals_processed": 25,
                 "success": True,
-                "error_message": None
+                "error_message": None,
             },
             {
                 "id": "session-2",
@@ -127,8 +128,8 @@ class MockSyncService:
                 "duration_seconds": 135.0,
                 "total_deals_processed": 0,
                 "success": False,
-                "error_message": "File not found: data.xlsx"
-            }
+                "error_message": "File not found: data.xlsx",
+            },
         ]
 
         # Apply filtering
@@ -147,7 +148,7 @@ class MockSyncService:
             "total": total,
             "page": page,
             "limit": limit,
-            "pages": (total + limit - 1) // limit
+            "pages": (total + limit - 1) // limit,
         }
 
 
@@ -166,7 +167,7 @@ class MockHealthService:
             "requests_total": 0,
             "requests_duration_seconds": 0.0,
             "database_connections": 0,
-            "active_sessions": 0
+            "active_sessions": 0,
         }
 
 

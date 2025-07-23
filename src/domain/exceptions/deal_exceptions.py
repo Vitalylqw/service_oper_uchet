@@ -13,7 +13,9 @@ from .base import BusinessLogicError, DomainException, ValidationError
 class DealError(DomainException):
     """Base deal-related error."""
 
-    def __init__(self, deal_id: Optional[UUID], message: str, details: Optional[str] = None) -> None:
+    def __init__(
+        self, deal_id: Optional[UUID], message: str, details: Optional[str] = None
+    ) -> None:
         """Initialize deal error."""
         self.deal_id = deal_id
         deal_info = f" (Deal ID: {deal_id})" if deal_id else ""
@@ -37,7 +39,7 @@ class DealItemError(DomainException):
         deal_id: Optional[UUID],
         item_id: Optional[UUID],
         message: str,
-        details: Optional[str] = None
+        details: Optional[str] = None,
     ) -> None:
         """Initialize deal item error."""
         self.deal_id = deal_id
@@ -60,11 +62,7 @@ class DealCalculationError(BusinessLogicError):
         """Initialize deal calculation error."""
         self.deal_id = deal_id
         self.calculation_type = calculation_type
-        super().__init__(
-            f"deal_calculation_{calculation_type}",
-            message,
-            f"Deal ID: {deal_id}"
-        )
+        super().__init__(f"deal_calculation_{calculation_type}", message, f"Deal ID: {deal_id}")
 
 
 class DealDuplicateError(BusinessLogicError):
@@ -77,5 +75,5 @@ class DealDuplicateError(BusinessLogicError):
         super().__init__(
             "deal_duplicate_check",
             f"Deal with key '{deal_key}' already exists",
-            f"Existing Deal ID: {existing_deal_id}"
+            f"Existing Deal ID: {existing_deal_id}",
         )

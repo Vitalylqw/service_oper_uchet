@@ -41,7 +41,7 @@ class TestSchedulerConfig:
             daily_sync_time="14:30",
             full_sync_time="02:15",
             full_sync_day="monday",
-            full_sync_schedule="weekly"
+            full_sync_schedule="weekly",
         )
 
         # Test daily sync cron
@@ -53,24 +53,15 @@ class TestSchedulerConfig:
     def test_full_sync_schedule_variations(self):
         """Test different full sync schedule types."""
         # Daily
-        config = SchedulerConfig(
-            full_sync_schedule="daily",
-            full_sync_time="01:00"
-        )
+        config = SchedulerConfig(full_sync_schedule="daily", full_sync_time="01:00")
         assert config.full_sync_cron_expression == "0 1 * * *"
 
         # Monthly
-        config = SchedulerConfig(
-            full_sync_schedule="monthly",
-            full_sync_time="02:30"
-        )
+        config = SchedulerConfig(full_sync_schedule="monthly", full_sync_time="02:30")
         assert config.full_sync_cron_expression == "30 2 1 * *"
 
         # Invalid (defaults to weekly)
-        config = SchedulerConfig(
-            full_sync_schedule="invalid",
-            full_sync_time="03:45"
-        )
+        config = SchedulerConfig(full_sync_schedule="invalid", full_sync_time="03:45")
         assert config.full_sync_cron_expression == "45 3 * * 6"
 
     def test_python_executable_paths(self):
@@ -88,7 +79,7 @@ class TestSchedulerConfig:
 
     def test_env_prefix(self):
         """Test that configuration uses SCHEDULER_ env prefix."""
-        with patch.dict('os.environ', {'SCHEDULER_ENABLED': 'false'}):
+        with patch.dict("os.environ", {"SCHEDULER_ENABLED": "false"}):
             SchedulerConfig()
             # Note: This test assumes pydantic-settings is working
             # In real environment, it would load from env
@@ -104,7 +95,7 @@ class TestSchedulerModels:
             job_name="Test Job",
             job_type=SyncJobType.INCREMENTAL,
             status=JobExecutionStatus.COMPLETED,
-            started_at=datetime.now()
+            started_at=datetime.now(),
         )
 
         assert result.job_id == "test-job-123"
@@ -123,7 +114,7 @@ class TestSchedulerModels:
             job_name="test",
             job_type=SyncJobType.FULL,
             status=JobExecutionStatus.COMPLETED,
-            started_at=datetime.now()
+            started_at=datetime.now(),
         )
 
         assert result.is_finished is True
@@ -150,7 +141,7 @@ class TestSchedulerModels:
             period_end=datetime.now() + timedelta(days=1),
             total_jobs_completed=80,
             total_jobs_failed=15,
-            total_jobs_cancelled=5
+            total_jobs_cancelled=5,
         )
 
         # Test success rate calculation
@@ -158,18 +149,14 @@ class TestSchedulerModels:
 
         # Test with no jobs
         empty_metrics = SchedulerMetrics(
-            period_start=datetime.now(),
-            period_end=datetime.now() + timedelta(days=1)
+            period_start=datetime.now(), period_end=datetime.now() + timedelta(days=1)
         )
         assert empty_metrics.success_rate_percent == 0.0
 
     def test_scheduler_state_health_check(self):
         """Test SchedulerState health checking."""
         state = SchedulerState(
-            is_running=True,
-            is_enabled=True,
-            health_status="healthy",
-            consecutive_failures=0
+            is_running=True, is_enabled=True, health_status="healthy", consecutive_failures=0
         )
 
         assert state.is_healthy is True
@@ -218,16 +205,13 @@ class TestSchedulerService:
             daily_sync_enabled=True,
             max_retry_attempts=2,
             retry_delay_seconds=1,  # Fast for testing
-            retry_max_delay_seconds=2
+            retry_max_delay_seconds=2,
         )
 
     @pytest.fixture
     def scheduler_service(self, scheduler_config, mock_sync_orchestrator):
         """Create scheduler service for testing."""
-        return SchedulerService(
-            config=scheduler_config,
-            sync_orchestrator=mock_sync_orchestrator
-        )
+        return SchedulerService(config=scheduler_config, sync_orchestrator=mock_sync_orchestrator)
 
     @pytest.mark.asyncio
     async def test_scheduler_initialization(self, scheduler_service):
@@ -267,10 +251,7 @@ class TestSchedulerService:
         await scheduler_service.start()
 
         # Trigger incremental sync
-        result = await scheduler_service.trigger_sync(
-            SyncJobType.INCREMENTAL,
-            "Manual test sync"
-        )
+        result = await scheduler_service.trigger_sync(SyncJobType.INCREMENTAL, "Manual test sync")
 
         assert result.job_type == SyncJobType.INCREMENTAL
         assert result.job_name == "Manual test sync"
@@ -293,13 +274,12 @@ class TestSchedulerService:
                 sync_session_id="session-retry",
                 summary=MagicMock(total_deals_processed=50, file_path="test.xlsx"),
                 change_detection_result=None,
-                events_created=[]
-            )
+                events_created=[],
+            ),
         ]
 
         scheduler_service = SchedulerService(
-            config=scheduler_config,
-            sync_orchestrator=mock_sync_orchestrator
+            config=scheduler_config, sync_orchestrator=mock_sync_orchestrator
         )
 
         await scheduler_service.start()
@@ -321,8 +301,7 @@ class TestSchedulerService:
         mock_sync_orchestrator.execute_sync.side_effect = Exception("Always fails")
 
         scheduler_service = SchedulerService(
-            config=scheduler_config,
-            sync_orchestrator=mock_sync_orchestrator
+            config=scheduler_config, sync_orchestrator=mock_sync_orchestrator
         )
 
         await scheduler_service.start()
@@ -409,7 +388,7 @@ class TestSchedulerService:
         """Test sync job execution without orchestrator configured."""
         scheduler_service = SchedulerService(
             config=scheduler_config,
-            sync_orchestrator=None  # No orchestrator
+            sync_orchestrator=None,  # No orchestrator
         )
 
         await scheduler_service.start()
@@ -433,8 +412,7 @@ class TestSchedulerService:
         mock_sync_orchestrator.execute_sync.side_effect = Exception("Always fails")
 
         scheduler_service = SchedulerService(
-            config=scheduler_config,
-            sync_orchestrator=mock_sync_orchestrator
+            config=scheduler_config, sync_orchestrator=mock_sync_orchestrator
         )
 
         await scheduler_service.start()
@@ -464,7 +442,7 @@ class TestSchedulerIntegration:
         config = SchedulerConfig(
             scheduler_enabled=True,
             daily_sync_enabled=False,  # Disable auto-scheduling for test
-            max_retry_attempts=1
+            max_retry_attempts=1,
         )
 
         # Create mock orchestrator
@@ -514,7 +492,7 @@ class TestSchedulerIntegration:
             daily_sync_time="23:59",
             full_sync_time="00:00",
             max_retry_attempts=5,
-            retry_delay_seconds=100
+            retry_delay_seconds=100,
         )
 
         assert config.daily_sync_time == "23:59"

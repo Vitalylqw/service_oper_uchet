@@ -29,8 +29,8 @@ deals_router = APIRouter()
 async def list_deals(
     pagination: PaginationParams = Depends(),
     filters: DealFilters = Depends(),
-    current_user = Depends(require_viewer),
-    deal_service: MockDealService = Depends(get_deal_service)
+    current_user=Depends(require_viewer),
+    deal_service: MockDealService = Depends(get_deal_service),
 ) -> PaginationResponse[DealSummary]:
     """
     List deals with filtering and pagination.
@@ -48,9 +48,7 @@ async def list_deals(
     # Get deals through service layer
     filters_dict = filters.model_dump(exclude_none=True)
     result = await deal_service.get_deals_paginated(
-        page=pagination.page,
-        limit=pagination.limit,
-        filters=filters_dict
+        page=pagination.page, limit=pagination.limit, filters=filters_dict
     )
 
     # Convert to DealSummary objects
@@ -61,15 +59,15 @@ async def list_deals(
         total=result["total"],
         page=result["page"],
         limit=result["limit"],
-        pages=result["pages"]
+        pages=result["pages"],
     )
 
 
 @deals_router.get("/{deal_id}", response_model=DealResponse)
 async def get_deal(
     deal_id: str,
-    current_user = Depends(require_viewer),
-    deal_service: MockDealService = Depends(get_deal_service)
+    current_user=Depends(require_viewer),
+    deal_service: MockDealService = Depends(get_deal_service),
 ) -> DealResponse:
     """
     Get detailed deal information.
@@ -92,10 +90,7 @@ async def get_deal(
 
 
 @deals_router.get("/{deal_id}/history")
-async def get_deal_history(
-    deal_id: str,
-    current_user = Depends(require_viewer)
-) -> list[dict]:
+async def get_deal_history(deal_id: str, current_user=Depends(require_viewer)) -> list[dict]:
     """
     Get deal change history.
 
@@ -115,15 +110,15 @@ async def get_deal_history(
             "event_type": "DealCreated",
             "timestamp": datetime(2024, 1, 15, 10, 0, 0).isoformat(),
             "user": "system",
-            "changes": {"action": "created"}
+            "changes": {"action": "created"},
         },
         {
             "event_id": "event-2",
             "event_type": "DealUpdated",
             "timestamp": datetime(2024, 1, 16, 14, 30, 0).isoformat(),
             "user": "system",
-            "changes": {"field": "is_shipped", "old_value": False, "new_value": True}
-        }
+            "changes": {"field": "is_shipped", "old_value": False, "new_value": True},
+        },
     ]
 
 
@@ -131,7 +126,7 @@ async def get_deal_history(
 async def get_deals_stats(
     period_month: str | None = Query(None, description="Filter by month"),
     period_year: str | None = Query(None, description="Filter by year"),
-    current_user = Depends(require_viewer)
+    current_user=Depends(require_viewer),
 ) -> DealStatsResponse:
     """
     Get deal statistics and analytics.
@@ -157,11 +152,11 @@ async def get_deals_stats(
         top_clients=[
             {"client_name": "ООО Компания 1", "revenue": Decimal("500000.00")},
             {"client_name": "ООО Компания 2", "revenue": Decimal("400000.00")},
-            {"client_name": "ООО Компания 3", "revenue": Decimal("300000.00")}
+            {"client_name": "ООО Компания 3", "revenue": Decimal("300000.00")},
         ],
         revenue_by_month=[
             {"month": "2024-01", "revenue": Decimal("1500000.00")},
             {"month": "2024-02", "revenue": Decimal("1800000.00")},
-            {"month": "2024-03", "revenue": Decimal("1700000.00")}
-        ]
+            {"month": "2024-03", "revenue": Decimal("1700000.00")},
+        ],
     )

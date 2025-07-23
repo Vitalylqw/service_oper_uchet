@@ -89,13 +89,9 @@ class ParseResult(BaseModel):
     def get_deals_by_period(self, month: str, year: str) -> list[Deal]:
         """Get deals filtered by period."""
         return [
-            deal for deal in self.deals
-            if deal.period.month == month and deal.period.year == year
+            deal for deal in self.deals if deal.period.month == month and deal.period.year == year
         ]
 
     def get_deals_by_client(self, client_name: str) -> list[Deal]:
         """Get deals filtered by client name."""
-        return [
-            deal for deal in self.deals
-            if client_name.lower() in deal.client_name.lower()
-        ]
+        return [deal for deal in self.deals if client_name.lower() in deal.client_name.lower()]

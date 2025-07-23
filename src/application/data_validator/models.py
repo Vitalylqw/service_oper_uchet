@@ -17,9 +17,9 @@ class ErrorSeverity(str, Enum):
     """Severity levels for validation issues."""
 
     CRITICAL = "critical"  # Блокирует обработку полностью
-    ERROR = "error"       # Блокирует обработку конкретной записи
-    WARNING = "warning"   # Не блокирует, но требует внимания
-    INFO = "info"         # Информационное сообщение
+    ERROR = "error"  # Блокирует обработку конкретной записи
+    WARNING = "warning"  # Не блокирует, но требует внимания
+    INFO = "info"  # Информационное сообщение
 
 
 class ValidationError(BaseModel):
@@ -71,8 +71,8 @@ class ValidationWarning(ValidationError):
     """Convenience class for warnings."""
 
     def __init__(self, **data):
-        if 'severity' not in data:
-            data['severity'] = ErrorSeverity.WARNING
+        if "severity" not in data:
+            data["severity"] = ErrorSeverity.WARNING
         super().__init__(**data)
 
 
@@ -123,8 +123,12 @@ class ValidationResult(BaseModel):
     """Result of data validation operation."""
 
     is_valid: bool = Field(..., description="Overall validation result")
-    issues: list[ValidationError] = Field(default_factory=list, description="List of validation issues")
-    stats: ValidationStats = Field(default_factory=ValidationStats, description="Validation statistics")
+    issues: list[ValidationError] = Field(
+        default_factory=list, description="List of validation issues"
+    )
+    stats: ValidationStats = Field(
+        default_factory=ValidationStats, description="Validation statistics"
+    )
 
     # Контекст валидации
     file_path: str = Field(..., description="Path to validated file")
@@ -149,11 +153,7 @@ class ValidationResult(BaseModel):
 
     def add_warning(self, code: str, message: str, **context) -> None:
         """Add validation warning."""
-        warning = ValidationWarning(
-            code=code,
-            message=message,
-            **context
-        )
+        warning = ValidationWarning(code=code, message=message, **context)
         self.add_error(warning)
 
     def get_errors_by_severity(self, severity: ErrorSeverity) -> list[ValidationError]:
@@ -190,5 +190,7 @@ class ValidationResult(BaseModel):
             warning_text = f", {self.stats.warnings} предупреждений" if self.has_warnings else ""
             return f"Валидация пройдена успешно{warning_text}"
         else:
-            return (f"Валидация не пройдена: {self.stats.critical_errors} критических ошибок, "
-                   f"{self.stats.errors} ошибок, {self.stats.warnings} предупреждений")
+            return (
+                f"Валидация не пройдена: {self.stats.critical_errors} критических ошибок, "
+                f"{self.stats.errors} ошибок, {self.stats.warnings} предупреждений"
+            )

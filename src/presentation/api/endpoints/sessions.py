@@ -28,7 +28,7 @@ sessions_router = APIRouter()
 async def list_sync_sessions(
     pagination: PaginationParams = Depends(),
     filters: SyncSessionFilters = Depends(),
-    current_user = Depends(require_viewer)
+    current_user=Depends(require_viewer),
 ) -> PaginationResponse[SyncSessionSummary]:
     """
     List sync sessions with filtering and pagination.
@@ -56,7 +56,7 @@ async def list_sync_sessions(
             duration_seconds=330.0,
             total_deals_processed=25,
             success=True,
-            error_message=None
+            error_message=None,
         ),
         SyncSessionSummary(
             id="session-2",
@@ -67,8 +67,8 @@ async def list_sync_sessions(
             duration_seconds=135.0,
             total_deals_processed=0,
             success=False,
-            error_message="File not found: data.xlsx"
-        )
+            error_message="File not found: data.xlsx",
+        ),
     ]
 
     # Apply mock filtering
@@ -87,8 +87,7 @@ async def list_sync_sessions(
 
 @sessions_router.get("/{session_id}", response_model=SyncSessionResponse)
 async def get_sync_session(
-    session_id: str,
-    current_user = Depends(require_viewer)
+    session_id: str, current_user=Depends(require_viewer)
 ) -> SyncSessionResponse:
     """
     Get detailed sync session information.
@@ -126,19 +125,13 @@ async def get_sync_session(
         change_detection_duration_seconds=120.0,
         database_duration_seconds=165.0,
         created_at=datetime(2024, 1, 15, 3, 0, 0),
-        metadata={
-            "sync_config": {
-                "incremental_period_months": 3,
-                "batch_size": 100
-            }
-        }
+        metadata={"sync_config": {"incremental_period_months": 3, "batch_size": 100}},
     )
 
 
 @sessions_router.post("/", response_model=SyncSessionResponse)
 async def create_sync_session(
-    request: SyncSessionCreateRequest,
-    current_user = Depends(require_analyst)
+    request: SyncSessionCreateRequest, current_user=Depends(require_analyst)
 ) -> SyncSessionResponse:
     """
     Create and start new sync session.
@@ -181,14 +174,13 @@ async def create_sync_session(
         change_detection_duration_seconds=None,
         database_duration_seconds=None,
         created_at=datetime.utcnow(),
-        metadata={"force": request.force}
+        metadata={"force": request.force},
     )
 
 
 @sessions_router.delete("/{session_id}")
 async def cancel_sync_session(
-    session_id: str,
-    current_user = Depends(require_analyst)
+    session_id: str, current_user=Depends(require_analyst)
 ) -> dict[str, str]:
     """
     Cancel running sync session.
@@ -212,10 +204,7 @@ async def cancel_sync_session(
 
 
 @sessions_router.get("/{session_id}/logs")
-async def get_session_logs(
-    session_id: str,
-    current_user = Depends(require_viewer)
-) -> list[dict]:
+async def get_session_logs(session_id: str, current_user=Depends(require_viewer)) -> list[dict]:
     """
     Get sync session logs.
 
@@ -234,27 +223,25 @@ async def get_session_logs(
             "timestamp": datetime(2024, 1, 15, 3, 0, 0).isoformat(),
             "level": "INFO",
             "message": "Starting sync session",
-            "component": "orchestrator"
+            "component": "orchestrator",
         },
         {
             "timestamp": datetime(2024, 1, 15, 3, 0, 30).isoformat(),
             "level": "INFO",
             "message": "File retrieved successfully",
-            "component": "file_system"
+            "component": "file_system",
         },
         {
             "timestamp": datetime(2024, 1, 15, 3, 1, 15).isoformat(),
             "level": "INFO",
             "message": "Parsed 25 deals, 75 items",
-            "component": "excel_parser"
-        }
+            "component": "excel_parser",
+        },
     ]
 
 
 @sessions_router.get("/stats/summary", response_model=SyncStatsResponse)
-async def get_sync_stats(
-    current_user = Depends(require_viewer)
-) -> SyncStatsResponse:
+async def get_sync_stats(current_user=Depends(require_viewer)) -> SyncStatsResponse:
     """
     Get sync session statistics.
 
@@ -282,6 +269,6 @@ async def get_sync_stats(
             {"date": "2024-01-12", "sessions": 1},
             {"date": "2024-01-11", "sessions": 1},
             {"date": "2024-01-10", "sessions": 1},
-            {"date": "2024-01-09", "sessions": 1}
-        ]
+            {"date": "2024-01-09", "sessions": 1},
+        ],
     )

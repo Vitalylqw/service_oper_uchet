@@ -30,8 +30,12 @@ class TestSyncSessionEndpoints:
         if data["items"]:
             session = data["items"][0]
             required_fields = [
-                "id", "session_type", "status", "started_at",
-                "total_deals_processed", "success"
+                "id",
+                "session_type",
+                "status",
+                "started_at",
+                "total_deals_processed",
+                "success",
             ]
             for field in required_fields:
                 assert field in session
@@ -40,7 +44,7 @@ class TestSyncSessionEndpoints:
         """Test sessions listing with filters."""
         response = client.get(
             "/api/v1/sessions/?status=completed&session_type=incremental",
-            headers=auth_headers_viewer
+            headers=auth_headers_viewer,
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -64,10 +68,19 @@ class TestSyncSessionEndpoints:
 
         # Check session structure
         required_fields = [
-            "id", "session_type", "status", "started_at",
-            "file_path", "total_deals_processed", "total_items_processed",
-            "insertions_count", "updates_count", "deletions_count",
-            "success", "created_at", "metadata"
+            "id",
+            "session_type",
+            "status",
+            "started_at",
+            "file_path",
+            "total_deals_processed",
+            "total_items_processed",
+            "insertions_count",
+            "updates_count",
+            "deletions_count",
+            "success",
+            "created_at",
+            "metadata",
         ]
 
         for field in required_fields:
@@ -86,14 +99,10 @@ class TestSyncSessionEndpoints:
         session_data = {
             "session_type": "incremental",
             "file_path": "/test/data.xlsx",
-            "force": False
+            "force": False,
         }
 
-        response = client.post(
-            "/api/v1/sessions/",
-            json=session_data,
-            headers=auth_headers_analyst
-        )
+        response = client.post("/api/v1/sessions/", json=session_data, headers=auth_headers_analyst)
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -107,14 +116,10 @@ class TestSyncSessionEndpoints:
         session_data = {
             "session_type": "incremental",
             "file_path": "/test/data.xlsx",
-            "force": False
+            "force": False,
         }
 
-        response = client.post(
-            "/api/v1/sessions/",
-            json=session_data,
-            headers=auth_headers_viewer
-        )
+        response = client.post("/api/v1/sessions/", json=session_data, headers=auth_headers_viewer)
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
@@ -122,9 +127,7 @@ class TestSyncSessionEndpoints:
         """Test session creation with invalid data."""
         # Missing required fields
         response = client.post(
-            "/api/v1/sessions/",
-            json={"session_type": "incremental"},
-            headers=auth_headers_analyst
+            "/api/v1/sessions/", json={"session_type": "incremental"}, headers=auth_headers_analyst
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
@@ -171,9 +174,13 @@ class TestSyncSessionEndpoints:
 
         # Check statistics structure
         required_fields = [
-            "total_sessions", "successful_sessions", "failed_sessions",
-            "success_rate", "avg_duration_seconds", "total_deals_synchronized",
-            "sync_frequency_days"
+            "total_sessions",
+            "successful_sessions",
+            "failed_sessions",
+            "success_rate",
+            "avg_duration_seconds",
+            "total_deals_synchronized",
+            "sync_frequency_days",
         ]
 
         for field in required_fields:
@@ -201,28 +208,19 @@ class TestSyncSessionPermissions:
 
     def test_viewer_cannot_create_sessions(self, client, auth_headers_viewer):
         """Test that viewer cannot create sessions."""
-        session_data = {
-            "session_type": "incremental",
-            "file_path": "/test/data.xlsx"
-        }
+        session_data = {"session_type": "incremental", "file_path": "/test/data.xlsx"}
         response = client.post("/api/v1/sessions/", json=session_data, headers=auth_headers_viewer)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_analyst_can_create_sessions(self, client, auth_headers_analyst):
         """Test that analyst can create sessions."""
-        session_data = {
-            "session_type": "incremental",
-            "file_path": "/test/data.xlsx"
-        }
+        session_data = {"session_type": "incremental", "file_path": "/test/data.xlsx"}
         response = client.post("/api/v1/sessions/", json=session_data, headers=auth_headers_analyst)
         assert response.status_code == status.HTTP_200_OK
 
     def test_admin_can_create_sessions(self, client, auth_headers_admin):
         """Test that admin can create sessions."""
-        session_data = {
-            "session_type": "incremental",
-            "file_path": "/test/data.xlsx"
-        }
+        session_data = {"session_type": "incremental", "file_path": "/test/data.xlsx"}
         response = client.post("/api/v1/sessions/", json=session_data, headers=auth_headers_admin)
         assert response.status_code == status.HTTP_200_OK
 
@@ -232,10 +230,7 @@ class TestSyncSessionValidation:
 
     def test_session_type_validation(self, client, auth_headers_analyst):
         """Test session type validation."""
-        session_data = {
-            "session_type": "invalid_type",
-            "file_path": "/test/data.xlsx"
-        }
+        session_data = {"session_type": "invalid_type", "file_path": "/test/data.xlsx"}
 
         response = client.post("/api/v1/sessions/", json=session_data, headers=auth_headers_analyst)
         # Note: Currently we don't validate session_type, but in real implementation we would
@@ -245,7 +240,7 @@ class TestSyncSessionValidation:
         """Test file path validation."""
         session_data = {
             "session_type": "incremental",
-            "file_path": ""  # Empty file path
+            "file_path": "",  # Empty file path
         }
 
         response = client.post("/api/v1/sessions/", json=session_data, headers=auth_headers_analyst)

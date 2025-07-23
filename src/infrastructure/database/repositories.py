@@ -120,16 +120,14 @@ class DealRepositoryImplementation(DealRepository):
 
     async def save_batch(self, deals: list[Deal]) -> None:
         """Save multiple deals - should use application layer."""
-        logger.warning("Direct save_batch called on DealRepository - use application services instead")
+        logger.warning(
+            "Direct save_batch called on DealRepository - use application services instead"
+        )
 
     async def delete(self, deal_id: uuid.UUID) -> None:
         """Soft delete deal by marking as inactive."""
         try:
-            query = (
-                update(ReadModelDeal)
-                .where(ReadModelDeal.id == deal_id)
-                .values(is_active=False)
-            )
+            query = update(ReadModelDeal).where(ReadModelDeal.id == deal_id).values(is_active=False)
 
             await self.session.execute(query)
             logger.debug(f"Soft deleted deal {deal_id}")
@@ -141,10 +139,7 @@ class DealRepositoryImplementation(DealRepository):
     async def get_all_keys(self) -> list[str]:
         """Get all deal keys for change detection."""
         try:
-            query = (
-                select(ReadModelDeal.deal_key)
-                .where(ReadModelDeal.is_active)
-            )
+            query = select(ReadModelDeal.deal_key).where(ReadModelDeal.is_active)
 
             result = await self.session.execute(query)
             deal_keys = result.scalars().all()
@@ -166,17 +161,11 @@ class DealRepositoryImplementation(DealRepository):
 
         # Create period
         period = Period(
-            month=model.period_month,
-            year=model.period_year,
-            full_name=model.period_full_name
+            month=model.period_month, year=model.period_year, full_name=model.period_full_name
         )
 
         # Create deal
-        deal = Deal(
-            client_name=model.client_name,
-            invoice_info=model.invoice_info,
-            period=period
-        )
+        deal = Deal(client_name=model.client_name, invoice_info=model.invoice_info, period=period)
 
         # Set ID and other fields
         deal.id = model.id
@@ -191,26 +180,22 @@ class DealRepositoryImplementation(DealRepository):
         # Set money fields
         if model.total_revenue_amount:
             deal.total_revenue = Money(
-                amount=model.total_revenue_amount,
-                currency=model.total_revenue_currency
+                amount=model.total_revenue_amount, currency=model.total_revenue_currency
             )
 
         if model.total_margin_amount:
             deal.total_margin = Money(
-                amount=model.total_margin_amount,
-                currency=model.total_margin_currency
+                amount=model.total_margin_amount, currency=model.total_margin_currency
             )
 
         if model.total_cost_amount:
             deal.total_cost = Money(
-                amount=model.total_cost_amount,
-                currency=model.total_cost_currency
+                amount=model.total_cost_amount, currency=model.total_cost_currency
             )
 
         if model.kickback_amount_value:
             deal.kickback_amount = Money(
-                amount=model.kickback_amount_value,
-                currency=model.kickback_amount_currency
+                amount=model.kickback_amount_value, currency=model.kickback_amount_currency
             )
 
         # Load items from positions table
@@ -245,37 +230,40 @@ class DealRepositoryImplementation(DealRepository):
                 # Set money fields
                 if position_model.purchase_price_amount:
                     from ...domain.value_objects import Money
+
                     item.purchase_price = Money(
                         amount=position_model.purchase_price_amount,
-                        currency=position_model.purchase_price_currency
+                        currency=position_model.purchase_price_currency,
                     )
 
                 if position_model.sale_price_amount:
                     from ...domain.value_objects import Money
+
                     item.sale_price = Money(
                         amount=position_model.sale_price_amount,
-                        currency=position_model.sale_price_currency
+                        currency=position_model.sale_price_currency,
                     )
 
                 if position_model.revenue_amount:
                     from ...domain.value_objects import Money
+
                     item.revenue = Money(
                         amount=position_model.revenue_amount,
-                        currency=position_model.revenue_currency
+                        currency=position_model.revenue_currency,
                     )
 
                 if position_model.margin_amount:
                     from ...domain.value_objects import Money
+
                     item.margin = Money(
-                        amount=position_model.margin_amount,
-                        currency=position_model.margin_currency
+                        amount=position_model.margin_amount, currency=position_model.margin_currency
                     )
 
                 if position_model.cost_amount:
                     from ...domain.value_objects import Money
+
                     item.cost = Money(
-                        amount=position_model.cost_amount,
-                        currency=position_model.cost_currency
+                        amount=position_model.cost_amount, currency=position_model.cost_currency
                     )
 
                 deal.items.append(item)
@@ -340,9 +328,7 @@ class SyncSessionRepositoryImplementation(SyncSessionRepository):
         """Get latest sync sessions."""
         try:
             query = (
-                select(SyncSessionModel)
-                .order_by(SyncSessionModel.created_at.desc())
-                .limit(limit)
+                select(SyncSessionModel).order_by(SyncSessionModel.created_at.desc()).limit(limit)
             )
 
             result = await self.session.execute(query)
@@ -438,10 +424,7 @@ class SyncSessionRepositoryImplementation(SyncSessionRepository):
         from ...domain.value_objects import Status
 
         # Create sync session
-        sync_session = SyncSession(
-            sync_type=SyncType(model.sync_type),
-            file_path=model.file_path
-        )
+        sync_session = SyncSession(sync_type=SyncType(model.sync_type), file_path=model.file_path)
 
         # Set fields
         sync_session.id = model.id
@@ -472,7 +455,7 @@ class SyncSessionRepositoryImplementation(SyncSessionRepository):
             started_at=session.started_at,
             finished_at=session.finished_at,
             error_message=session.error_message,
-            stats_data={}  # Convert stats to JSON if needed
+            stats_data={},  # Convert stats to JSON if needed
         )
 
         return model
@@ -527,9 +510,7 @@ class ReadModelRepositoryImplementation(ReadModelRepository):
         pass
 
     async def get_deal_stats(
-        self,
-        period_month: str | None = None,
-        period_year: str | None = None
+        self, period_month: str | None = None, period_year: str | None = None
     ) -> dict[str, Any]:
         """Get deal statistics from read model."""
         try:
@@ -555,10 +536,7 @@ class ReadModelRepositoryImplementation(ReadModelRepository):
             logger.error(f"Failed to get deal stats: {e}")
             raise
 
-    async def get_position_stats(
-        self,
-        supplier_name: str | None = None
-    ) -> dict[str, Any]:
+    async def get_position_stats(self, supplier_name: str | None = None) -> dict[str, Any]:
         """Get position statistics from read model."""
         try:
             query = select(func.count(ReadModelPosition.id).label("total_positions"))
@@ -581,11 +559,7 @@ class ReadModelRepositoryImplementation(ReadModelRepository):
             raise
 
     async def search_deals(
-        self,
-        query: str,
-        filters: dict[str, Any] | None = None,
-        limit: int = 100,
-        offset: int = 0
+        self, query: str, filters: dict[str, Any] | None = None, limit: int = 100, offset: int = 0
     ) -> dict[str, Any]:
         """Search deals with filters and pagination."""
         try:
@@ -595,9 +569,9 @@ class ReadModelRepositoryImplementation(ReadModelRepository):
             # Add text search
             if query:
                 search_condition = (
-                    ReadModelDeal.client_name.ilike(f"%{query}%") |
-                    ReadModelDeal.invoice_info.ilike(f"%{query}%") |
-                    ReadModelDeal.seller.ilike(f"%{query}%")
+                    ReadModelDeal.client_name.ilike(f"%{query}%")
+                    | ReadModelDeal.invoice_info.ilike(f"%{query}%")
+                    | ReadModelDeal.seller.ilike(f"%{query}%")
                 )
                 base_query = base_query.where(search_condition)
 
@@ -623,10 +597,7 @@ class ReadModelRepositoryImplementation(ReadModelRepository):
 
             # Get paginated results
             paginated_query = (
-                base_query
-                .order_by(ReadModelDeal.created_at.desc())
-                .limit(limit)
-                .offset(offset)
+                base_query.order_by(ReadModelDeal.created_at.desc()).limit(limit).offset(offset)
             )
 
             result = await self.session.execute(paginated_query)
@@ -644,7 +615,9 @@ class ReadModelRepositoryImplementation(ReadModelRepository):
                     "period_year": model.period_year,
                     "is_shipped": model.is_shipped,
                     "is_paid": model.is_paid,
-                    "total_revenue_amount": float(model.total_revenue_amount) if model.total_revenue_amount else None,
+                    "total_revenue_amount": float(model.total_revenue_amount)
+                    if model.total_revenue_amount
+                    else None,
                     "created_at": model.created_at.isoformat() if model.created_at else None,
                 }
                 deals.append(deal_dict)

@@ -135,7 +135,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
         token_data = TokenData(username=username, user_id=user_id, role=role)
     except JWTError:
-        raise credentials_exception
+        raise credentials_exception from None
 
     # TODO: Get user from database using user repository
     # For now, return a mock user based on token data
@@ -145,7 +145,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         email=f"{token_data.username}@example.com",
         full_name=f"User {token_data.username}",
         role=UserRole(token_data.role),
-        created_at=datetime.utcnow()
+        created_at=datetime.utcnow(),
     )
 
     if user is None:
@@ -164,22 +164,18 @@ def require_role(required_role: UserRole):
     Returns:
         Dependency function
     """
+
     def role_checker(current_user: User = Depends(get_current_user)) -> User:
         # Admin has access to everything
         if current_user.role == UserRole.ADMIN:
             return current_user
 
         # Check if user has required role or higher privilege
-        role_hierarchy = {
-            UserRole.VIEWER: 1,
-            UserRole.ANALYST: 2,
-            UserRole.ADMIN: 3
-        }
+        role_hierarchy = {UserRole.VIEWER: 1, UserRole.ANALYST: 2, UserRole.ADMIN: 3}
 
         if role_hierarchy.get(current_user.role, 0) < role_hierarchy.get(required_role, 999):
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Insufficient permissions"
+                status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
             )
 
         return current_user

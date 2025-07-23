@@ -37,7 +37,7 @@ def mock_admin_user():
         full_name="Test Admin",
         role=UserRole.ADMIN,
         is_active=True,
-        created_at=datetime(2024, 1, 1, 0, 0, 0)
+        created_at=datetime(2024, 1, 1, 0, 0, 0),
     )
 
 
@@ -51,7 +51,7 @@ def mock_analyst_user():
         full_name="Test Analyst",
         role=UserRole.ANALYST,
         is_active=True,
-        created_at=datetime(2024, 1, 1, 0, 0, 0)
+        created_at=datetime(2024, 1, 1, 0, 0, 0),
     )
 
 
@@ -65,7 +65,7 @@ def mock_viewer_user():
         full_name="Test Viewer",
         role=UserRole.VIEWER,
         is_active=True,
-        created_at=datetime(2024, 1, 1, 0, 0, 0)
+        created_at=datetime(2024, 1, 1, 0, 0, 0),
     )
 
 

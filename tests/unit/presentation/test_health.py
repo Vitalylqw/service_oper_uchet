@@ -60,7 +60,7 @@ class TestHealthEndpoints:
             "requests_total",
             "requests_duration_seconds",
             "database_connections",
-            "active_sessions"
+            "active_sessions",
         ]
 
         for metric in expected_metrics:

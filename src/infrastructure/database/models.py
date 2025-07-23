@@ -52,9 +52,7 @@ class EventStoreModel(Base):
     # Timing and sequencing
     sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=func.now(),
-        nullable=False
+        DateTime(timezone=True), default=func.now(), nullable=False
     )
 
     # Indexes for performance
@@ -128,9 +126,7 @@ class ReadModelDeal(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=func.now(),
-        onupdate=func.now()
+        DateTime(timezone=True), default=func.now(), onupdate=func.now()
     )
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
@@ -198,9 +194,7 @@ class ReadModelPosition(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=func.now(),
-        onupdate=func.now()
+        DateTime(timezone=True), default=func.now(), onupdate=func.now()
     )
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
@@ -273,7 +267,9 @@ class ReadModelStats(Base):
     stat_date: Mapped[str] = mapped_column(String(20), nullable=False)  # 2024-01, 2024-01-15
 
     # Aggregation dimensions
-    dimension_type: Mapped[str] = mapped_column(String(50), nullable=True)  # client, seller, supplier
+    dimension_type: Mapped[str] = mapped_column(
+        String(50), nullable=True
+    )  # client, seller, supplier
     dimension_value: Mapped[str] = mapped_column(String(500), nullable=True)
 
     # Metrics
@@ -298,7 +294,14 @@ class ReadModelStats(Base):
         Index("ix_read_stats_dimension", "dimension_type", "dimension_value"),
         Index("ix_read_stats_calculated_at", "calculated_at"),
         # Unique constraint for preventing duplicates
-        Index("ix_read_stats_unique", "stat_type", "stat_date", "dimension_type", "dimension_value", unique=True),
+        Index(
+            "ix_read_stats_unique",
+            "stat_type",
+            "stat_date",
+            "dimension_type",
+            "dimension_value",
+            unique=True,
+        ),
     )
 
 

@@ -72,87 +72,103 @@ class TestSyncIntegration:
 
     @pytest.fixture
     def sync_orchestrator(
-        self,
-        excel_parser,
-        change_detector,
-        mock_event_store,
-        mock_sync_session_repository
+        self, excel_parser, change_detector, mock_event_store, mock_sync_session_repository
     ):
         """Real sync orchestrator with some mocked dependencies."""
         return SyncOrchestratorService(
             excel_parser=excel_parser,
             change_detector=change_detector,
             event_store=mock_event_store,
-            sync_session_repository=mock_sync_session_repository
+            sync_session_repository=mock_sync_session_repository,
         )
 
     @pytest.fixture
     def sample_excel_file(self):
         """Create a sample Excel file for testing."""
         # Create temporary Excel file
-        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp_file:
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_file:
             # Create sample data
             data = {
-                'Клиент': [
-                    'ООО "Тестовая компания"', None, None,
-                    'АО "Другая компания"', None,
+                "Клиент": [
+                    'ООО "Тестовая компания"',
+                    None,
+                    None,
+                    'АО "Другая компания"',
+                    None,
                 ],
-                'Счет': [
-                    '001 от 15.01.2024', 'Товар 1', 'Товар 2',
-                    '002 от 16.01.2024', 'Товар 3',
+                "Счет": [
+                    "001 от 15.01.2024",
+                    "Товар 1",
+                    "Товар 2",
+                    "002 от 16.01.2024",
+                    "Товар 3",
                 ],
-                'Отгружен': [
-                    'да', None, None,
-                    'нет', None,
+                "Отгружен": [
+                    "да",
+                    None,
+                    None,
+                    "нет",
+                    None,
                 ],
-                'Оплачен': [
-                    'да', None, None,
-                    'нет', None,
+                "Оплачен": [
+                    "да",
+                    None,
+                    None,
+                    "нет",
+                    None,
                 ],
-                'Продавец': [
-                    'Продавец 1', None, None,
-                    'Продавец 2', None,
+                "Продавец": [
+                    "Продавец 1",
+                    None,
+                    None,
+                    "Продавец 2",
+                    None,
                 ],
-                'Выручка': [
-                    100000, 50000, 50000,
-                    75000, 75000,
+                "Выручка": [
+                    100000,
+                    50000,
+                    50000,
+                    75000,
+                    75000,
                 ],
-                'Маржа': [
-                    20000, 10000, 10000,
-                    15000, 15000,
+                "Маржа": [
+                    20000,
+                    10000,
+                    10000,
+                    15000,
+                    15000,
                 ],
-                'Количество': [
-                    None, 10, 5,
-                    None, 15,
+                "Количество": [
+                    None,
+                    10,
+                    5,
+                    None,
+                    15,
                 ],
-                'Поставщик': [
-                    None, 'Поставщик А', 'Поставщик Б',
-                    None, 'Поставщик В',
-                ]
+                "Поставщик": [
+                    None,
+                    "Поставщик А",
+                    "Поставщик Б",
+                    None,
+                    "Поставщик В",
+                ],
             }
 
             df = pd.DataFrame(data)
 
             # Create Excel with sheet named "Январь 2024"
-            with pd.ExcelWriter(tmp_file.name, engine='openpyxl') as writer:
-                df.to_excel(writer, sheet_name='Январь 2024', index=False)
+            with pd.ExcelWriter(tmp_file.name, engine="openpyxl") as writer:
+                df.to_excel(writer, sheet_name="Январь 2024", index=False)
 
             return tmp_file.name
 
     async def test_full_sync_integration(
-        self,
-        sync_orchestrator,
-        mock_event_store,
-        mock_sync_session_repository,
-        sample_excel_file
+        self, sync_orchestrator, mock_event_store, mock_sync_session_repository, sample_excel_file
     ):
         """Test complete full synchronization workflow."""
         # Arrange
         config = SyncConfiguration(
-            sync_type="full",
-            create_events=True,
-            update_read_models=True,
-            continue_on_errors=True
+            sync_type="full", create_events=True, update_read_models=True, continue_on_errors=True
         )
 
         # Act
@@ -182,11 +198,7 @@ class TestSyncIntegration:
         safe_cleanup_file(sample_excel_file)
 
     async def test_incremental_sync_with_changes(
-        self,
-        sync_orchestrator,
-        mock_deal_repository,
-        mock_event_store,
-        sample_excel_file
+        self, sync_orchestrator, mock_deal_repository, mock_event_store, sample_excel_file
     ):
         """Test incremental synchronization with detected changes."""
         # Arrange - simulate existing deals in database
@@ -194,8 +206,8 @@ class TestSyncIntegration:
 
         existing_deal = Deal(
             client_name='ООО "Тестовая компания"',
-            invoice_info='001 от 15.01.2024',
-            period=existing_period
+            invoice_info="001 от 15.01.2024",
+            period=existing_period,
         )
         existing_deal.id = uuid.uuid4()
         existing_deal.seller = "Старый продавец"  # Different from Excel
@@ -205,9 +217,7 @@ class TestSyncIntegration:
         mock_deal_repository.find_by_period.return_value = [existing_deal]
 
         config = SyncConfiguration(
-            sync_type="incremental",
-            incremental_period_months=3,
-            create_events=True
+            sync_type="incremental", incremental_period_months=3, create_events=True
         )
 
         # Act
@@ -220,7 +230,9 @@ class TestSyncIntegration:
 
         # Should detect insertions (new deal + items) and updates (existing deal changed)
         assert result.change_detection_result.insertion_count > 0
-        assert result.change_detection_result.update_count >= 0  # May be 0 if no actual updates detected
+        assert (
+            result.change_detection_result.update_count >= 0
+        )  # May be 0 if no actual updates detected
 
         # Verify change detection performance
         assert result.summary.change_detection_duration_seconds > 0
@@ -228,19 +240,13 @@ class TestSyncIntegration:
         # Clean up
         Path(sample_excel_file).unlink()
 
-    async def test_sync_with_parsing_errors(
-        self,
-        sync_orchestrator,
-        mock_sync_session_repository
-    ):
+    async def test_sync_with_parsing_errors(self, sync_orchestrator, mock_sync_session_repository):
         """Test sync with file that causes parsing errors."""
         # Arrange - use non-existent file
         non_existent_file = "non_existent_file.xlsx"
 
         config = SyncConfiguration(
-            sync_type="full",
-            continue_on_errors=True,
-            rollback_on_failure=False
+            sync_type="full", continue_on_errors=True, rollback_on_failure=False
         )
 
         # Act
@@ -256,10 +262,7 @@ class TestSyncIntegration:
         assert mock_sync_session_repository.save.call_count >= 1
 
     async def test_concurrent_sync_prevention(
-        self,
-        sync_orchestrator,
-        mock_sync_session_repository,
-        sample_excel_file
+        self, sync_orchestrator, mock_sync_session_repository, sample_excel_file
     ):
         """Test prevention of concurrent sync sessions."""
         # Arrange - simulate running session
@@ -278,10 +281,7 @@ class TestSyncIntegration:
         Path(sample_excel_file).unlink()
 
     async def test_sync_session_lifecycle(
-        self,
-        sync_orchestrator,
-        mock_sync_session_repository,
-        sample_excel_file
+        self, sync_orchestrator, mock_sync_session_repository, sample_excel_file
     ):
         """Test complete sync session lifecycle."""
         # Arrange
@@ -304,7 +304,10 @@ class TestSyncIntegration:
         created_session = saved_sessions[0]
         assert created_session.sync_type == SyncType.FULL
         assert created_session.source_file_path == sample_excel_file
-        assert created_session.status in [Status.PENDING, Status.COMPLETED]  # Can be either during fast execution
+        assert created_session.status in [
+            Status.PENDING,
+            Status.COMPLETED,
+        ]  # Can be either during fast execution
         assert created_session.started_at is not None
 
         # Check session completion
@@ -316,17 +319,11 @@ class TestSyncIntegration:
         Path(sample_excel_file).unlink()
 
     async def test_event_creation_structure(
-        self,
-        sync_orchestrator,
-        mock_event_store,
-        sample_excel_file
+        self, sync_orchestrator, mock_event_store, sample_excel_file
     ):
         """Test structure and content of created events."""
         # Arrange
-        config = SyncConfiguration(
-            sync_type="full",
-            create_events=True
-        )
+        config = SyncConfiguration(sync_type="full", create_events=True)
 
         # Act
         await sync_orchestrator.execute_sync(sample_excel_file, config)
@@ -357,20 +354,12 @@ class TestSyncIntegration:
         # Clean up
         Path(sample_excel_file).unlink()
 
-    async def test_change_detection_accuracy(
-        self,
-        change_detector,
-        mock_deal_repository
-    ):
+    async def test_change_detection_accuracy(self, change_detector, mock_deal_repository):
         """Test accuracy of change detection algorithms."""
         # Arrange - create Excel deals
         period = Period(month="Январь", year="2024", full_name="Январь 2024")
 
-        excel_deal = Deal(
-            client_name="Тестовый клиент",
-            invoice_info="Счет 001",
-            period=period
-        )
+        excel_deal = Deal(client_name="Тестовый клиент", invoice_info="Счет 001", period=period)
         excel_deal.seller = "Продавец 1"
         excel_deal.total_revenue = Money(amount=Decimal("100000.00"))
 
@@ -380,11 +369,7 @@ class TestSyncIntegration:
         excel_deal.add_item(item)
 
         # Create slightly different DB deal
-        db_deal = Deal(
-            client_name="Тестовый клиент",
-            invoice_info="Счет 001",
-            period=period
-        )
+        db_deal = Deal(client_name="Тестовый клиент", invoice_info="Счет 001", period=period)
         db_deal.id = excel_deal.id
         # Don't set deal_key directly - it's computed from other fields
         db_deal.seller = excel_deal.seller  # Keep same seller to maintain same deal_key
@@ -421,17 +406,10 @@ class TestSyncIntegration:
         item_change = item_changes[0]
         assert "quantity" in item_change.field_changes
 
-    async def test_performance_metrics_integration(
-        self,
-        sync_orchestrator,
-        sample_excel_file
-    ):
+    async def test_performance_metrics_integration(self, sync_orchestrator, sample_excel_file):
         """Test performance metrics collection across all sync phases."""
         # Arrange
-        config = SyncConfiguration(
-            sync_type="incremental",
-            enable_metrics=True
-        )
+        config = SyncConfiguration(sync_type="incremental", enable_metrics=True)
 
         # Act
         result = await sync_orchestrator.execute_sync(sample_excel_file, config)
@@ -457,30 +435,20 @@ class TestSyncIntegration:
         # Clean up
         Path(sample_excel_file).unlink()
 
-    async def test_error_propagation_integration(
-        self,
-        sync_orchestrator,
-        mock_event_store
-    ):
+    async def test_error_propagation_integration(self, sync_orchestrator, mock_event_store):
         """Test error propagation through the sync pipeline."""
         # Arrange - simulate event store error
         mock_event_store.append_events.side_effect = Exception("Event store error")
 
         config = SyncConfiguration(
-            sync_type="full",
-            continue_on_errors=True,
-            rollback_on_failure=False
+            sync_type="full", continue_on_errors=True, rollback_on_failure=False
         )
 
         # Create a simple valid Excel file
-        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp_file:
-            df = pd.DataFrame({
-                'Клиент': ['Тест'],
-                'Счет': ['001'],
-                'Выручка': [1000]
-            })
-            with pd.ExcelWriter(tmp_file.name, engine='openpyxl') as writer:
-                df.to_excel(writer, sheet_name='Январь 2024', index=False)
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_file:
+            df = pd.DataFrame({"Клиент": ["Тест"], "Счет": ["001"], "Выручка": [1000]})
+            with pd.ExcelWriter(tmp_file.name, engine="openpyxl") as writer:
+                df.to_excel(writer, sheet_name="Январь 2024", index=False)
 
             # Act
             result = await sync_orchestrator.execute_sync(tmp_file.name, config)
@@ -502,10 +470,7 @@ class TestSyncIntegration:
                 pass
 
     async def test_sync_history_integration(
-        self,
-        sync_orchestrator,
-        mock_sync_session_repository,
-        sample_excel_file
+        self, sync_orchestrator, mock_sync_session_repository, sample_excel_file
     ):
         """Test sync history tracking integration."""
         # Arrange
@@ -527,11 +492,7 @@ class TestSyncIntegration:
         # Clean up
         Path(sample_excel_file).unlink()
 
-    async def test_running_session_detection(
-        self,
-        sync_orchestrator,
-        mock_sync_session_repository
-    ):
+    async def test_running_session_detection(self, sync_orchestrator, mock_sync_session_repository):
         """Test running session detection integration."""
         # Arrange
         running_session = SyncSession(sync_type=SyncType.INCREMENTAL, file_path="running.xlsx")

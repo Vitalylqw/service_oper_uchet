@@ -43,8 +43,7 @@ class EntityChange(BaseModel):
 
     # Change details
     field_changes: dict[str, dict[str, Any]] = Field(
-        default_factory=dict,
-        description="Map of field_name -> {old_value, new_value}"
+        default_factory=dict, description="Map of field_name -> {old_value, new_value}"
     )
 
     # Entity data
@@ -85,22 +84,23 @@ class ChangeDetectionResult(BaseModel):
 
     # Changes by type
     insertions: list[EntityChange] = Field(
-        default_factory=list,
-        description="New entities to insert"
+        default_factory=list, description="New entities to insert"
     )
     updates: list[EntityChange] = Field(
-        default_factory=list,
-        description="Existing entities to update"
+        default_factory=list, description="Existing entities to update"
     )
     deletions: list[EntityChange] = Field(
-        default_factory=list,
-        description="Entities to delete (soft delete)"
+        default_factory=list, description="Entities to delete (soft delete)"
     )
 
     # Performance metrics
     comparison_duration_seconds: float = Field(default=0.0, description="Time taken for comparison")
-    hash_comparison_count: int = Field(default=0, description="Number of hash comparisons performed")
-    detailed_comparison_count: int = Field(default=0, description="Number of detailed comparisons performed")
+    hash_comparison_count: int = Field(
+        default=0, description="Number of hash comparisons performed"
+    )
+    detailed_comparison_count: int = Field(
+        default=0, description="Number of detailed comparisons performed"
+    )
 
     @property
     def total_changes(self) -> int:
@@ -172,7 +172,7 @@ class ChangeDetectionResult(BaseModel):
                 "duration_seconds": self.comparison_duration_seconds,
                 "hash_comparisons": self.hash_comparison_count,
                 "detailed_comparisons": self.detailed_comparison_count,
-            }
+            },
         }
 
 
@@ -184,8 +184,7 @@ class HashComparisonCache(BaseModel):
     """
 
     entity_hashes: dict[str, str] = Field(
-        default_factory=dict,
-        description="Map of entity_key -> hash_value"
+        default_factory=dict, description="Map of entity_key -> hash_value"
     )
 
     def get_hash(self, entity_key: str) -> str | None:

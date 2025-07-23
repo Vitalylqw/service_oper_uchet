@@ -64,9 +64,7 @@ class TestFileSystemConfig:
         """Test full source URL generation for different protocols."""
         # Test local protocol
         config = FileSystemConfig(
-            protocol="local",
-            local_source_directory="data/input",
-            source_filename="test.xlsx"
+            protocol="local", local_source_directory="data/input", source_filename="test.xlsx"
         )
         expected = str(Path("data/input/test.xlsx"))
         assert config.full_source_url == expected
@@ -76,7 +74,7 @@ class TestFileSystemConfig:
             protocol="http",
             source_host="example.com",
             source_path="files",
-            source_filename="data.xlsx"
+            source_filename="data.xlsx",
         )
         assert config.full_source_url == "http://example.com/files/data.xlsx"
 
@@ -87,7 +85,7 @@ class TestFileSystemConfig:
             source_path="uploads",
             source_filename="data.xlsx",
             username="user",
-            password="pass"
+            password="pass",
         )
         assert config.full_source_url == "ftp://user:pass@ftp.example.com/uploads/data.xlsx"
 
@@ -96,7 +94,7 @@ class TestFileSystemConfig:
         config = FileSystemConfig(
             local_destination_directory="downloads",
             backup_directory="backups",
-            source_filename="test.xlsx"
+            source_filename="test.xlsx",
         )
 
         assert config.destination_file_path == Path("downloads/test.xlsx")
@@ -115,7 +113,7 @@ class TestFileSystemConfig:
             source_host="server.local",
             username="admin",
             password="secret",
-            domain="WORKGROUP"
+            domain="WORKGROUP",
         )
 
         params = config.get_connection_params()
@@ -151,8 +149,8 @@ class TestFileSystemModels:
         """Test FileInfo model creation."""
         file_info = FileInfo(
             path="/tmp/test.xlsx",
-            size_bytes=1024*1024,  # 1MB
-            modified_time=datetime.now()
+            size_bytes=1024 * 1024,  # 1MB
+            modified_time=datetime.now(),
         )
 
         assert file_info.path == "/tmp/test.xlsx"
@@ -170,7 +168,7 @@ class TestFileSystemModels:
             destination_path="/tmp/file.xlsx",
             change_type=FileChangeType.MODIFIED,
             has_changes=True,
-            success=True
+            success=True,
         )
 
         assert result.is_finished is True
@@ -190,7 +188,7 @@ class TestFileSystemModels:
             min_size_bytes=100,
             max_size_bytes=2048,
             file_extension=".xlsx",
-            allowed_extensions=[".xlsx", ".xls"]
+            allowed_extensions=[".xlsx", ".xls"],
         )
 
         assert result.has_errors is False
@@ -202,11 +200,7 @@ class TestFileSystemModels:
 
     def test_monitoring_state(self):
         """Test FileMonitoringState model."""
-        state = FileMonitoringState(
-            is_active=True,
-            health_status="healthy",
-            consecutive_failures=0
-        )
+        state = FileMonitoringState(is_active=True, health_status="healthy", consecutive_failures=0)
 
         assert state.is_healthy is True
         assert state.has_active_jobs is False
@@ -223,7 +217,7 @@ class TestFileSystemModels:
             supports_encryption=True,
             supports_resume=False,
             supports_directory_listing=False,
-            supports_file_metadata=True
+            supports_file_metadata=True,
         )
 
         assert caps.protocol_name == "HTTP"
@@ -251,7 +245,7 @@ class TestFileSystemService:
             enable_file_monitoring=True,
             monitoring_interval_seconds=1,  # Fast for testing
             enable_file_backup=True,
-            max_retry_attempts=2
+            max_retry_attempts=2,
         )
 
     @pytest.fixture
@@ -265,6 +259,7 @@ class TestFileSystemService:
         test_file_path = Path(temp_dir) / "test.xlsx"
         # Create simple Excel file
         import pandas as pd
+
         df = pd.DataFrame({"col1": [1, 2, 3], "col2": ["a", "b", "c"]})
         df.to_excel(test_file_path, index=False)
         return test_file_path
@@ -327,6 +322,7 @@ class TestFileSystemService:
 
         # Modify file size
         import pandas as pd
+
         df = pd.DataFrame({"col1": [1, 2, 3, 4, 5], "col2": ["a", "b", "c", "d", "e"]})
         df.to_excel(test_file, index=False)
 
@@ -379,6 +375,7 @@ class TestFileSystemService:
         """Test file validation."""
         # Copy test file to destination
         import shutil
+
         dest_path = file_system_service.config.destination_file_path
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(test_file, dest_path)
@@ -479,7 +476,7 @@ class TestFileSystemHTTP:
             source_path="base64",
             source_filename="test.txt",
             local_destination_directory="data/downloads",
-            max_retry_attempts=1
+            max_retry_attempts=1,
         )
 
     @pytest.fixture
@@ -491,11 +488,11 @@ class TestFileSystemHTTP:
     async def test_http_file_info_retrieval(self, http_service):
         """Test HTTP file info retrieval using HEAD request."""
         # Mock the actual HTTP HEAD request method
-        with patch.object(http_service, '_get_http_file_info') as mock_method:
+        with patch.object(http_service, "_get_http_file_info") as mock_method:
             mock_file_info = FileInfo(
                 path="http://httpbin.org/base64/test.txt",
                 size_bytes=1024,
-                modified_time=datetime.now()
+                modified_time=datetime.now(),
             )
             mock_method.return_value = mock_file_info
 
@@ -508,14 +505,14 @@ class TestFileSystemHTTP:
     async def test_http_download(self, http_service):
         """Test HTTP file download."""
         # Mock the actual HTTP download method
-        with patch.object(http_service, '_download_http_file') as mock_method:
+        with patch.object(http_service, "_download_http_file") as mock_method:
             result = FileRetrievalResult(
                 operation_id="test",
                 status=FileOperationStatus.DOWNLOADING,
                 started_at=datetime.now(),
                 source_url="http://example.com/test.txt",
                 destination_path="/tmp/test.txt",
-                change_type=FileChangeType.NEW_FILE
+                change_type=FileChangeType.NEW_FILE,
             )
 
             # Mock successful download
@@ -540,6 +537,7 @@ class TestFileSystemIntegration:
             # Create test file
             source_file = Path(temp_dir) / "source.xlsx"
             import pandas as pd
+
             df = pd.DataFrame({"data": [1, 2, 3]})
             df.to_excel(source_file, index=False)
 
@@ -551,7 +549,7 @@ class TestFileSystemIntegration:
                 backup_directory=f"{temp_dir}/backup",
                 source_filename="source.xlsx",
                 enable_file_backup=True,
-                enable_file_monitoring=False  # Disable for test
+                enable_file_monitoring=False,  # Disable for test
             )
 
             service = FileSystemService(config)

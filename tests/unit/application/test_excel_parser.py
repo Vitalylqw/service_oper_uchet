@@ -24,9 +24,7 @@ class TestExcelParserService:
     def sample_sync_session(self):
         """Create sample sync session."""
         return SyncSession(
-            sync_type=SyncType.FULL,
-            source_file_path="test_file.xlsx",
-            created_by="test_user"
+            sync_type=SyncType.FULL, source_file_path="test_file.xlsx", created_by="test_user"
         )
 
     @pytest.fixture
@@ -34,31 +32,40 @@ class TestExcelParserService:
         """Create test Excel file with sample data."""
         # Create test data
         data = {
-            'Клиент': ['ООО "Тест"', None, None, 'ИП Иванов', None],
-            'Номенклатуры': ['12345 от 01.05.2025', 'Товар 1', 'Товар 2', '67890 от 02.05.2025', 'Товар 3'],
-            'Кол/Отгр': ['да', '10', '5', 'нет', '15'],
-            'Цена вх/накл': ['УПД-001', '100.50', '200.75', 'УПД-002', '150.00'],
-            'цена исх/Оплач?': ['да', '150.00', '250.00', 'нет', '200.00'],
-            'Выручка': [2000.00, 1500.00, 1250.00, 3000.00, 3000.00],
-            'Маржа': [600.00, 495.00, 231.25, 750.00, 750.00],
-            'От кого Зак/Прод': ['Продавец1', None, None, 'Продавец2', None],
-            'Ст. Закупки': [1400.00, 1005.00, 1018.75, 2250.00, 2250.00],
-            'Поставщик/Откат': [0, 'Поставщик1', 'Поставщик2', 0, 'Поставщик3'],
-            'Дата': [None, '15', 'Июнь', None, '20']
+            "Клиент": ['ООО "Тест"', None, None, "ИП Иванов", None],
+            "Номенклатуры": [
+                "12345 от 01.05.2025",
+                "Товар 1",
+                "Товар 2",
+                "67890 от 02.05.2025",
+                "Товар 3",
+            ],
+            "Кол/Отгр": ["да", "10", "5", "нет", "15"],
+            "Цена вх/накл": ["УПД-001", "100.50", "200.75", "УПД-002", "150.00"],
+            "цена исх/Оплач?": ["да", "150.00", "250.00", "нет", "200.00"],
+            "Выручка": [2000.00, 1500.00, 1250.00, 3000.00, 3000.00],
+            "Маржа": [600.00, 495.00, 231.25, 750.00, 750.00],
+            "От кого Зак/Прод": ["Продавец1", None, None, "Продавец2", None],
+            "Ст. Закупки": [1400.00, 1005.00, 1018.75, 2250.00, 2250.00],
+            "Поставщик/Откат": [0, "Поставщик1", "Поставщик2", 0, "Поставщик3"],
+            "Дата": [None, "15", "Июнь", None, "20"],
         }
 
         df = pd.DataFrame(data)
 
         # Create Excel file
         excel_file = tmp_path / "test_data.xlsx"
-        with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
-            df.to_excel(writer, sheet_name='Май 2025', index=False, header=False)
+        with pd.ExcelWriter(excel_file, engine="openpyxl") as writer:
+            df.to_excel(writer, sheet_name="Май 2025", index=False, header=False)
             # Add header row at row 1 (0-indexed)
-            df_with_header = pd.concat([
-                pd.DataFrame([data.keys()]),  # Header row
-                df
-            ], ignore_index=True)
-            df_with_header.to_excel(writer, sheet_name='Май 2025', index=False, header=False)
+            df_with_header = pd.concat(
+                [
+                    pd.DataFrame([data.keys()]),  # Header row
+                    df,
+                ],
+                ignore_index=True,
+            )
+            df_with_header.to_excel(writer, sheet_name="Май 2025", index=False, header=False)
 
         return str(excel_file)
 
@@ -157,7 +164,7 @@ class TestExcelParserService:
             "col_6": 500.00,
             "col_7": "Продавец",
             "col_8": 1000.00,
-            "col_9": 0
+            "col_9": 0,
         }
 
         row = pd.Series(row_data)
@@ -187,7 +194,7 @@ class TestExcelParserService:
             "col_7": "",
             "col_8": 1050.00,
             "col_9": "Поставщик Тест",
-            "col_10": 15
+            "col_10": 15,
         }
 
         row = pd.Series(row_data)
@@ -209,7 +216,7 @@ class TestExcelParserService:
         row_data = {
             "col_0": "",
             "col_1": "",  # Empty product name
-            "col_2": 10
+            "col_2": 10,
         }
 
         row = pd.Series(row_data)
@@ -225,7 +232,7 @@ class TestExcelParserService:
         data = [
             ["", "", ""],
             ["Клиент", "Товар", "Цена"],  # Header row
-            ["Test", "Item", "100"]
+            ["Test", "Item", "100"],
         ]
         df = pd.DataFrame(data)
 
@@ -235,10 +242,7 @@ class TestExcelParserService:
     def test_find_header_row_not_found(self, parser_service):
         """Test header row detection when not found."""
         # Create test DataFrame without "Клиент" column
-        data = [
-            ["Test", "Item", "Price"],
-            ["Value1", "Value2", "Value3"]
-        ]
+        data = [["Test", "Item", "Price"], ["Value1", "Value2", "Value3"]]
         df = pd.DataFrame(data)
 
         header_row = parser_service._find_header_row(df)
@@ -260,6 +264,7 @@ class TestParseResult:
 
         # Add items to deals
         from src.domain.models import DealItem
+
         deal1.add_item(DealItem(product_name="Item 1"))
         deal1.add_item(DealItem(product_name="Item 2"))
         deal2.add_item(DealItem(product_name="Item 3"))
@@ -274,7 +279,7 @@ class TestParseResult:
             sync_session=sample_sync_session,
             file_path="test.xlsx",
             file_size=1024,
-            file_hash="abc123"
+            file_hash="abc123",
         )
 
         assert result.total_deals == 2
@@ -301,7 +306,7 @@ class TestParseResult:
             sync_session=sample_sync_session,
             file_path="test.xlsx",
             file_size=1024,
-            file_hash="abc123"
+            file_hash="abc123",
         )
 
         # Test period filter

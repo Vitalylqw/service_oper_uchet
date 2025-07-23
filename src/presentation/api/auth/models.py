@@ -15,9 +15,9 @@ from pydantic import BaseModel, EmailStr, Field
 class UserRole(str, Enum):
     """User roles for RBAC."""
 
-    ADMIN = "admin"      # Full access to all operations
+    ADMIN = "admin"  # Full access to all operations
     ANALYST = "analyst"  # Read access + some analytics features
-    VIEWER = "viewer"    # Read-only access
+    VIEWER = "viewer"  # Read-only access
 
 
 class User(BaseModel):

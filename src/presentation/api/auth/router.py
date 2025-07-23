@@ -71,7 +71,7 @@ async def login(login_data: LoginRequest) -> TokenResponse:
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
-        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
 
 
@@ -89,8 +89,7 @@ async def refresh_token(refresh_data: TokenRefreshRequest) -> TokenResponse:
     # TODO: Implement refresh token validation and rotation
     # This would involve validating the refresh token and issuing new tokens
     raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Token refresh not implemented yet"
+        status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Token refresh not implemented yet"
     )
 
 
@@ -110,8 +109,7 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)) 
 
 @auth_router.post("/change-password")
 async def change_password(
-    password_data: PasswordChangeRequest,
-    current_user: User = Depends(get_current_user)
+    password_data: PasswordChangeRequest, current_user: User = Depends(get_current_user)
 ) -> dict[str, str]:
     """
     Change current user password.
@@ -134,10 +132,7 @@ async def change_password(
 
 
 @auth_router.post("/users", response_model=User)
-async def create_user(
-    user_data: UserCreate,
-    current_user: User = Depends(require_admin)
-) -> User:
+async def create_user(user_data: UserCreate, current_user: User = Depends(require_admin)) -> User:
     """
     Create new user (admin only).
 
@@ -162,14 +157,12 @@ async def create_user(
         email=user_data.email,
         full_name=user_data.full_name,
         role=user_data.role,
-        created_at=current_user.created_at
+        created_at=current_user.created_at,
     )
 
 
 @auth_router.get("/users", response_model=list[User])
-async def list_users(
-    current_user: User = Depends(require_admin)
-) -> list[User]:
+async def list_users(current_user: User = Depends(require_admin)) -> list[User]:
     """
     List all users (admin only).
 
@@ -188,7 +181,7 @@ async def list_users(
             email="admin@example.com",
             full_name="System Administrator",
             role=UserRole.ADMIN,
-            created_at=current_user.created_at
+            created_at=current_user.created_at,
         ),
         User(
             id=2,
@@ -196,16 +189,14 @@ async def list_users(
             email="analyst@example.com",
             full_name="Data Analyst",
             role=UserRole.ANALYST,
-            created_at=current_user.created_at
-        )
+            created_at=current_user.created_at,
+        ),
     ]
 
 
 @auth_router.put("/users/{user_id}", response_model=User)
 async def update_user(
-    user_id: int,
-    user_data: UserUpdate,
-    current_user: User = Depends(require_admin)
+    user_id: int, user_data: UserUpdate, current_user: User = Depends(require_admin)
 ) -> User:
     """
     Update user (admin only).
@@ -229,15 +220,12 @@ async def update_user(
         full_name=user_data.full_name or "Updated User",
         role=user_data.role or UserRole.VIEWER,
         is_active=user_data.is_active if user_data.is_active is not None else True,
-        created_at=current_user.created_at
+        created_at=current_user.created_at,
     )
 
 
 @auth_router.delete("/users/{user_id}")
-async def delete_user(
-    user_id: int,
-    current_user: User = Depends(require_admin)
-) -> dict[str, str]:
+async def delete_user(user_id: int, current_user: User = Depends(require_admin)) -> dict[str, str]:
     """
     Delete user (admin only).
 

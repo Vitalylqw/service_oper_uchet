@@ -276,4 +276,19 @@ temp/
 tmp/
 processing/
 backup/
-*.backup 
+*.backup
+
+# Node.js / React
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.eslintcache
+.stylelintcache
+build/
+dist/
+*.tsbuildinfo
+.turbo
+package-lock.json
+yarn.lock 

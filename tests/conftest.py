@@ -14,11 +14,7 @@ from src.domain.value_objects import Money, Period, Status
 @pytest.fixture
 def sample_period() -> Period:
     """Sample period for tests."""
-    return Period(
-        month="Май",
-        year="2025",
-        full_name="Май 2025"
-    )
+    return Period(month="Май", year="2025", full_name="Май 2025")
 
 
 @pytest.fixture
@@ -36,7 +32,7 @@ def sample_deal_item() -> DealItem:
         quantity=Decimal("10.5"),
         purchase_price=Money(amount=Decimal("100.00")),
         sale_price=Money(amount=Decimal("150.00")),
-        pickup_date="15"
+        pickup_date="15",
     )
 
 
@@ -51,7 +47,7 @@ def sample_deal(sample_period: Period) -> Deal:
         seller="Тестовый продавец",
         is_shipped=Status.SHIPPED,
         is_paid=Status.PAID,
-        period=sample_period
+        period=sample_period,
     )
 
 
@@ -62,5 +58,5 @@ def sample_sync_session() -> SyncSession:
         sync_type=SyncType.FULL,
         source_file_path="test_file.xlsx",
         source_file_hash="abc123",
-        created_by="test_user"
+        created_by="test_user",
     )

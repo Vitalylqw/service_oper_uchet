@@ -39,7 +39,7 @@ class SyncOrchestratorService:
         excel_parser: ExcelParserService,
         change_detector: ChangeDetectorService,
         event_store: EventStore,
-        sync_session_repository: SyncSessionRepository
+        sync_session_repository: SyncSessionRepository,
     ) -> None:
         """Initialize orchestrator with required services."""
         self.excel_parser = excel_parser
@@ -47,11 +47,7 @@ class SyncOrchestratorService:
         self.event_store = event_store
         self.sync_session_repository = sync_session_repository
 
-    async def execute_sync(
-        self,
-        file_path: str,
-        config: SyncConfiguration
-    ) -> SyncResult:
+    async def execute_sync(self, file_path: str, config: SyncConfiguration) -> SyncResult:
         """
         Execute complete synchronization process.
 
@@ -82,7 +78,7 @@ class SyncOrchestratorService:
                 started_at=datetime.now(),
                 file_path=file_path,
                 file_hash="",  # Will be set during parsing
-            )
+            ),
         )
 
         try:
@@ -98,11 +94,15 @@ class SyncOrchestratorService:
             result.summary.parsing_duration_seconds = time.time() - parse_start
 
             if result.parse_result.has_errors:
-                result.add_warning(f"Parsing completed with {len(result.parse_result.stats.errors)} errors")
+                result.add_warning(
+                    f"Parsing completed with {len(result.parse_result.stats.errors)} errors"
+                )
 
-            logger.info(f"✅ Parsing completed: {result.parse_result.total_deals} deals, "
-                       f"{result.parse_result.total_items} items in "
-                       f"{result.summary.parsing_duration_seconds:.2f}s")
+            logger.info(
+                f"✅ Parsing completed: {result.parse_result.total_deals} deals, "
+                f"{result.parse_result.total_items} items in "
+                f"{result.summary.parsing_duration_seconds:.2f}s"
+            )
 
             # Phase 2: Detect changes
             if config.sync_type == "incremental":
@@ -110,8 +110,7 @@ class SyncOrchestratorService:
                 change_start = time.time()
 
                 result.change_detection_result = await self.change_detector.detect_changes(
-                    result.parse_result.deals,
-                    config.incremental_period_months
+                    result.parse_result.deals, config.incremental_period_months
                 )
 
                 result.summary.insertions_count = result.change_detection_result.insertion_count
@@ -119,8 +118,10 @@ class SyncOrchestratorService:
                 result.summary.deletions_count = result.change_detection_result.deletion_count
                 result.summary.change_detection_duration_seconds = time.time() - change_start
 
-                logger.info(f"✅ Change detection completed: {result.change_detection_result.total_changes} changes "
-                           f"in {result.summary.change_detection_duration_seconds:.2f}s")
+                logger.info(
+                    f"✅ Change detection completed: {result.change_detection_result.total_changes} changes "
+                    f"in {result.summary.change_detection_duration_seconds:.2f}s"
+                )
             else:
                 # Full sync - all data is considered new
                 logger.info("🔍 Phase 2: Full sync - treating all data as new")
@@ -134,8 +135,10 @@ class SyncOrchestratorService:
             await self._apply_changes_to_database(result, config)
             result.summary.database_update_duration_seconds = time.time() - db_start
 
-            logger.info(f"✅ Database update completed in "
-                       f"{result.summary.database_update_duration_seconds:.2f}s")
+            logger.info(
+                f"✅ Database update completed in "
+                f"{result.summary.database_update_duration_seconds:.2f}s"
+            )
 
             # Complete session successfully
             await self._complete_sync_session(sync_session, True)
@@ -145,8 +148,10 @@ class SyncOrchestratorService:
             result.summary.finished_at = datetime.now()
             result.summary.duration_seconds = time.time() - start_time
 
-            logger.info(f"🎉 Sync session {session_id} completed successfully in "
-                       f"{result.summary.duration_seconds:.2f}s")
+            logger.info(
+                f"🎉 Sync session {session_id} completed successfully in "
+                f"{result.summary.duration_seconds:.2f}s"
+            )
 
             return result
 
@@ -171,10 +176,7 @@ class SyncOrchestratorService:
             return result
 
     async def _create_sync_session(
-        self,
-        session_id: str,
-        file_path: str,
-        config: SyncConfiguration
+        self, session_id: str, file_path: str, config: SyncConfiguration
     ) -> SyncSession:
         """Create and save new sync session."""
         try:
@@ -201,10 +203,7 @@ class SyncOrchestratorService:
             raise
 
     async def _complete_sync_session(
-        self,
-        sync_session: SyncSession,
-        success: bool,
-        error_message: str | None = None
+        self, sync_session: SyncSession, success: bool, error_message: str | None = None
     ) -> None:
         """Complete sync session with result."""
         try:
@@ -221,9 +220,7 @@ class SyncOrchestratorService:
             # Don't re-raise - session completion failure shouldn't fail the whole sync
 
     async def _apply_changes_to_database(
-        self,
-        result: SyncResult,
-        config: SyncConfiguration
+        self, result: SyncResult, config: SyncConfiguration
     ) -> None:
         """Apply detected changes to database through events."""
         try:
@@ -287,17 +284,37 @@ class SyncOrchestratorService:
                     "upd_number": deal.upd_number,
                     "seller": deal.seller,
                     "totals": {
-                        "revenue": {"amount": str(deal.total_revenue.amount), "currency": deal.total_revenue.currency} if deal.total_revenue else None,
-                        "margin": {"amount": str(deal.total_margin.amount), "currency": deal.total_margin.currency} if deal.total_margin else None,
-                        "cost": {"amount": str(deal.total_cost.amount), "currency": deal.total_cost.currency} if deal.total_cost else None,
-                        "kickback": {"amount": str(deal.kickback_amount.amount), "currency": deal.kickback_amount.currency} if deal.kickback_amount else None,
-                    }
+                        "revenue": {
+                            "amount": str(deal.total_revenue.amount),
+                            "currency": deal.total_revenue.currency,
+                        }
+                        if deal.total_revenue
+                        else None,
+                        "margin": {
+                            "amount": str(deal.total_margin.amount),
+                            "currency": deal.total_margin.currency,
+                        }
+                        if deal.total_margin
+                        else None,
+                        "cost": {
+                            "amount": str(deal.total_cost.amount),
+                            "currency": deal.total_cost.currency,
+                        }
+                        if deal.total_cost
+                        else None,
+                        "kickback": {
+                            "amount": str(deal.kickback_amount.amount),
+                            "currency": deal.kickback_amount.currency,
+                        }
+                        if deal.kickback_amount
+                        else None,
+                    },
                 },
                 "metadata": {
                     "sync_session_id": result.sync_session_id,
                     "sync_type": result.sync_type,
                     "source": "excel_sync",
-                }
+                },
             }
             events.append(deal_event)
 
@@ -314,18 +331,43 @@ class SyncOrchestratorService:
                         "pickup_date": item.pickup_date,
                         "quantity": str(item.quantity) if item.quantity else None,
                         "prices": {
-                            "purchase": {"amount": str(item.purchase_price.amount), "currency": item.purchase_price.currency} if item.purchase_price else None,
-                            "sale": {"amount": str(item.sale_price.amount), "currency": item.sale_price.currency} if item.sale_price else None,
-                            "revenue": {"amount": str(item.revenue.amount), "currency": item.revenue.currency} if item.revenue else None,
-                            "margin": {"amount": str(item.margin.amount), "currency": item.margin.currency} if item.margin else None,
-                            "cost": {"amount": str(item.cost.amount), "currency": item.cost.currency} if item.cost else None,
-                        }
+                            "purchase": {
+                                "amount": str(item.purchase_price.amount),
+                                "currency": item.purchase_price.currency,
+                            }
+                            if item.purchase_price
+                            else None,
+                            "sale": {
+                                "amount": str(item.sale_price.amount),
+                                "currency": item.sale_price.currency,
+                            }
+                            if item.sale_price
+                            else None,
+                            "revenue": {
+                                "amount": str(item.revenue.amount),
+                                "currency": item.revenue.currency,
+                            }
+                            if item.revenue
+                            else None,
+                            "margin": {
+                                "amount": str(item.margin.amount),
+                                "currency": item.margin.currency,
+                            }
+                            if item.margin
+                            else None,
+                            "cost": {
+                                "amount": str(item.cost.amount),
+                                "currency": item.cost.currency,
+                            }
+                            if item.cost
+                            else None,
+                        },
                     },
                     "metadata": {
                         "sync_session_id": result.sync_session_id,
                         "sync_type": result.sync_type,
                         "source": "excel_sync",
-                    }
+                    },
                 }
                 events.append(item_event)
 
@@ -357,7 +399,7 @@ class SyncOrchestratorService:
                         "sync_type": result.sync_type,
                         "change_type": "INSERT",
                         "source": "excel_sync",
-                    }
+                    },
                 }
                 events.append(event)
 
@@ -379,7 +421,7 @@ class SyncOrchestratorService:
                         "sync_type": result.sync_type,
                         "change_type": "UPDATE",
                         "source": "excel_sync",
-                    }
+                    },
                 }
                 events.append(event)
 
@@ -400,7 +442,7 @@ class SyncOrchestratorService:
                         "sync_type": result.sync_type,
                         "change_type": "DELETE",
                         "source": "excel_sync",
-                    }
+                    },
                 }
                 events.append(event)
 

@@ -110,7 +110,9 @@ class FileRetrievalResult(BaseModel):
     # Change detection
     change_type: FileChangeType = Field(..., description="Type of change detected")
     has_changes: bool = Field(default=False, description="Whether file has changes")
-    change_details: dict[str, Any] = Field(default_factory=dict, description="Detailed change information")
+    change_details: dict[str, Any] = Field(
+        default_factory=dict, description="Detailed change information"
+    )
 
     # Transfer metrics
     bytes_transferred: int = Field(default=0, description="Bytes transferred")
@@ -123,7 +125,9 @@ class FileRetrievalResult(BaseModel):
     # Error information
     success: bool = Field(default=False, description="Whether operation succeeded")
     error_message: str | None = Field(None, description="Error message if failed")
-    error_details: dict[str, Any] = Field(default_factory=dict, description="Detailed error information")
+    error_details: dict[str, Any] = Field(
+        default_factory=dict, description="Detailed error information"
+    )
 
     # Retry information
     attempt_number: int = Field(default=1, description="Current attempt number")
@@ -141,17 +145,13 @@ class FileRetrievalResult(BaseModel):
         return self.status in {
             FileOperationStatus.COMPLETED,
             FileOperationStatus.FAILED,
-            FileOperationStatus.SKIPPED
+            FileOperationStatus.SKIPPED,
         }
 
     @property
     def requires_sync(self) -> bool:
         """Check if file changes require synchronization."""
-        return (
-            self.has_changes
-            and self.change_type != FileChangeType.NO_CHANGE
-            and self.success
-        )
+        return self.has_changes and self.change_type != FileChangeType.NO_CHANGE and self.success
 
 
 class FileMonitoringState(BaseModel):
@@ -185,10 +185,7 @@ class FileMonitoringState(BaseModel):
     @property
     def is_healthy(self) -> bool:
         """Check if monitoring is in healthy state."""
-        return (
-            self.health_status == "healthy"
-            and self.consecutive_failures < 3
-        )
+        return self.health_status == "healthy" and self.consecutive_failures < 3
 
     @property
     def has_active_jobs(self) -> bool:
@@ -225,12 +222,16 @@ class FileSystemMetrics(BaseModel):
     slowest_operation_seconds: float = Field(default=0.0, description="Slowest operation time")
 
     # Error analysis
-    most_common_errors: list[str] = Field(default_factory=list, description="Most common error types")
+    most_common_errors: list[str] = Field(
+        default_factory=list, description="Most common error types"
+    )
     error_rate_percent: float = Field(default=0.0, description="Error rate percentage")
 
     # Protocol-specific metrics
     protocol_usage: dict[str, int] = Field(default_factory=dict, description="Usage by protocol")
-    protocol_success_rates: dict[str, float] = Field(default_factory=dict, description="Success rates by protocol")
+    protocol_success_rates: dict[str, float] = Field(
+        default_factory=dict, description="Success rates by protocol"
+    )
 
     @computed_field
     @property
@@ -303,7 +304,9 @@ class ProtocolCapabilities(BaseModel):
     auth_methods: list[str] = Field(default_factory=list, description="Supported auth methods")
 
     # Protocol-specific features
-    features: dict[str, bool] = Field(default_factory=dict, description="Protocol-specific features")
+    features: dict[str, bool] = Field(
+        default_factory=dict, description="Protocol-specific features"
+    )
     limitations: list[str] = Field(default_factory=list, description="Known limitations")
 
     # Performance characteristics

@@ -90,7 +90,7 @@ class ExcelParserService:
                 sync_session=sync_session,
                 file_path=file_path,
                 file_size=file_info["size"],
-                file_hash=file_info["hash"]
+                file_hash=file_info["hash"],
             )
 
             logger.info(f"Parsing completed. Total deals: {len(all_deals)}")
@@ -115,13 +115,10 @@ class ExcelParserService:
             raise SyncFileError(file_path, "Path is not a file")
 
         # Calculate file hash
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             file_hash = hashlib.md5(f.read()).hexdigest()
 
-        return {
-            "size": path.stat().st_size,
-            "hash": file_hash
-        }
+        return {"size": path.stat().st_size, "hash": file_hash}
 
     def _read_excel_file(self, file_path: str) -> dict:
         """Read Excel file and return sheets data."""
@@ -151,7 +148,7 @@ class ExcelParserService:
         try:
             # Set headers and data
             df.columns = df.iloc[header_row]
-            data_df = df.iloc[header_row + 1:].reset_index(drop=True)
+            data_df = df.iloc[header_row + 1 :].reset_index(drop=True)
         except Exception as e:
             self.stats.errors.append(f"Error setting headers for sheet '{sheet_name}': {str(e)}")
             return []
@@ -226,7 +223,9 @@ class ExcelParserService:
                             error_msg = f"Error creating deal from row {row_counter}: {str(e)}"
                             self.stats.errors.append(error_msg)
                             # Create minimal deal to maintain structure
-                            current_deal = self._create_error_deal(f"ERROR_ROW_{row_counter}", period)
+                            current_deal = self._create_error_deal(
+                                f"ERROR_ROW_{row_counter}", period
+                            )
 
                     elif current_deal is not None:
                         # Detail record - item
@@ -281,8 +280,11 @@ class ExcelParserService:
                 normalized.append(f"col_{i}")
         return normalized
 
-    async def _create_deal_from_row(self, row: pd.Series, columns: list[str], period: Period) -> Deal:
+    async def _create_deal_from_row(
+        self, row: pd.Series, columns: list[str], period: Period
+    ) -> Deal:
         """Create Deal from master record row."""
+
         def safe_get(col_idx: int, default=None):
             try:
                 if col_idx < len(columns) and columns[col_idx] in row.index:
@@ -303,7 +305,7 @@ class ExcelParserService:
             invoice_info=invoice_info,
             invoice_number=invoice_number,
             invoice_date=invoice_date,
-            period=period
+            period=period,
         )
 
         # Optional fields
@@ -351,6 +353,7 @@ class ExcelParserService:
 
     async def _create_item_from_row(self, row: pd.Series, columns: list[str]) -> DealItem | None:
         """Create DealItem from detail record row."""
+
         def safe_get(col_idx: int, default=None):
             try:
                 if col_idx < len(columns) and columns[col_idx] in row.index:
@@ -424,11 +427,7 @@ class ExcelParserService:
 
     def _create_error_deal(self, client_name: str, period: Period) -> Deal:
         """Create minimal deal for error cases."""
-        return Deal(
-            client_name=client_name,
-            invoice_info="",
-            period=period
-        )
+        return Deal(client_name=client_name, invoice_info="", period=period)
 
     @staticmethod
     def _safe_string(value) -> str:
@@ -500,5 +499,7 @@ class ExcelParserService:
             for warning in self.stats.warnings[:3]:  # Show first 3
                 logger.warning(f"  - {warning}")
 
-        logger.info(f"📊 Success rates: Sheets {self.stats.success_rate_sheets:.1f}%, Deals {self.stats.success_rate_deals:.1f}%, Items {self.stats.success_rate_items:.1f}%")
+        logger.info(
+            f"📊 Success rates: Sheets {self.stats.success_rate_sheets:.1f}%, Deals {self.stats.success_rate_deals:.1f}%, Items {self.stats.success_rate_items:.1f}%"
+        )
         logger.info("=" * 80)

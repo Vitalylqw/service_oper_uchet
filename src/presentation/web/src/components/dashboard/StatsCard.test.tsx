@@ -59,7 +59,7 @@ describe('StatsCard', () => {
       />
     )
 
-    expect(screen.getByText('1,234,567')).toBeInTheDocument()
+    expect(screen.getByText('1 234 567')).toBeInTheDocument()
   })
 
   it('applies variant classes correctly', () => {

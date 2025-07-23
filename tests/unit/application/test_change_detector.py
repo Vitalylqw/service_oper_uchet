@@ -41,7 +41,7 @@ class TestChangeDetectorService:
         deal = Deal(
             client_name="Тестовый клиент 1",
             invoice_info="Счет 001 от 15.01.2024",
-            period=sample_period
+            period=sample_period,
         )
         deal.id = uuid.uuid4()
         deal.invoice_number = "001"
@@ -67,7 +67,7 @@ class TestChangeDetectorService:
         deal = Deal(
             client_name="Тестовый клиент 2",
             invoice_info="Счет 002 от 16.01.2024",
-            period=sample_period
+            period=sample_period,
         )
         deal.id = uuid.uuid4()
         deal.invoice_number = "002"
@@ -137,7 +137,7 @@ class TestChangeDetectorService:
         db_deal = Deal(
             client_name="Тестовый клиент 1",
             invoice_info="Счет 001 от 15.01.2024",
-            period=sample_period
+            period=sample_period,
         )
         db_deal.id = excel_deal.id
         # Set fields that determine deal_key to match excel_deal
@@ -220,7 +220,7 @@ class TestChangeDetectorService:
         db_deal = Deal(
             client_name=excel_deal.client_name,
             invoice_info=excel_deal.invoice_info,
-            period=sample_period
+            period=sample_period,
         )
         db_deal.id = excel_deal.id
         # Copy all deal fields exactly (no need to set deal_key as it's computed)
@@ -233,7 +233,9 @@ class TestChangeDetectorService:
         db_item.id = excel_deal.items[0].id
         db_item.quantity = Decimal("15")  # Different quantity
         db_item.sale_price = Money(amount=Decimal("12000.00"))  # Different price
-        db_item.supplier_name = excel_deal.items[0].supplier_name  # Same supplier to keep item_key identical
+        db_item.supplier_name = excel_deal.items[
+            0
+        ].supplier_name  # Same supplier to keep item_key identical
         db_item.purchase_price = Money(amount=Decimal("8000.00"))  # Different purchase price
         db_item.pickup_date = "20.01.2024"  # Different pickup date
         db_deal.add_item(db_item)
@@ -332,7 +334,7 @@ class TestChangeDetectorService:
         modified_deal = Deal(
             client_name="Измененный клиент",  # Changed
             invoice_info=sample_deal_1.invoice_info,
-            period=sample_period
+            period=sample_period,
         )
         modified_deal.id = sample_deal_1.id
         modified_deal.invoice_number = "999"  # Changed
@@ -383,9 +385,7 @@ class TestChangeDetectorService:
         assert changes["quantity"]["old_value"] == "10"
         assert changes["quantity"]["new_value"] == "15"
 
-    async def test_get_database_deals(
-        self, change_detector, mock_deal_repository, sample_deal_1
-    ):
+    async def test_get_database_deals(self, change_detector, mock_deal_repository, sample_deal_1):
         """Test getting database deals for comparison."""
         # Arrange
         excel_deals = [sample_deal_1]
@@ -429,9 +429,7 @@ class TestChangeDetectorService:
         assert "hash_cache_entities" in stats
         assert isinstance(stats["hash_cache_entities"], int)
 
-    async def test_performance_metrics(
-        self, change_detector, mock_deal_repository, sample_deal_1
-    ):
+    async def test_performance_metrics(self, change_detector, mock_deal_repository, sample_deal_1):
         """Test that performance metrics are captured."""
         # Arrange
         excel_deals = [sample_deal_1]

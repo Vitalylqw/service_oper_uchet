@@ -36,7 +36,7 @@ class HealthStatus(BaseModel):
 
 @health_router.get("/", response_model=HealthResponse)
 async def health_check(
-    health_service: MockHealthService = Depends(get_health_service)
+    health_service: MockHealthService = Depends(get_health_service),
 ) -> HealthResponse:
     """
     Basic health check endpoint.
@@ -55,8 +55,8 @@ async def health_check(
         components={
             "api": {"status": "healthy"},
             "database": db_status,
-            "auth": {"status": "healthy"}
-        }
+            "auth": {"status": "healthy"},
+        },
     )
 
 
@@ -85,7 +85,7 @@ async def liveness_check() -> dict[str, str]:
 
 @health_router.get("/metrics")
 async def get_metrics(
-    health_service: MockHealthService = Depends(get_health_service)
+    health_service: MockHealthService = Depends(get_health_service),
 ) -> dict[str, Any]:
     """
     Basic metrics endpoint.

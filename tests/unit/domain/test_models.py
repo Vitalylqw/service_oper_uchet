@@ -27,7 +27,7 @@ class TestDealItem:
             product_name="Test Product",
             quantity=Decimal("10"),
             purchase_price=Money(amount=Decimal("100")),
-            sale_price=Money(amount=Decimal("150"))
+            sale_price=Money(amount=Decimal("150")),
         )
 
         item.calculate_fields()
@@ -99,13 +99,13 @@ class TestDeal:
             product_name="Item 1",
             revenue=Money(amount=Decimal("1000")),
             cost=Money(amount=Decimal("600")),
-            margin=Money(amount=Decimal("400"))
+            margin=Money(amount=Decimal("400")),
         )
         item2 = DealItem(
             product_name="Item 2",
             revenue=Money(amount=Decimal("500")),
             cost=Money(amount=Decimal("300")),
-            margin=Money(amount=Decimal("200"))
+            margin=Money(amount=Decimal("200")),
         )
 
         deal.add_item(item1)
@@ -133,19 +133,13 @@ class TestDeal:
     def test_deal_validation_client_name(self, sample_period):
         """Test Deal validation for client name."""
         deal = Deal(
-            client_name="  Test Client  ",
-            invoice_info="123 от 01.01.2025",
-            period=sample_period
+            client_name="  Test Client  ", invoice_info="123 от 01.01.2025", period=sample_period
         )
         assert deal.client_name == "Test Client"  # Should be trimmed
 
     def test_deal_minimal_creation(self, sample_period):
         """Test Deal creation with minimal required data."""
-        deal = Deal(
-            client_name="Minimal Client",
-            invoice_info="123",
-            period=sample_period
-        )
+        deal = Deal(client_name="Minimal Client", invoice_info="123", period=sample_period)
         assert deal.client_name == "Minimal Client"
         assert deal.invoice_info == "123"
         assert deal.period == sample_period

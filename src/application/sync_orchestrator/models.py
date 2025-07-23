@@ -47,8 +47,12 @@ class SyncSummary(BaseModel):
 
     # Performance metrics
     parsing_duration_seconds: float = Field(default=0.0, description="Time spent parsing")
-    change_detection_duration_seconds: float = Field(default=0.0, description="Time spent on change detection")
-    database_update_duration_seconds: float = Field(default=0.0, description="Time spent updating database")
+    change_detection_duration_seconds: float = Field(
+        default=0.0, description="Time spent on change detection"
+    )
+    database_update_duration_seconds: float = Field(
+        default=0.0, description="Time spent updating database"
+    )
 
     @property
     def total_changes(self) -> int:
@@ -67,8 +71,11 @@ class SyncSummary(BaseModel):
         if total_processed == 0:
             return 0.0
 
-        errors = (self.insertions_count + self.updates_count + self.deletions_count
-                 if not self.success else 0)
+        errors = (
+            self.insertions_count + self.updates_count + self.deletions_count
+            if not self.success
+            else 0
+        )
         return ((total_processed - errors) / total_processed) * 100
 
     def to_dict(self) -> dict[str, Any]:
@@ -101,7 +108,7 @@ class SyncSummary(BaseModel):
                 "success": self.success,
                 "error_message": self.error_message,
                 "success_rate": self.success_rate,
-            }
+            },
         }
 
 
@@ -122,14 +129,12 @@ class SyncResult(BaseModel):
     # Detailed results
     parse_result: ParseResult | None = Field(default=None, description="Excel parsing result")
     change_detection_result: ChangeDetectionResult | None = Field(
-        default=None,
-        description="Change detection result"
+        default=None, description="Change detection result"
     )
 
     # Events and audit
     events_created: list[dict[str, Any]] = Field(
-        default_factory=list,
-        description="List of events created during sync"
+        default_factory=list, description="List of events created during sync"
     )
 
     # Warnings and errors
@@ -170,14 +175,24 @@ class SyncResult(BaseModel):
         total = self.summary.duration_seconds
         if total > 0:
             metrics["parsing_percentage"] = (self.summary.parsing_duration_seconds / total) * 100
-            metrics["change_detection_percentage"] = (self.summary.change_detection_duration_seconds / total) * 100
-            metrics["database_update_percentage"] = (self.summary.database_update_duration_seconds / total) * 100
+            metrics["change_detection_percentage"] = (
+                self.summary.change_detection_duration_seconds / total
+            ) * 100
+            metrics["database_update_percentage"] = (
+                self.summary.database_update_duration_seconds / total
+            ) * 100
 
         # Add rates
         if self.summary.duration_seconds > 0:
-            metrics["deals_per_second"] = self.summary.total_deals_processed / self.summary.duration_seconds
-            metrics["items_per_second"] = self.summary.total_items_processed / self.summary.duration_seconds
-            metrics["changes_per_second"] = self.summary.total_changes / self.summary.duration_seconds
+            metrics["deals_per_second"] = (
+                self.summary.total_deals_processed / self.summary.duration_seconds
+            )
+            metrics["items_per_second"] = (
+                self.summary.total_items_processed / self.summary.duration_seconds
+            )
+            metrics["changes_per_second"] = (
+                self.summary.total_changes / self.summary.duration_seconds
+            )
 
         return metrics
 
@@ -194,7 +209,7 @@ class SyncResult(BaseModel):
                 "warnings_count": len(self.warnings),
                 "errors_count": len(self.errors),
                 "has_issues": self.has_warnings or self.has_errors,
-            }
+            },
         }
 
         # Add parsing stats if available
@@ -224,22 +239,30 @@ class SyncConfiguration(BaseModel):
 
     # Sync type and scope
     sync_type: str = Field(..., description="Type of sync (full/incremental)")
-    incremental_period_months: int = Field(default=3, description="Months to include in incremental sync")
+    incremental_period_months: int = Field(
+        default=3, description="Months to include in incremental sync"
+    )
 
     # Performance settings
     batch_size: int = Field(default=100, description="Batch size for database operations")
-    max_retry_attempts: int = Field(default=3, description="Maximum retry attempts for failed operations")
+    max_retry_attempts: int = Field(
+        default=3, description="Maximum retry attempts for failed operations"
+    )
 
     # Validation settings
     enable_1c_validation: bool = Field(default=True, description="Enable validation with 1C system")
-    enable_financial_validation: bool = Field(default=True, description="Enable financial validation")
+    enable_financial_validation: bool = Field(
+        default=True, description="Enable financial validation"
+    )
 
     # Event Store settings
     create_events: bool = Field(default=True, description="Create events in event store")
     update_read_models: bool = Field(default=True, description="Update read models")
 
     # Error handling
-    continue_on_errors: bool = Field(default=True, description="Continue processing on non-critical errors")
+    continue_on_errors: bool = Field(
+        default=True, description="Continue processing on non-critical errors"
+    )
     rollback_on_failure: bool = Field(default=True, description="Rollback transaction on failure")
 
     # Monitoring

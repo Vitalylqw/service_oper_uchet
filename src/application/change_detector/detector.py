@@ -38,9 +38,7 @@ class ChangeDetectorService:
         self.hash_cache = HashComparisonCache()
 
     async def detect_changes(
-        self,
-        excel_deals: list[Deal],
-        sync_period_months: int = 3
+        self, excel_deals: list[Deal], sync_period_months: int = 3
     ) -> ChangeDetectionResult:
         """
         Detect changes between Excel data and database.
@@ -89,14 +87,18 @@ class ChangeDetectorService:
 
             # Performance metrics
             result.comparison_duration_seconds = time.time() - start_time
-            result.hash_comparison_count = len(excel_hashes.entity_hashes) + len(db_hashes.entity_hashes)
+            result.hash_comparison_count = len(excel_hashes.entity_hashes) + len(
+                db_hashes.entity_hashes
+            )
             result.detailed_comparison_count = len([c for c in all_changes if c.has_field_changes])
 
             logger.info(f"Change detection completed in {result.comparison_duration_seconds:.2f}s")
-            logger.info(f"Found {result.total_changes} changes: "
-                       f"{result.insertion_count} insertions, "
-                       f"{result.update_count} updates, "
-                       f"{result.deletion_count} deletions")
+            logger.info(
+                f"Found {result.total_changes} changes: "
+                f"{result.insertion_count} insertions, "
+                f"{result.update_count} updates, "
+                f"{result.deletion_count} deletions"
+            )
 
             return result
 
@@ -162,7 +164,7 @@ class ChangeDetectorService:
         excel_deals: list[Deal],
         db_deals: list[Deal],
         excel_hashes: HashComparisonCache,
-        db_hashes: HashComparisonCache
+        db_hashes: HashComparisonCache,
     ) -> list[EntityChange]:
         """Detect changes to deals."""
         changes = []
@@ -183,7 +185,7 @@ class ChangeDetectorService:
                     entity_type=EntityType.DEAL,
                     entity_key=deal_key,
                     new_entity=excel_deal,
-                    new_hash=excel_hash
+                    new_hash=excel_hash,
                 )
                 changes.append(change)
                 logger.debug(f"Deal INSERT: {deal_key}")
@@ -205,7 +207,7 @@ class ChangeDetectorService:
                         old_entity=db_deal,
                         new_entity=excel_deal,
                         old_hash=db_hash,
-                        new_hash=excel_hash
+                        new_hash=excel_hash,
                     )
                     changes.append(change)
                     logger.debug(f"Deal UPDATE: {deal_key} ({len(field_changes)} fields)")
@@ -222,7 +224,7 @@ class ChangeDetectorService:
                     entity_type=EntityType.DEAL,
                     entity_key=deal_key,
                     old_entity=db_deal,
-                    old_hash=db_hash
+                    old_hash=db_hash,
                 )
                 changes.append(change)
                 logger.debug(f"Deal DELETE: {deal_key}")
@@ -234,7 +236,7 @@ class ChangeDetectorService:
         excel_deals: list[Deal],
         db_deals: list[Deal],
         excel_hashes: HashComparisonCache,
-        db_hashes: HashComparisonCache
+        db_hashes: HashComparisonCache,
     ) -> list[EntityChange]:
         """Detect changes to deal items."""
         changes = []
@@ -264,7 +266,7 @@ class ChangeDetectorService:
                     entity_type=EntityType.DEAL_ITEM,
                     entity_key=item_key,
                     new_entity=excel_item,
-                    new_hash=excel_hash
+                    new_hash=excel_hash,
                 )
                 changes.append(change)
                 logger.debug(f"Item INSERT: {item_key}")
@@ -286,7 +288,7 @@ class ChangeDetectorService:
                         old_entity=db_item,
                         new_entity=excel_item,
                         old_hash=db_hash,
-                        new_hash=excel_hash
+                        new_hash=excel_hash,
                     )
                     changes.append(change)
                     logger.debug(f"Item UPDATE: {item_key} ({len(field_changes)} fields)")
@@ -302,7 +304,7 @@ class ChangeDetectorService:
                     entity_type=EntityType.DEAL_ITEM,
                     entity_key=item_key,
                     old_entity=db_item,
-                    old_hash=db_hash
+                    old_hash=db_hash,
                 )
                 changes.append(change)
                 logger.debug(f"Item DELETE: {item_key}")
@@ -359,8 +361,14 @@ class ChangeDetectorService:
 
         # Define fields to compare
         fields_to_compare = [
-            "client_name", "invoice_info", "invoice_number", "invoice_date",
-            "is_shipped", "is_paid", "upd_number", "seller"
+            "client_name",
+            "invoice_info",
+            "invoice_number",
+            "invoice_date",
+            "is_shipped",
+            "is_paid",
+            "upd_number",
+            "seller",
         ]
 
         for field in fields_to_compare:
@@ -368,16 +376,13 @@ class ChangeDetectorService:
             new_value = getattr(new_deal, field, None)
 
             # Convert Status enums to string for comparison
-            if hasattr(old_value, 'value'):
+            if hasattr(old_value, "value"):
                 old_value = old_value.value
-            if hasattr(new_value, 'value'):
+            if hasattr(new_value, "value"):
                 new_value = new_value.value
 
             if old_value != new_value:
-                changes[field] = {
-                    "old_value": old_value,
-                    "new_value": new_value
-                }
+                changes[field] = {"old_value": old_value, "new_value": new_value}
 
         # Compare money fields
         money_fields = ["total_revenue", "total_margin", "total_cost", "kickback_amount"]
@@ -389,41 +394,32 @@ class ChangeDetectorService:
             new_amount = str(new_money.amount) if new_money else None
 
             if old_amount != new_amount:
-                changes[field] = {
-                    "old_value": old_amount,
-                    "new_value": new_amount
-                }
+                changes[field] = {"old_value": old_amount, "new_value": new_amount}
 
         return changes
 
-    def _compare_item_fields(self, old_item: DealItem, new_item: DealItem) -> dict[str, dict[str, Any]]:
+    def _compare_item_fields(
+        self, old_item: DealItem, new_item: DealItem
+    ) -> dict[str, dict[str, Any]]:
         """Compare item fields and return changes."""
         changes = {}
 
         # Define fields to compare
-        fields_to_compare = [
-            "product_name", "supplier_name", "pickup_date"
-        ]
+        fields_to_compare = ["product_name", "supplier_name", "pickup_date"]
 
         for field in fields_to_compare:
             old_value = getattr(old_item, field, None)
             new_value = getattr(new_item, field, None)
 
             if old_value != new_value:
-                changes[field] = {
-                    "old_value": old_value,
-                    "new_value": new_value
-                }
+                changes[field] = {"old_value": old_value, "new_value": new_value}
 
         # Compare quantity
         old_qty = str(old_item.quantity) if old_item.quantity else None
         new_qty = str(new_item.quantity) if new_item.quantity else None
 
         if old_qty != new_qty:
-            changes["quantity"] = {
-                "old_value": old_qty,
-                "new_value": new_qty
-            }
+            changes["quantity"] = {"old_value": old_qty, "new_value": new_qty}
 
         # Compare money fields
         money_fields = ["purchase_price", "sale_price", "revenue", "margin", "cost"]
@@ -435,10 +431,7 @@ class ChangeDetectorService:
             new_amount = str(new_money.amount) if new_money else None
 
             if old_amount != new_amount:
-                changes[field] = {
-                    "old_value": old_amount,
-                    "new_value": new_amount
-                }
+                changes[field] = {"old_value": old_amount, "new_value": new_amount}
 
         return changes
 

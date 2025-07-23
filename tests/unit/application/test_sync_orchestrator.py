@@ -49,14 +49,14 @@ class TestSyncOrchestratorService:
         mock_excel_parser,
         mock_change_detector,
         mock_event_store,
-        mock_sync_session_repository
+        mock_sync_session_repository,
     ):
         """Sync orchestrator service instance."""
         return SyncOrchestratorService(
             excel_parser=mock_excel_parser,
             change_detector=mock_change_detector,
             event_store=mock_event_store,
-            sync_session_repository=mock_sync_session_repository
+            sync_session_repository=mock_sync_session_repository,
         )
 
     @pytest.fixture
@@ -69,7 +69,7 @@ class TestSyncOrchestratorService:
             create_events=True,
             update_read_models=True,
             continue_on_errors=True,
-            rollback_on_failure=True
+            rollback_on_failure=True,
         )
 
     @pytest.fixture
@@ -82,7 +82,7 @@ class TestSyncOrchestratorService:
             create_events=True,
             update_read_models=True,
             continue_on_errors=True,
-            rollback_on_failure=False
+            rollback_on_failure=False,
         )
 
     @pytest.fixture
@@ -95,12 +95,7 @@ class TestSyncOrchestratorService:
         sync_session = SyncSession(sync_type=SyncType.FULL)
         sync_session.source_file_path = "test.xlsx"
 
-        stats = ParseStats(
-            total_deals=10,
-            processed_deals=10,
-            total_items=25,
-            processed_items=25
-        )
+        stats = ParseStats(total_deals=10, processed_deals=10, total_items=25, processed_items=25)
 
         return ParseResult(
             deals=[],  # Empty for simplicity
@@ -108,7 +103,7 @@ class TestSyncOrchestratorService:
             sync_session=sync_session,
             file_path="test.xlsx",
             file_size=1024,
-            file_hash="abc123"
+            file_hash="abc123",
         )
 
     @pytest.fixture
@@ -123,7 +118,7 @@ class TestSyncOrchestratorService:
             total_db_items=20,
             comparison_duration_seconds=0.5,
             hash_comparison_count=35,
-            detailed_comparison_count=5
+            detailed_comparison_count=5,
         )
 
     async def test_execute_sync_full_success(
@@ -133,7 +128,7 @@ class TestSyncOrchestratorService:
         mock_event_store,
         mock_sync_session_repository,
         full_sync_config,
-        sample_parse_result
+        sample_parse_result,
     ):
         """Test successful full synchronization."""
         # Arrange
@@ -167,7 +162,7 @@ class TestSyncOrchestratorService:
         mock_sync_session_repository,
         incremental_sync_config,
         sample_parse_result,
-        sample_change_result
+        sample_change_result,
     ):
         """Test successful incremental synchronization."""
         # Arrange
@@ -186,15 +181,11 @@ class TestSyncOrchestratorService:
 
         # Verify change detection was called
         mock_change_detector.detect_changes.assert_called_once_with(
-            sample_parse_result.deals,
-            incremental_sync_config.incremental_period_months
+            sample_parse_result.deals, incremental_sync_config.incremental_period_months
         )
 
     async def test_execute_sync_running_session_error(
-        self,
-        orchestrator,
-        mock_sync_session_repository,
-        full_sync_config
+        self, orchestrator, mock_sync_session_repository, full_sync_config
     ):
         """Test error when another sync session is already running."""
         # Arrange
@@ -208,11 +199,7 @@ class TestSyncOrchestratorService:
             await orchestrator.execute_sync(file_path, full_sync_config)
 
     async def test_execute_sync_parsing_error(
-        self,
-        orchestrator,
-        mock_excel_parser,
-        mock_sync_session_repository,
-        full_sync_config
+        self, orchestrator, mock_excel_parser, mock_sync_session_repository, full_sync_config
     ):
         """Test error handling during parsing phase."""
         # Arrange
@@ -230,11 +217,7 @@ class TestSyncOrchestratorService:
         assert len(result.errors) > 0
 
     async def test_execute_sync_continue_on_errors(
-        self,
-        orchestrator,
-        mock_excel_parser,
-        mock_sync_session_repository,
-        incremental_sync_config
+        self, orchestrator, mock_excel_parser, mock_sync_session_repository, incremental_sync_config
     ):
         """Test continuing sync when continue_on_errors is True."""
         # Arrange
@@ -251,11 +234,7 @@ class TestSyncOrchestratorService:
         assert result.has_errors
 
     async def test_execute_sync_rollback_on_failure(
-        self,
-        orchestrator,
-        mock_excel_parser,
-        mock_sync_session_repository,
-        full_sync_config
+        self, orchestrator, mock_excel_parser, mock_sync_session_repository, full_sync_config
     ):
         """Test raising exception when rollback_on_failure is True."""
         # Arrange
@@ -270,10 +249,7 @@ class TestSyncOrchestratorService:
             await orchestrator.execute_sync(file_path, full_sync_config)
 
     async def test_create_sync_session_success(
-        self,
-        orchestrator,
-        mock_sync_session_repository,
-        full_sync_config
+        self, orchestrator, mock_sync_session_repository, full_sync_config
     ):
         """Test successful sync session creation."""
         # Arrange
@@ -292,10 +268,7 @@ class TestSyncOrchestratorService:
         mock_sync_session_repository.save.assert_called_once_with(session)
 
     async def test_create_sync_session_incremental(
-        self,
-        orchestrator,
-        mock_sync_session_repository,
-        incremental_sync_config
+        self, orchestrator, mock_sync_session_repository, incremental_sync_config
     ):
         """Test incremental sync session creation."""
         # Arrange
@@ -304,16 +277,14 @@ class TestSyncOrchestratorService:
         mock_sync_session_repository.get_running_session.return_value = None
 
         # Act
-        session = await orchestrator._create_sync_session(session_id, file_path, incremental_sync_config)
+        session = await orchestrator._create_sync_session(
+            session_id, file_path, incremental_sync_config
+        )
 
         # Assert
         assert session.sync_type == SyncType.INCREMENTAL
 
-    async def test_complete_sync_session_success(
-        self,
-        orchestrator,
-        mock_sync_session_repository
-    ):
+    async def test_complete_sync_session_success(self, orchestrator, mock_sync_session_repository):
         """Test successful sync session completion."""
         # Arrange
         sync_session = SyncSession(sync_type=SyncType.FULL)
@@ -328,11 +299,7 @@ class TestSyncOrchestratorService:
         assert sync_session.finished_at is not None
         mock_sync_session_repository.save.assert_called_once_with(sync_session)
 
-    async def test_complete_sync_session_failure(
-        self,
-        orchestrator,
-        mock_sync_session_repository
-    ):
+    async def test_complete_sync_session_failure(self, orchestrator, mock_sync_session_repository):
         """Test sync session completion with failure."""
         # Arrange
         sync_session = SyncSession(sync_type=SyncType.FULL)
@@ -341,7 +308,9 @@ class TestSyncOrchestratorService:
         error_message = "Sync failed"
 
         # Act
-        await orchestrator._complete_sync_session(sync_session, success=False, error_message=error_message)
+        await orchestrator._complete_sync_session(
+            sync_session, success=False, error_message=error_message
+        )
 
         # Assert
         assert sync_session.status == Status.FAILED
@@ -349,10 +318,7 @@ class TestSyncOrchestratorService:
         assert sync_session.finished_at is not None
 
     async def test_apply_changes_events_disabled(
-        self,
-        orchestrator,
-        mock_event_store,
-        sample_parse_result
+        self, orchestrator, mock_event_store, sample_parse_result
     ):
         """Test skipping event creation when disabled."""
         # Arrange
@@ -366,14 +332,14 @@ class TestSyncOrchestratorService:
             file_hash="abc123",
             success=True,
             total_deals_processed=0,
-            total_items_processed=0
+            total_items_processed=0,
         )
 
         result = SyncResult(
             sync_session_id="test",
             sync_type="full",
             summary=summary,
-            parse_result=sample_parse_result
+            parse_result=sample_parse_result,
         )
 
         # Act
@@ -383,10 +349,7 @@ class TestSyncOrchestratorService:
         mock_event_store.append_events.assert_not_called()
 
     async def test_apply_changes_full_sync(
-        self,
-        orchestrator,
-        mock_event_store,
-        sample_parse_result
+        self, orchestrator, mock_event_store, sample_parse_result
     ):
         """Test applying changes for full sync."""
         # Arrange
@@ -400,21 +363,23 @@ class TestSyncOrchestratorService:
             file_hash="abc123",
             success=True,
             total_deals_processed=0,
-            total_items_processed=0
+            total_items_processed=0,
         )
 
         result = SyncResult(
             sync_session_id="test",
             sync_type="full",
             summary=summary,
-            parse_result=sample_parse_result
+            parse_result=sample_parse_result,
         )
 
         # Mock event creation
-        orchestrator._create_full_sync_events = AsyncMock(return_value=[
-            {"event_type": "DealCreated", "aggregate_id": uuid.uuid4()},
-            {"event_type": "DealItemAdded", "aggregate_id": uuid.uuid4()}
-        ])
+        orchestrator._create_full_sync_events = AsyncMock(
+            return_value=[
+                {"event_type": "DealCreated", "aggregate_id": uuid.uuid4()},
+                {"event_type": "DealItemAdded", "aggregate_id": uuid.uuid4()},
+            ]
+        )
 
         # Act
         await orchestrator._apply_changes_to_database(result, config)
@@ -424,10 +389,7 @@ class TestSyncOrchestratorService:
         assert len(result.events_created) == 2
 
     async def test_apply_changes_incremental_sync(
-        self,
-        orchestrator,
-        mock_event_store,
-        sample_change_result
+        self, orchestrator, mock_event_store, sample_change_result
     ):
         """Test applying changes for incremental sync."""
         # Arrange
@@ -442,20 +404,20 @@ class TestSyncOrchestratorService:
             file_hash="abc123",
             success=True,
             total_deals_processed=10,
-            total_items_processed=25
+            total_items_processed=25,
         )
 
         result = SyncResult(
             sync_session_id="test",
             sync_type="incremental",
             summary=summary,
-            change_detection_result=sample_change_result
+            change_detection_result=sample_change_result,
         )
 
         # Mock event creation
-        orchestrator._create_incremental_sync_events = AsyncMock(return_value=[
-            {"event_type": "DealUpdated", "aggregate_id": uuid.uuid4()}
-        ])
+        orchestrator._create_incremental_sync_events = AsyncMock(
+            return_value=[{"event_type": "DealUpdated", "aggregate_id": uuid.uuid4()}]
+        )
 
         # Act
         await orchestrator._apply_changes_to_database(result, config)
@@ -475,14 +437,11 @@ class TestSyncOrchestratorService:
             file_hash="abc123",
             success=True,
             total_deals_processed=0,
-            total_items_processed=0
+            total_items_processed=0,
         )
 
         result = SyncResult(
-            sync_session_id="test",
-            sync_type="full",
-            summary=summary,
-            parse_result=None
+            sync_session_id="test", sync_type="full", summary=summary, parse_result=None
         )
 
         # Act
@@ -516,12 +475,7 @@ class TestSyncOrchestratorService:
         sync_session = SyncSession(sync_type=SyncType.FULL)
         sync_session.source_file_path = "test.xlsx"
 
-        stats = ParseStats(
-            total_deals=1,
-            processed_deals=1,
-            total_items=1,
-            processed_items=1
-        )
+        stats = ParseStats(total_deals=1, processed_deals=1, total_items=1, processed_items=1)
 
         parse_result = ParseResult(
             deals=[deal],
@@ -529,7 +483,7 @@ class TestSyncOrchestratorService:
             sync_session=sync_session,
             file_path="test.xlsx",
             file_size=1024,
-            file_hash="abc123"
+            file_hash="abc123",
         )
 
         from src.application.sync_orchestrator.models import SyncSummary
@@ -540,14 +494,14 @@ class TestSyncOrchestratorService:
             file_hash="abc123",
             success=True,
             total_deals_processed=1,
-            total_items_processed=1
+            total_items_processed=1,
         )
 
         result = SyncResult(
             sync_session_id="test-session",
             sync_type="full",
             summary=summary,
-            parse_result=parse_result
+            parse_result=parse_result,
         )
 
         # Act
@@ -566,11 +520,7 @@ class TestSyncOrchestratorService:
         assert item_event["event_type"] == "DealItemAdded"
         assert item_event["aggregate_id"] == deal.id
 
-    async def test_get_sync_history(
-        self,
-        orchestrator,
-        mock_sync_session_repository
-    ):
+    async def test_get_sync_history(self, orchestrator, mock_sync_session_repository):
         """Test getting sync history."""
         # Arrange
         session1 = SyncSession(sync_type=SyncType.FULL)
@@ -595,11 +545,7 @@ class TestSyncOrchestratorService:
         assert history[0]["status"] == "completed"
         assert history[1]["sync_type"] == "incremental"
 
-    async def test_get_sync_history_error(
-        self,
-        orchestrator,
-        mock_sync_session_repository
-    ):
+    async def test_get_sync_history_error(self, orchestrator, mock_sync_session_repository):
         """Test error handling in get_sync_history."""
         # Arrange
         mock_sync_session_repository.get_latest_sessions.side_effect = Exception("Database error")
@@ -610,11 +556,7 @@ class TestSyncOrchestratorService:
         # Assert
         assert history == []
 
-    async def test_get_running_session(
-        self,
-        orchestrator,
-        mock_sync_session_repository
-    ):
+    async def test_get_running_session(self, orchestrator, mock_sync_session_repository):
         """Test getting currently running session."""
         # Arrange
         running_session = SyncSession(sync_type=SyncType.INCREMENTAL)
@@ -632,11 +574,7 @@ class TestSyncOrchestratorService:
         assert session_data["sync_type"] == "incremental"
         assert session_data["status"] == "pending"
 
-    async def test_get_running_session_none(
-        self,
-        orchestrator,
-        mock_sync_session_repository
-    ):
+    async def test_get_running_session_none(self, orchestrator, mock_sync_session_repository):
         """Test getting running session when none exists."""
         # Arrange
         mock_sync_session_repository.get_running_session.return_value = None
@@ -653,7 +591,7 @@ class TestSyncOrchestratorService:
         mock_excel_parser,
         mock_sync_session_repository,
         full_sync_config,
-        sample_parse_result
+        sample_parse_result,
     ):
         """Test that sync captures performance metrics."""
         # Arrange

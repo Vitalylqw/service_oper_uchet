@@ -28,10 +28,7 @@ def real_excel_file() -> str:
 @pytest.fixture
 def sync_session() -> SyncSession:
     """Fixture для сессии синхронизации."""
-    return SyncSession(
-        sync_type=SyncType.FULL,
-        source_file="Data_source_excel.xlsx"
-    )
+    return SyncSession(sync_type=SyncType.FULL, source_file="Data_source_excel.xlsx")
 
 
 @pytest.fixture
@@ -46,10 +43,7 @@ class TestExcelParserIntegration:
 
     @pytest.mark.asyncio
     async def test_parse_real_excel_file_basic_metrics(
-        self,
-        parser_service: ExcelParserService,
-        real_excel_file: str,
-        sync_session: SyncSession
+        self, parser_service: ExcelParserService, real_excel_file: str, sync_session: SyncSession
     ):
         """Тест основных метрик парсинга реального Excel файла."""
         # Arrange & Act
@@ -76,10 +70,7 @@ class TestExcelParserIntegration:
 
     @pytest.mark.asyncio
     async def test_parse_real_excel_file_data_structure(
-        self,
-        parser_service: ExcelParserService,
-        real_excel_file: str,
-        sync_session: SyncSession
+        self, parser_service: ExcelParserService, real_excel_file: str, sync_session: SyncSession
     ):
         """Тест структуры данных в результате парсинга."""
         # Arrange & Act
@@ -113,17 +104,16 @@ class TestExcelParserIntegration:
 
     @pytest.mark.asyncio
     async def test_parse_real_excel_file_business_logic(
-        self,
-        parser_service: ExcelParserService,
-        real_excel_file: str,
-        sync_session: SyncSession
+        self, parser_service: ExcelParserService, real_excel_file: str, sync_session: SyncSession
     ):
         """Тест бизнес-логики и вычислений."""
         # Arrange & Act
         result = await parser_service.parse_file(real_excel_file, sync_session)
 
         # Assert - бизнес-логика
-        deals_with_revenue = [d for d in result.deals if d.total_revenue and d.total_revenue.amount > 0]
+        deals_with_revenue = [
+            d for d in result.deals if d.total_revenue and d.total_revenue.amount > 0
+        ]
         assert len(deals_with_revenue) > 0, "Должны быть сделки с выручкой"
 
         # Проверяем валюту
@@ -144,10 +134,7 @@ class TestExcelParserIntegration:
 
     @pytest.mark.asyncio
     async def test_parse_real_excel_file_known_clients(
-        self,
-        parser_service: ExcelParserService,
-        real_excel_file: str,
-        sync_session: SyncSession
+        self, parser_service: ExcelParserService, real_excel_file: str, sync_session: SyncSession
     ):
         """Тест наличия известных клиентов из реального файла."""
         # Arrange & Act
@@ -164,9 +151,7 @@ class TestExcelParserIntegration:
 
     @pytest.mark.asyncio
     async def test_parse_real_excel_file_error_handling(
-        self,
-        parser_service: ExcelParserService,
-        sync_session: SyncSession
+        self, parser_service: ExcelParserService, sync_session: SyncSession
     ):
         """Тест обработки ошибок при неверном файле."""
         # Arrange & Act & Assert
@@ -175,10 +160,7 @@ class TestExcelParserIntegration:
 
     @pytest.mark.asyncio
     async def test_parse_real_excel_file_totals_calculation(
-        self,
-        parser_service: ExcelParserService,
-        real_excel_file: str,
-        sync_session: SyncSession
+        self, parser_service: ExcelParserService, real_excel_file: str, sync_session: SyncSession
     ):
         """Тест корректности вычисления итогов."""
         # Arrange & Act
@@ -188,7 +170,9 @@ class TestExcelParserIntegration:
         for deal in result.deals:
             if len(deal.items) > 0:
                 # Если у товаров есть суммы, проверяем что итоги в сделке рассчитаны
-                items_with_revenue = [item for item in deal.items if item.revenue and item.revenue.amount > 0]
+                items_with_revenue = [
+                    item for item in deal.items if item.revenue and item.revenue.amount > 0
+                ]
 
                 if items_with_revenue and deal.total_revenue:
                     # Итог должен быть больше 0
@@ -200,10 +184,7 @@ class TestExcelParserIntegration:
 
     @pytest.mark.asyncio
     async def test_parse_real_excel_sync_session_integration(
-        self,
-        parser_service: ExcelParserService,
-        real_excel_file: str,
-        sync_session: SyncSession
+        self, parser_service: ExcelParserService, real_excel_file: str, sync_session: SyncSession
     ):
         """Тест интеграции с SyncSession."""
         # Arrange - сохраняем начальные значения

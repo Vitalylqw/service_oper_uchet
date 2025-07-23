@@ -58,8 +58,7 @@ class FileSystemService:
         # State management
         self._monitoring_state = FileMonitoringState()
         self._metrics = FileSystemMetrics(
-            period_start=datetime.now(),
-            period_end=datetime.now() + timedelta(days=1)
+            period_start=datetime.now(), period_end=datetime.now() + timedelta(days=1)
         )
 
         # File tracking
@@ -126,7 +125,9 @@ class FileSystemService:
                 await self._perform_monitoring_check()
 
                 # Calculate next check time
-                next_check = datetime.now() + timedelta(seconds=self.config.monitoring_interval_seconds)
+                next_check = datetime.now() + timedelta(
+                    seconds=self.config.monitoring_interval_seconds
+                )
                 self._monitoring_state.next_check_at = next_check
 
                 # Wait for next check
@@ -280,7 +281,9 @@ class FileSystemService:
                         result.validation_errors = validation_result.validation_errors
 
                         if not validation_result.is_valid:
-                            raise ValueError(f"File validation failed: {', '.join(validation_result.validation_errors)}")
+                            raise ValueError(
+                                f"File validation failed: {', '.join(validation_result.validation_errors)}"
+                            )
 
                     # Create backup if enabled
                     if self.config.enable_file_backup:
@@ -311,7 +314,9 @@ class FileSystemService:
                 "total_attempts": self.config.max_retry_attempts,
             }
 
-            logger.error(f"❌ File retrieval {operation_id} failed after {self.config.max_retry_attempts} attempts")
+            logger.error(
+                f"❌ File retrieval {operation_id} failed after {self.config.max_retry_attempts} attempts"
+            )
 
             # Update metrics
             self._update_failure_metrics(result)
@@ -345,7 +350,9 @@ class FileSystemService:
             return await self._get_http_file_info()
         else:
             # For other protocols, return None (would be implemented with actual protocol clients)
-            logger.warning(f"File info retrieval not implemented for protocol: {self.config.protocol}")
+            logger.warning(
+                f"File info retrieval not implemented for protocol: {self.config.protocol}"
+            )
             return None
 
     async def _get_local_file_info(self) -> FileInfo | None:
@@ -377,9 +384,7 @@ class FileSystemService:
 
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.head(
-                    self.config.full_source_url,
-                    headers=headers,
-                    ssl=self.config.http_verify_ssl
+                    self.config.full_source_url, headers=headers, ssl=self.config.http_verify_ssl
                 ) as response:
                     response.raise_for_status()
 
@@ -391,6 +396,7 @@ class FileSystemService:
                     if "Last-Modified" in response.headers:
                         try:
                             from email.utils import parsedate_to_datetime
+
                             modified_time = parsedate_to_datetime(response.headers["Last-Modified"])
                         except Exception:
                             pass
@@ -405,7 +411,9 @@ class FileSystemService:
             logger.error(f"Error getting HTTP file info: {e}")
             return None
 
-    def _detect_changes(self, current_info: FileInfo | None, previous_info: FileInfo | None) -> FileChangeType:
+    def _detect_changes(
+        self, current_info: FileInfo | None, previous_info: FileInfo | None
+    ) -> FileChangeType:
         """Detect changes between current and previous file info."""
         if current_info is None:
             return FileChangeType.FILE_MISSING
@@ -419,7 +427,10 @@ class FileSystemService:
         if method in ["size", "both"] and current_info.size_bytes != previous_info.size_bytes:
             return FileChangeType.SIZE_CHANGED
 
-        if method in ["timestamp", "both"] and current_info.modified_time != previous_info.modified_time:
+        if (
+            method in ["timestamp", "both"]
+            and current_info.modified_time != previous_info.modified_time
+        ):
             return FileChangeType.TIMESTAMP_CHANGED
 
         if method == "hash":
@@ -437,7 +448,9 @@ class FileSystemService:
             await self._download_http_file(result)
         else:
             # Placeholder for other protocols
-            raise NotImplementedError(f"Download not implemented for protocol: {self.config.protocol}")
+            raise NotImplementedError(
+                f"Download not implemented for protocol: {self.config.protocol}"
+            )
 
     async def _download_local_file(self, result: FileRetrievalResult) -> None:
         """Download (copy) file from local filesystem."""
@@ -479,17 +492,14 @@ class FileSystemService:
             headers["Authorization"] = f"Bearer {self.config.http_auth_token}"
 
         timeout = aiohttp.ClientTimeout(
-            total=self.config.read_timeout_seconds,
-            connect=self.config.connection_timeout_seconds
+            total=self.config.read_timeout_seconds, connect=self.config.connection_timeout_seconds
         )
 
         start_time = time.time()
 
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.get(
-                self.config.full_source_url,
-                headers=headers,
-                ssl=self.config.http_verify_ssl
+                self.config.full_source_url, headers=headers, ssl=self.config.http_verify_ssl
             ) as response:
                 response.raise_for_status()
 
@@ -543,25 +553,32 @@ class FileSystemService:
             if result.size_bytes < result.min_size_bytes:
                 result.size_valid = False
                 result.is_valid = False
-                result.validation_errors.append(f"File too small: {result.size_bytes} < {result.min_size_bytes} bytes")
+                result.validation_errors.append(
+                    f"File too small: {result.size_bytes} < {result.min_size_bytes} bytes"
+                )
 
             if result.size_bytes > result.max_size_bytes:
                 result.size_valid = False
                 result.is_valid = False
-                result.validation_errors.append(f"File too large: {result.size_bytes} > {result.max_size_bytes} bytes")
+                result.validation_errors.append(
+                    f"File too large: {result.size_bytes} > {result.max_size_bytes} bytes"
+                )
 
             # Extension validation
             result.file_extension = file_path_obj.suffix.lower()
             if result.allowed_extensions and result.file_extension not in result.allowed_extensions:
                 result.extension_valid = False
                 result.is_valid = False
-                result.validation_errors.append(f"Invalid extension: {result.file_extension} not in {result.allowed_extensions}")
+                result.validation_errors.append(
+                    f"Invalid extension: {result.file_extension} not in {result.allowed_extensions}"
+                )
 
             # Content validation (basic readability check)
             try:
                 if result.file_extension in [".xlsx", ".xls"]:
                     # Try to open as Excel file
                     import pandas as pd
+
                     pd.read_excel(file_path, nrows=1)  # Just read first row to check
                 else:
                     # Try to read as text/binary
@@ -623,11 +640,17 @@ class FileSystemService:
                 # Update average
                 total_ops = self._metrics.successful_operations
                 total_time = self._metrics.average_operation_time_seconds * (total_ops - 1)
-                self._metrics.average_operation_time_seconds = (total_time + result.duration_seconds) / total_ops
+                self._metrics.average_operation_time_seconds = (
+                    total_time + result.duration_seconds
+                ) / total_ops
 
                 # Update min/max
-                self._metrics.fastest_operation_seconds = min(self._metrics.fastest_operation_seconds, result.duration_seconds)
-                self._metrics.slowest_operation_seconds = max(self._metrics.slowest_operation_seconds, result.duration_seconds)
+                self._metrics.fastest_operation_seconds = min(
+                    self._metrics.fastest_operation_seconds, result.duration_seconds
+                )
+                self._metrics.slowest_operation_seconds = max(
+                    self._metrics.slowest_operation_seconds, result.duration_seconds
+                )
 
     def _update_failure_metrics(self, result: FileRetrievalResult) -> None:
         """Update metrics for failed operation."""
@@ -642,7 +665,9 @@ class FileSystemService:
 
         # Update error rate
         if self._metrics.total_operations > 0:
-            self._metrics.error_rate_percent = (self._metrics.failed_operations / self._metrics.total_operations) * 100.0
+            self._metrics.error_rate_percent = (
+                self._metrics.failed_operations / self._metrics.total_operations
+            ) * 100.0
 
     # Public API methods
 

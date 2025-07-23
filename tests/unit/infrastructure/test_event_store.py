@@ -69,7 +69,7 @@ class TestEventStoreImplementation:
             aggregate_id=sample_aggregate_id,
             event_type="DealCreated",
             event_data=sample_event_data,
-            metadata=sample_metadata
+            metadata=sample_metadata,
         )
 
         # Assert
@@ -99,9 +99,7 @@ class TestEventStoreImplementation:
 
         # Act
         await event_store.append_event(
-            aggregate_id=sample_aggregate_id,
-            event_type="DealUpdated",
-            event_data=sample_event_data
+            aggregate_id=sample_aggregate_id, event_type="DealUpdated", event_data=sample_event_data
         )
 
         # Assert
@@ -118,14 +116,14 @@ class TestEventStoreImplementation:
                 "aggregate_id": sample_aggregate_id,
                 "event_type": "DealCreated",
                 "event_data": sample_event_data,
-                "metadata": {"source": "test1"}
+                "metadata": {"source": "test1"},
             },
             {
                 "aggregate_id": sample_aggregate_id,
                 "event_type": "DealUpdated",
                 "event_data": sample_event_data,
-                "metadata": {"source": "test2"}
-            }
+                "metadata": {"source": "test2"},
+            },
         ]
 
         mock_result_1 = MagicMock()
@@ -148,9 +146,7 @@ class TestEventStoreImplementation:
         assert added_events[0].event_type == "DealCreated"
         assert added_events[1].event_type == "DealUpdated"
 
-    async def test_get_events_by_aggregate(
-        self, event_store, mock_session, sample_aggregate_id
-    ):
+    async def test_get_events_by_aggregate(self, event_store, mock_session, sample_aggregate_id):
         """Test retrieving events for specific aggregate."""
         # Arrange
         mock_event_1 = MagicMock()
@@ -289,7 +285,7 @@ class TestEventStoreImplementation:
             await event_store.append_event(
                 aggregate_id=sample_aggregate_id,
                 event_type="DealCreated",
-                event_data=sample_event_data
+                event_data=sample_event_data,
             )
 
     async def test_get_events_exception_handling(

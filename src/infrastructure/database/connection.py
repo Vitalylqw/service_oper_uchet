@@ -38,8 +38,12 @@ class DatabaseConfig(BaseSettings):
     db_query_timeout: int = Field(default=60, description="Query timeout seconds")
 
     # Event Store settings
-    event_store_partition_months: int = Field(default=12, description="Event store partition months")
-    event_store_retention_months: int = Field(default=24, description="Event store retention months")
+    event_store_partition_months: int = Field(
+        default=12, description="Event store partition months"
+    )
+    event_store_retention_months: int = Field(
+        default=24, description="Event store retention months"
+    )
 
     model_config = ConfigDict(env_prefix="DB_", env_file=".env")
 

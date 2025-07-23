@@ -57,7 +57,9 @@ class JobExecutionResult(BaseModel):
     sync_session_id: str | None = Field(None, description="Associated sync session ID")
     success: bool = Field(default=False, description="Whether job completed successfully")
     error_message: str | None = Field(None, description="Error message if failed")
-    error_details: dict[str, Any] = Field(default_factory=dict, description="Detailed error information")
+    error_details: dict[str, Any] = Field(
+        default_factory=dict, description="Detailed error information"
+    )
 
     # Metrics
     records_processed: int = Field(default=0, description="Number of records processed")
@@ -72,15 +74,16 @@ class JobExecutionResult(BaseModel):
     @property
     def is_finished(self) -> bool:
         """Check if job has finished (either success or failure)."""
-        return self.status in {JobExecutionStatus.COMPLETED, JobExecutionStatus.FAILED, JobExecutionStatus.CANCELLED}
+        return self.status in {
+            JobExecutionStatus.COMPLETED,
+            JobExecutionStatus.FAILED,
+            JobExecutionStatus.CANCELLED,
+        }
 
     @property
     def can_retry(self) -> bool:
         """Check if job can be retried."""
-        return (
-            self.status == JobExecutionStatus.FAILED
-            and self.attempt_number < self.max_attempts
-        )
+        return self.status == JobExecutionStatus.FAILED and self.attempt_number < self.max_attempts
 
     @property
     def is_successful(self) -> bool:
@@ -103,7 +106,9 @@ class SchedulerMetrics(BaseModel):
     total_jobs_cancelled: int = Field(default=0, description="Total jobs cancelled")
 
     # Performance metrics
-    average_execution_time_seconds: float = Field(default=0.0, description="Average job execution time")
+    average_execution_time_seconds: float = Field(
+        default=0.0, description="Average job execution time"
+    )
     max_execution_time_seconds: float = Field(default=0.0, description="Maximum job execution time")
     min_execution_time_seconds: float = Field(default=0.0, description="Minimum job execution time")
 
@@ -116,7 +121,9 @@ class SchedulerMetrics(BaseModel):
     # Error analysis
     consecutive_failures: int = Field(default=0, description="Current consecutive failures")
     failure_rate_percent: float = Field(default=0.0, description="Failure rate percentage")
-    most_common_errors: list[str] = Field(default_factory=list, description="Most common error types")
+    most_common_errors: list[str] = Field(
+        default_factory=list, description="Most common error types"
+    )
 
     # Health indicators
     scheduler_healthy: bool = Field(default=True, description="Overall scheduler health")
@@ -126,7 +133,9 @@ class SchedulerMetrics(BaseModel):
     @property
     def success_rate_percent(self) -> float:
         """Calculate success rate percentage."""
-        total_finished = self.total_jobs_completed + self.total_jobs_failed + self.total_jobs_cancelled
+        total_finished = (
+            self.total_jobs_completed + self.total_jobs_failed + self.total_jobs_cancelled
+        )
         if total_finished == 0:
             return 0.0
         return (self.total_jobs_completed / total_finished) * 100.0
@@ -139,7 +148,9 @@ class SchedulerState(BaseModel):
     is_running: bool = Field(default=False, description="Whether scheduler is running")
     is_enabled: bool = Field(default=True, description="Whether scheduler is enabled")
     started_at: datetime | None = Field(None, description="Scheduler start time")
-    last_heartbeat: datetime = Field(default_factory=datetime.now, description="Last heartbeat time")
+    last_heartbeat: datetime = Field(
+        default_factory=datetime.now, description="Last heartbeat time"
+    )
 
     # Active jobs
     active_jobs: list[str] = Field(default_factory=list, description="Currently active job IDs")

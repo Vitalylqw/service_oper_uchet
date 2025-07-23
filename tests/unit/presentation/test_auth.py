@@ -14,10 +14,7 @@ class TestAuthentication:
 
     def test_login_success_admin(self, client):
         """Test successful admin login."""
-        response = client.post(
-            "/auth/login",
-            json={"username": "admin", "password": "admin123"}
-        )
+        response = client.post("/auth/login", json={"username": "admin", "password": "admin123"})
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -30,8 +27,7 @@ class TestAuthentication:
     def test_login_success_analyst(self, client):
         """Test successful analyst login."""
         response = client.post(
-            "/auth/login",
-            json={"username": "analyst", "password": "analyst123"}
+            "/auth/login", json={"username": "analyst", "password": "analyst123"}
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -40,10 +36,7 @@ class TestAuthentication:
 
     def test_login_success_viewer(self, client):
         """Test successful viewer login."""
-        response = client.post(
-            "/auth/login",
-            json={"username": "viewer", "password": "viewer123"}
-        )
+        response = client.post("/auth/login", json={"username": "viewer", "password": "viewer123"})
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -51,20 +44,14 @@ class TestAuthentication:
 
     def test_login_invalid_credentials(self, client):
         """Test login with invalid credentials."""
-        response = client.post(
-            "/auth/login",
-            json={"username": "invalid", "password": "invalid"}
-        )
+        response = client.post("/auth/login", json={"username": "invalid", "password": "invalid"})
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert "Incorrect username or password" in response.json()["detail"]
 
     def test_login_missing_fields(self, client):
         """Test login with missing fields."""
-        response = client.post(
-            "/auth/login",
-            json={"username": "admin"}
-        )
+        response = client.post("/auth/login", json={"username": "admin"})
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
@@ -88,19 +75,13 @@ class TestAuthentication:
 
     def test_get_current_user_invalid_token(self, client):
         """Test getting current user with invalid token."""
-        response = client.get(
-            "/auth/me",
-            headers={"Authorization": "Bearer invalid_token"}
-        )
+        response = client.get("/auth/me", headers={"Authorization": "Bearer invalid_token"})
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_refresh_token_not_implemented(self, client):
         """Test token refresh endpoint (not implemented yet)."""
-        response = client.post(
-            "/auth/refresh",
-            json={"refresh_token": "some_token"}
-        )
+        response = client.post("/auth/refresh", json={"refresh_token": "some_token"})
 
         assert response.status_code == status.HTTP_501_NOT_IMPLEMENTED
 
@@ -134,14 +115,10 @@ class TestUserManagement:
             "email": "newuser@example.com",
             "full_name": "New User",
             "password": "password123",
-            "role": "viewer"
+            "role": "viewer",
         }
 
-        response = client.post(
-            "/auth/users",
-            json=user_data,
-            headers=auth_headers_admin
-        )
+        response = client.post("/auth/users", json=user_data, headers=auth_headers_admin)
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -157,30 +134,18 @@ class TestUserManagement:
             "email": "newuser@example.com",
             "full_name": "New User",
             "password": "password123",
-            "role": "viewer"
+            "role": "viewer",
         }
 
-        response = client.post(
-            "/auth/users",
-            json=user_data,
-            headers=auth_headers_analyst
-        )
+        response = client.post("/auth/users", json=user_data, headers=auth_headers_analyst)
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_update_user_as_admin(self, client, auth_headers_admin):
         """Test updating user as admin."""
-        user_data = {
-            "email": "updated@example.com",
-            "full_name": "Updated User",
-            "role": "analyst"
-        }
+        user_data = {"email": "updated@example.com", "full_name": "Updated User", "role": "analyst"}
 
-        response = client.put(
-            "/auth/users/2",
-            json=user_data,
-            headers=auth_headers_admin
-        )
+        response = client.put("/auth/users/2", json=user_data, headers=auth_headers_admin)
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -197,15 +162,10 @@ class TestUserManagement:
 
     def test_change_password_success(self, client, auth_headers_admin):
         """Test changing password."""
-        password_data = {
-            "current_password": "admin123",
-            "new_password": "newpassword123"
-        }
+        password_data = {"current_password": "admin123", "new_password": "newpassword123"}
 
         response = client.post(
-            "/auth/change-password",
-            json=password_data,
-            headers=auth_headers_admin
+            "/auth/change-password", json=password_data, headers=auth_headers_admin
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -227,7 +187,7 @@ class TestRoleBasedAccess:
             "email": "test@example.com",
             "full_name": "Test User",
             "password": "password123",
-            "role": "viewer"
+            "role": "viewer",
         }
         response = client.post("/auth/users", json=user_data, headers=auth_headers_admin)
         assert response.status_code == status.HTTP_200_OK
@@ -244,7 +204,7 @@ class TestRoleBasedAccess:
             "email": "test@example.com",
             "full_name": "Test User",
             "password": "password123",
-            "role": "viewer"
+            "role": "viewer",
         }
         response = client.post("/auth/users", json=user_data, headers=auth_headers_analyst)
         assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -261,7 +221,7 @@ class TestRoleBasedAccess:
             "email": "test@example.com",
             "full_name": "Test User",
             "password": "password123",
-            "role": "viewer"
+            "role": "viewer",
         }
         response = client.post("/auth/users", json=user_data, headers=auth_headers_viewer)
         assert response.status_code == status.HTTP_403_FORBIDDEN
