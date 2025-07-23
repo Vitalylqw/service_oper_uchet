@@ -66,12 +66,18 @@ ml = [
 [tool.ruff]
 target-version = "py39"
 line-length = 100
-extend-exclude = [
+exclude = [
     "*.md",
     "*.txt", 
     "*.json",
     "*.yaml",
-    "*.yml"
+    "*.yml",
+    ".git",
+    "__pycache__",
+    "venv",
+    ".venv",
+    "build",
+    "dist"
 ]
 
 [tool.ruff.lint]
@@ -92,6 +98,9 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
+"*.md" = ["ALL"]
+"*.txt" = ["ALL"] 
+"*.json" = ["ALL"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["service_oper_uchet"]

@@ -33,7 +33,9 @@
 - **[User Guide](docs/user_guide.md)** - руководство пользователя *(скоро)*
 
 ### 🔒 Защищенные файлы
+>
 > **Внимание**: Следующие файлы критичны для проекта и защищены от случайного удаления:
+>
 > - `Data_source_excel.xlsx` - исходные данные для тестирования и валидации
 > - `HANDOVER_STATUS.md` - отслеживание прогресса разработки
 > - `PROJECT_PLAN.md` - архитектурная документация
@@ -42,7 +44,7 @@
 
 Система построена по принципам **Domain Driven Design (DDD)** с разделением на архитектурные слои:
 
-```
+``` text
 src/
 ├── domain/              # Бизнес-логика предметной области
 │   ├── entities/        # Сущности (Deal, DealItem)
@@ -151,9 +153,9 @@ python scripts/manual_sync.py
 
 ### 5. Доступ к системе
 
-- **Web UI**: http://192.168.1.51:8000
-- **API Docs**: http://192.168.1.51:8000/docs
-- **Мониторинг**: http://192.168.1.51:8000/monitoring
+- **Web UI**: <http://192.168.1.51:8000>
+- **API Docs**: <http://192.168.1.51:8000/docs>
+- **Мониторинг**: <http://192.168.1.51:8000/monitoring>
 
 ## 🔧 Возможности системы
 
@@ -230,7 +232,7 @@ ruff check --fix .
 
 Используется [Conventional Commits](https://www.conventionalcommits.org/):
 
-```
+``` text
 feat: add 1C integration for data verification
 fix: resolve Excel parsing error with shifted data
 docs: update technical requirements
@@ -300,7 +302,7 @@ python scripts/install_service.py
 
 ### Структура Issue
 
-```
+``` text
 **Тип проблемы**: Bug/Feature Request/Question
 **Окружение**: Windows 10, Python 3.9, PostgreSQL 16
 **Описание**: Детальное описание проблемы
@@ -334,4 +336,4 @@ MIT License - см. файл [LICENSE](LICENSE)
 **Разработано для**: Корпоративные системы управления продажами  
 **Платформа**: Cross-platform (Windows, Linux, macOS)  
 **Интеграция**: PostgreSQL, 1С Предприятие, Excel  
-**Архитектура**: DDD, Event Sourcing, CQRS 
+**Архитектура**: DDD, Event Sourcing, CQRS
