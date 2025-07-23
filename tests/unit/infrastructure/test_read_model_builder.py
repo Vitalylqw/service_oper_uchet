@@ -30,7 +30,7 @@ class TestReadModelBuilder:
         session.commit = AsyncMock()
         session.rollback = AsyncMock()
         session.execute = AsyncMock()
-        session.add = AsyncMock()
+        session.add = MagicMock()  # add() is synchronous in SQLAlchemy
         return session
 
     @pytest.fixture
