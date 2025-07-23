@@ -5,11 +5,12 @@ Contains orchestration logic for managing full and incremental synchronization p
 Coordinates Excel parsing, change detection, and database updates.
 """
 
-from .models import SyncResult, SyncSummary
+from .models import SyncConfiguration, SyncResult, SyncSummary
 from .orchestrator import SyncOrchestratorService
 
 __all__ = [
     "SyncOrchestratorService",
+    "SyncConfiguration",
     "SyncResult",
     "SyncSummary",
 ]
