@@ -1,0 +1,170 @@
+.dashboard {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.dashboard-header {
+  margin-bottom: 32px;
+}
+
+.dashboard-header h2 {
+  margin: 0 0 8px 0;
+  font-size: 28px;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.dashboard-header p {
+  margin: 0;
+  color: #718096;
+  font-size: 16px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 24px;
+  margin-bottom: 40px;
+}
+
+.stats-card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stats-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.stats-card-loading {
+  opacity: 0.7;
+}
+
+.stats-card-success {
+  border-left: 4px solid #48bb78;
+}
+
+.stats-card-error {
+  border-left: 4px solid #f56565;
+}
+
+.stats-card-warning {
+  border-left: 4px solid #ed8936;
+}
+
+.stats-card-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.stats-card-content {
+  flex: 1;
+}
+
+.stats-card-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #718096;
+  margin-bottom: 4px;
+}
+
+.stats-card-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #2d3748;
+  margin-bottom: 4px;
+}
+
+.stats-card-subtitle {
+  font-size: 12px;
+  color: #a0aec0;
+}
+
+.loading-shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.dashboard-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+
+.dashboard-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+}
+
+.section-header {
+  display: flex;
+  justify-content: between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.section-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.view-all-link {
+  color: #0066cc;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.view-all-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  
+  .dashboard-content {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  
+  .dashboard-header h2 {
+    font-size: 24px;
+  }
+  
+  .stats-card {
+    padding: 20px;
+  }
+  
+  .dashboard-section {
+    padding: 20px;
+  }
+} 
