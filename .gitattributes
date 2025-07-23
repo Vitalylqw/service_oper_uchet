@@ -1,0 +1,29 @@
+# Important project files - handle with care
+HANDOVER_STATUS.md text eol=lf
+PROJECT_PLAN.md text eol=lf
+PROJECT_PLAN_FINAL.md text eol=lf
+technical_requirements.txt text eol=lf
+
+# Source data files - binary, important for testing
+Data_source_excel.xlsx binary
+*.xlsx binary
+*.xls binary
+
+# Documentation files
+README.md text eol=lf
+*.md text eol=lf
+
+# Python files
+*.py text eol=lf
+*.pyi text eol=lf
+
+# Configuration files
+*.toml text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.ini text eol=lf
+
+# Requirements
+requirements*.txt text eol=lf
+pyproject.toml text eol=lf 
