@@ -66,6 +66,13 @@ ml = [
 [tool.ruff]
 target-version = "py39"
 line-length = 100
+extend-exclude = [
+    "*.md",
+    "*.txt", 
+    "*.json",
+    "*.yaml",
+    "*.yml"
+]
 
 [tool.ruff.lint]
 select = [
