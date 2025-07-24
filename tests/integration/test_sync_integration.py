@@ -25,11 +25,24 @@ from src.domain.value_objects import Money, Period, Status
 
 def safe_cleanup_file(file_path: str | Path) -> None:
     """Safely remove file, handling Windows file locking issues."""
-    try:
-        Path(file_path).unlink()
-    except (OSError, PermissionError):
-        # File might be locked on Windows
-        pass
+    import platform
+    import time
+
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            Path(file_path).unlink()
+            break
+        except (OSError, PermissionError) as e:
+            if attempt == max_retries - 1:
+                # On Windows, file might be locked - log but don't fail
+                if platform.system() == "Windows":
+                    print(f"Warning: Could not delete temporary file: {e}")
+                else:
+                    raise
+            else:
+                # Wait and retry
+                time.sleep(0.1)
 
 
 @pytest.mark.integration
@@ -463,11 +476,7 @@ class TestSyncIntegration:
             assert result.parse_result.total_deals > 0
 
             # Clean up
-            try:
-                Path(tmp_file.name).unlink()
-            except (OSError, PermissionError):
-                # File might be locked on Windows
-                pass
+            safe_cleanup_file(tmp_file.name)
 
     async def test_sync_history_integration(
         self, sync_orchestrator, mock_sync_session_repository, sample_excel_file

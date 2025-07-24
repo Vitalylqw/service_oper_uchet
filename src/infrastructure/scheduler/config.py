@@ -79,7 +79,11 @@ class SchedulerConfig(BaseSettings):
     collect_metrics: bool = Field(default=True, description="Collect scheduler metrics")
     metrics_retention_days: int = Field(default=30, description="Metrics retention period")
 
-    model_config = ConfigDict(env_prefix="SCHEDULER_", env_file=".env")
+    model_config = ConfigDict(
+        env_prefix="SCHEDULER_",
+        env_file=".env",
+        extra="allow"  # Allow extra fields from env files
+    )
 
     @property
     def full_sync_cron_expression(self) -> str:

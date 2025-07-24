@@ -5,11 +5,14 @@ Unit tests for domain models.
 from decimal import Decimal
 from uuid import UUID
 
+import pytest
+
 from src.domain.models import Deal, DealItem
 from src.domain.models.sync_session import SyncResult, SyncType
 from src.domain.value_objects import Money, Status
 
 
+@pytest.mark.unit
 class TestDealItem:
     """Tests for DealItem model."""
 
@@ -66,6 +69,7 @@ class TestDealItem:
         assert isinstance(item.id, UUID)
 
 
+@pytest.mark.unit
 class TestDeal:
     """Tests for Deal model."""
 
@@ -147,6 +151,7 @@ class TestDeal:
         assert len(deal.items) == 0
 
 
+@pytest.mark.unit
 class TestSyncSession:
     """Tests for SyncSession model."""
 

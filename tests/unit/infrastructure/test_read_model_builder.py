@@ -20,6 +20,7 @@ from src.infrastructure.database.models import ReadModelAudit
 from src.infrastructure.workers.read_model_builder import ReadModelBuilder
 
 
+@pytest.mark.unit
 class TestReadModelBuilder:
     """Test suite for Read Model Builder."""
 

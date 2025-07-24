@@ -20,6 +20,7 @@ from src.infrastructure.scheduler import (
 )
 
 
+@pytest.mark.unit
 class TestSchedulerConfig:
     """Test SchedulerConfig functionality."""
 
@@ -85,6 +86,7 @@ class TestSchedulerConfig:
             # In real environment, it would load from env
 
 
+@pytest.mark.unit
 class TestSchedulerModels:
     """Test scheduler Pydantic models."""
 
@@ -178,6 +180,7 @@ class TestSchedulerModels:
         assert state.has_active_jobs is True
 
 
+@pytest.mark.unit
 class TestSchedulerService:
     """Test SchedulerService functionality."""
 
@@ -433,6 +436,7 @@ class TestSchedulerService:
         await scheduler_service.stop()
 
 
+@pytest.mark.unit
 class TestSchedulerIntegration:
     """Integration tests for scheduler components."""
 

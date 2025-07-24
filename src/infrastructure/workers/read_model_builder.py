@@ -11,13 +11,13 @@ import uuid
 from decimal import Decimal
 from typing import Any
 
+from domain.interfaces import EventStore
+from domain.models import Deal, DealItem
 from loguru import logger
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...domain.interfaces import EventStore
-from ...domain.models import Deal, DealItem
 from ..database.models import (
     ReadModelAudit,
     ReadModelDeal,
@@ -202,6 +202,19 @@ class ReadModelBuilder:
             deal_data = event_data.get("deal", {})
             deal = Deal.model_validate(deal_data)
 
+            # Safely handle period - convert to Period if needed
+            period = deal.period
+            if isinstance(period, dict):
+                from domain.value_objects import Period
+                period = Period.model_validate(period)
+            elif hasattr(period, 'month'):
+                # Already a Period object
+                pass
+            else:
+                # Fallback
+                from domain.value_objects import Period
+                period = Period(month="Unknown", year="0000", full_name="Unknown")
+
             # Create read model entry
             read_deal = ReadModelDeal(
                 id=deal.id,
@@ -213,9 +226,9 @@ class ReadModelBuilder:
                 invoice_number=deal.invoice_number,
                 invoice_date=deal.invoice_date,
                 # Period
-                period_month=deal.period.month,
-                period_year=deal.period.year,
-                period_full_name=str(deal.period),
+                period_month=period.month,
+                period_year=period.year,
+                period_full_name=str(period),
                 # Status
                 is_shipped=str(deal.is_shipped) if deal.is_shipped else None,
                 is_paid=str(deal.is_paid) if deal.is_paid else None,
@@ -268,6 +281,19 @@ class ReadModelBuilder:
             deal_data = event_data.get("deal", {})
             deal = Deal.model_validate(deal_data)
 
+            # Safely handle period - convert to Period if needed
+            period = deal.period
+            if isinstance(period, dict):
+                from domain.value_objects import Period
+                period = Period.model_validate(period)
+            elif hasattr(period, 'month'):
+                # Already a Period object
+                pass
+            else:
+                # Fallback
+                from domain.value_objects import Period
+                period = Period(month="Unknown", year="0000", full_name="Unknown")
+
             # Get changes from event
             changes = event_data.get("changes", {})
 
@@ -278,9 +304,9 @@ class ReadModelBuilder:
                 "invoice_info": deal.invoice_info,
                 "invoice_number": deal.invoice_number,
                 "invoice_date": deal.invoice_date,
-                "period_month": deal.period.month,
-                "period_year": deal.period.year,
-                "period_full_name": str(deal.period),
+                "period_month": period.month,
+                "period_year": period.year,
+                "period_full_name": str(period),
                 "is_shipped": str(deal.is_shipped) if deal.is_shipped else None,
                 "is_paid": str(deal.is_paid) if deal.is_paid else None,
                 "upd_number": deal.upd_number,

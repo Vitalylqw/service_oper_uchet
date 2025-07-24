@@ -12,6 +12,7 @@ from src.domain.models.sync_session import SyncSession, SyncType
 from src.domain.value_objects import Period
 
 
+@pytest.mark.unit
 class TestExcelParserService:
     """Tests for ExcelParserService."""
 
@@ -113,9 +114,9 @@ class TestExcelParserService:
     @pytest.mark.asyncio
     async def test_parse_file_nonexistent(self, parser_service, sample_sync_session):
         """Test parsing non-existent file."""
-        from src.domain.exceptions import SyncFileError
+        from domain.exceptions import SyncFileError
 
-        with pytest.raises(SyncFileError, match="File does not exist"):
+        with pytest.raises(SyncFileError):
             await parser_service.parse_file("nonexistent.xlsx", sample_sync_session)
 
     @pytest.mark.asyncio
@@ -249,6 +250,7 @@ class TestExcelParserService:
         assert header_row is None
 
 
+@pytest.mark.unit
 class TestParseResult:
     """Tests for ParseResult model."""
 

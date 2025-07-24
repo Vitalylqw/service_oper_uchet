@@ -12,11 +12,11 @@ from decimal import Decimal
 from pathlib import Path
 
 import pandas as pd
+from domain.exceptions import SyncFileError
+from domain.models import Deal, DealItem, SyncSession
+from domain.value_objects import Money, Period, Status
 from loguru import logger
 
-from ...domain.exceptions import SyncFileError
-from ...domain.models import Deal, DealItem, SyncSession
-from ...domain.value_objects import Money, Period, Status
 from .models import ParseResult, ParseStats
 
 
@@ -99,6 +99,10 @@ class ExcelParserService:
             return result
 
         except Exception as e:
+            # If it's already a SyncFileError, just re-raise it
+            if isinstance(e, SyncFileError):
+                raise
+
             error_msg = f"Critical error parsing file '{file_path}': {str(e)}"
             logger.error(error_msg)
             self.stats.errors.append(error_msg)

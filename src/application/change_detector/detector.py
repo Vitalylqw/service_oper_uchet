@@ -10,11 +10,11 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from domain.interfaces import DealRepository
+from domain.models import Deal, DealItem
+from domain.value_objects import HashKey
 from loguru import logger
 
-from ...domain.interfaces import DealRepository
-from ...domain.models import Deal, DealItem
-from ...domain.value_objects import HashKey
 from .models import (
     ChangeDetectionResult,
     ChangeType,

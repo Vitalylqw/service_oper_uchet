@@ -31,14 +31,44 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     logger.info(f"Starting FastAPI application in {config.environment} mode")
 
-    # TODO: Initialize database connections, repositories, etc.
-    # This will be implemented when we integrate with infrastructure layer
-    # For now using mock services through dependency injection
+    try:
+        # Initialize database connection
+        from infrastructure.database.connection import init_database
+        logger.info("Initializing database connection...")
+        await init_database()
+        logger.info("✅ Database connection initialized successfully")
+
+        # Create data directories if they don't exist
+        from pathlib import Path
+        data_dir = Path("data")
+        data_dir.mkdir(exist_ok=True)
+        (data_dir / "excel").mkdir(exist_ok=True)
+        (data_dir / "backup").mkdir(exist_ok=True)
+        (data_dir / "downloads").mkdir(exist_ok=True)
+        logger.info("✅ Data directories created")
+
+        # Log startup completion
+        logger.info("🚀 FastAPI application startup completed successfully")
+
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize application: {e}")
+        raise
 
     yield
 
     # Shutdown
-    logger.info("Shutting down FastAPI application")
+    logger.info("Shutting down FastAPI application...")
+
+    try:
+        # Close database connections
+        from infrastructure.database.connection import close_database
+        await close_database()
+        logger.info("✅ Database connections closed")
+
+    except Exception as e:
+        logger.error(f"❌ Error during shutdown: {e}")
+
+    logger.info("👋 FastAPI application shutdown completed")
 
 
 def create_app() -> FastAPI:

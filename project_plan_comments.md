@@ -62,3 +62,17 @@
 1. Создать репозиторную структуру (Poetry workspace, шаблон CI).  
 2. Подготовить ADR 0001 «Event Sourcing vs. plain history tables».  
 3. Запустить Sprint 0 – core-domain + excel-parser. 
+
+## 24.07.2025 – Sprint 2.3 Real Integration
+
+* Исправили unit-тесты `RealSyncService`:
+  * добавлена фикстура `temp_excel_file` для временного Excel;
+  * обновлены ожидания статуса (`pending`) и обработка `HTTPException 400`;
+  * suite снова зелёный – `362 passed`.
+* Добавлен `docs/PROJECT_OVERVIEW.md` – краткая карта проекта (DDD-слои, основные процессы, тестовая пирамида, команды).
+* Проверили `pyproject.toml` – конфиг **Ruff/Black/Mypy** уже присутствует, `ruff` в `dev`-extra.
+
+План на дальше:
+1. Настроить CI-шаг Ruff (`ruff check .`) в GitHub Actions.
+2. Создать ADR о расширении очереди событий (Kafka vs Redis).
+3. Продолжить реализацию Sprint 2.3 – интеграция с реальным Excel-файлом из shared folder. 

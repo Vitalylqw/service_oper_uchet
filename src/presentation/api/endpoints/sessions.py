@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends
 from loguru import logger
 
 from ..auth.security import require_analyst, require_viewer
+from ..dependencies import get_sync_service
 from ..models.common import PaginationParams, PaginationResponse
 from ..models.sessions import (
     SyncSessionCreateRequest,
@@ -20,6 +21,7 @@ from ..models.sessions import (
     SyncSessionSummary,
     SyncStatsResponse,
 )
+from ..services import RealSyncService
 
 sessions_router = APIRouter()
 
@@ -29,6 +31,7 @@ async def list_sync_sessions(
     pagination: PaginationParams = Depends(),
     filters: SyncSessionFilters = Depends(),
     current_user=Depends(require_viewer),
+    sync_service: RealSyncService = Depends(get_sync_service),
 ) -> PaginationResponse[SyncSessionSummary]:
     """
     List sync sessions with filtering and pagination.
@@ -43,51 +46,29 @@ async def list_sync_sessions(
     """
     logger.info(f"User {current_user.username} requested sync sessions list")
 
-    # TODO: Implement actual database query with filters
-    # For now, return mock data
+    # Get sessions through real service layer
+    filters_dict = filters.model_dump(exclude_none=True)
+    result = await sync_service.get_sessions_paginated(
+        page=pagination.page, limit=pagination.limit, filters=filters_dict
+    )
 
-    mock_sessions = [
-        SyncSessionSummary(
-            id="session-1",
-            session_type="incremental",
-            status="completed",
-            started_at=datetime(2024, 1, 15, 3, 0, 0),
-            finished_at=datetime(2024, 1, 15, 3, 5, 30),
-            duration_seconds=330.0,
-            total_deals_processed=25,
-            success=True,
-            error_message=None,
-        ),
-        SyncSessionSummary(
-            id="session-2",
-            session_type="full",
-            status="failed",
-            started_at=datetime(2024, 1, 14, 3, 0, 0),
-            finished_at=datetime(2024, 1, 14, 3, 2, 15),
-            duration_seconds=135.0,
-            total_deals_processed=0,
-            success=False,
-            error_message="File not found: data.xlsx",
-        ),
-    ]
+    # Convert to SyncSessionSummary objects
+    session_summaries = [SyncSessionSummary(**item) for item in result["items"]]
 
-    # Apply mock filtering
-    filtered_sessions = mock_sessions
-    if filters.status:
-        filtered_sessions = [s for s in filtered_sessions if s.status == filters.status]
-
-    # Mock pagination
-    total = len(filtered_sessions)
-    start = pagination.offset
-    end = start + pagination.limit
-    paginated_sessions = filtered_sessions[start:end]
-
-    return PaginationResponse.create(paginated_sessions, total, pagination)
+    return PaginationResponse(
+        items=session_summaries,
+        total=result["total"],
+        page=result["page"],
+        limit=result["limit"],
+        pages=result["pages"],
+    )
 
 
 @sessions_router.get("/{session_id}", response_model=SyncSessionResponse)
 async def get_sync_session(
-    session_id: str, current_user=Depends(require_viewer)
+    session_id: str,
+    current_user=Depends(require_viewer),
+    sync_service: RealSyncService = Depends(get_sync_service),
 ) -> SyncSessionResponse:
     """
     Get detailed sync session information.
@@ -101,37 +82,20 @@ async def get_sync_session(
     """
     logger.info(f"User {current_user.username} requested sync session {session_id}")
 
-    # TODO: Get session from database
-    # For now, return mock data
-    return SyncSessionResponse(
-        id=session_id,
-        session_type="incremental",
-        status="completed",
-        started_at=datetime(2024, 1, 15, 3, 0, 0),
-        finished_at=datetime(2024, 1, 15, 3, 5, 30),
-        duration_seconds=330.0,
-        file_path="/data/excel/daily_data.xlsx",
-        file_hash="abc123def456",
-        file_size_bytes=1024000,
-        total_deals_processed=25,
-        total_items_processed=75,
-        insertions_count=5,
-        updates_count=15,
-        deletions_count=2,
-        errors_count=0,
-        success=True,
-        error_message=None,
-        parsing_duration_seconds=45.0,
-        change_detection_duration_seconds=120.0,
-        database_duration_seconds=165.0,
-        created_at=datetime(2024, 1, 15, 3, 0, 0),
-        metadata={"sync_config": {"incremental_period_months": 3, "batch_size": 100}},
-    )
+    # Get session through real service layer
+    session_data = await sync_service.get_session_by_id(session_id)
+    if not session_data:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    return SyncSessionResponse(**session_data)
 
 
 @sessions_router.post("/", response_model=SyncSessionResponse)
 async def create_sync_session(
-    request: SyncSessionCreateRequest, current_user=Depends(require_analyst)
+    request: SyncSessionCreateRequest,
+    current_user=Depends(require_analyst),
+    sync_service: RealSyncService = Depends(get_sync_service),
 ) -> SyncSessionResponse:
     """
     Create and start new sync session.
@@ -145,37 +109,14 @@ async def create_sync_session(
     """
     logger.info(f"User {current_user.username} requested new sync session")
 
-    # TODO: Implement actual sync session creation and execution
-    # This would involve:
-    # 1. Create new SyncSession in database
-    # 2. Start sync orchestrator asynchronously
-    # 3. Return session details
-
-    # For now, return mock response
-    return SyncSessionResponse(
-        id="new-session-123",
-        session_type=request.session_type,
-        status="running",
-        started_at=datetime.utcnow(),
-        finished_at=None,
-        duration_seconds=None,
+    # Create sync session through real service layer
+    session_data = await sync_service.create_sync_session(
         file_path=request.file_path,
-        file_hash=None,
-        file_size_bytes=None,
-        total_deals_processed=0,
-        total_items_processed=0,
-        insertions_count=0,
-        updates_count=0,
-        deletions_count=0,
-        errors_count=0,
-        success=False,
-        error_message=None,
-        parsing_duration_seconds=None,
-        change_detection_duration_seconds=None,
-        database_duration_seconds=None,
-        created_at=datetime.utcnow(),
-        metadata={"force": request.force},
+        session_type=request.session_type,
+        force=request.force
     )
+
+    return SyncSessionResponse(**session_data)
 
 
 @sessions_router.delete("/{session_id}")

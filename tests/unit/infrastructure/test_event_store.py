@@ -15,6 +15,7 @@ from src.infrastructure.database.event_store import EventStoreImplementation
 from src.infrastructure.database.models import EventStoreModel
 
 
+@pytest.mark.unit
 class TestEventStoreImplementation:
     """Test Event Store implementation."""
 

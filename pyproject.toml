@@ -2,6 +2,12 @@
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
 [project]
 name = "service-oper-uchet"
 version = "0.1.0"
@@ -47,6 +53,7 @@ dependencies = [
     "python-multipart>=0.0.6",  # For form data
     "python-jose[cryptography]>=3.3.0",  # For JWT tokens
     "passlib[bcrypt]>=1.7.4",  # For password hashing
+    "psutil>=5.9.0",  # For system metrics monitoring
 ]
 
 [project.optional-dependencies]
@@ -173,6 +180,8 @@ python_functions = [
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
+    "integration_db: marks tests as database integration tests",
+    "e2e: marks tests as end-to-end tests",
     "unit: marks tests as unit tests",
 ]
 

@@ -8,12 +8,18 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 from pydantic_settings import BaseSettings
 
 
 class APIConfig(BaseSettings):
     """API configuration settings."""
+
+    model_config = ConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="allow"  # Allow extra fields from env files
+    )
 
     # Security
     secret_key: str = Field(
@@ -47,11 +53,20 @@ class APIConfig(BaseSettings):
         default="development", description="Environment"
     )
 
-    class Config:
-        """Pydantic config."""
+    # Database settings (optional, can be in extra fields)
+    db_type: str = Field(default="sqlite", description="Database type")
+    db_sqlite_db_path: str = Field(default="data/service_oper_uchet.sqlite", description="SQLite path")
 
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    # File system paths
+    excel_source_path: str = Field(default="data/excel/", description="Excel source path")
+    excel_backup_path: str = Field(default="data/backup/", description="Excel backup path")
+    excel_downloads_path: str = Field(default="data/downloads/", description="Excel downloads path")
+
+    # Logging
+    log_level: str = Field(default="INFO", description="Logging level")
+
+    # Health checks
+    health_check_timeout: int = Field(default=5, description="Health check timeout seconds")
 
 
 # Global config instance

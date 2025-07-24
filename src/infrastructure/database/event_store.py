@@ -10,11 +10,11 @@ import uuid
 from datetime import datetime
 from typing import Any
 
+from domain.interfaces import EventStore
 from loguru import logger
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...domain.interfaces import EventStore
 from .models import EventStoreModel
 
 

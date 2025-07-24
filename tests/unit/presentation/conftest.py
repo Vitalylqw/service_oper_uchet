@@ -18,7 +18,23 @@ from src.presentation.api.main import create_app
 @pytest.fixture
 def app():
     """Create FastAPI application for testing."""
-    return create_app()
+    from src.presentation.api.dependencies import (
+        MockDealService,
+        MockHealthService,
+        MockSyncService,
+        get_deal_service,
+        get_health_service,
+        get_sync_service,
+    )
+
+    app = create_app()
+
+    # Override dependencies with mocks for testing
+    app.dependency_overrides[get_deal_service] = lambda: MockDealService()
+    app.dependency_overrides[get_sync_service] = lambda: MockSyncService()
+    app.dependency_overrides[get_health_service] = lambda: MockHealthService()
+
+    return app
 
 
 @pytest.fixture

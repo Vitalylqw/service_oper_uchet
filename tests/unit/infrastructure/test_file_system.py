@@ -24,6 +24,7 @@ from src.infrastructure.file_system import (
 )
 
 
+@pytest.mark.unit
 class TestFileSystemConfig:
     """Test FileSystemConfig functionality."""
 
@@ -142,6 +143,7 @@ class TestFileSystemConfig:
         assert any("username is required" in error for error in errors)
 
 
+@pytest.mark.unit
 class TestFileSystemModels:
     """Test file system Pydantic models."""
 
@@ -224,6 +226,7 @@ class TestFileSystemModels:
         assert caps.supports_authentication is True
 
 
+@pytest.mark.unit
 class TestFileSystemService:
     """Test FileSystemService functionality."""
 
@@ -464,6 +467,7 @@ class TestFileSystemService:
         assert caps.supports_file_metadata is True
 
 
+@pytest.mark.unit
 class TestFileSystemHTTP:
     """Test file system service with HTTP protocol."""
 
@@ -527,6 +531,7 @@ class TestFileSystemHTTP:
             assert result.bytes_transferred > 0
 
 
+@pytest.mark.unit
 class TestFileSystemIntegration:
     """Integration tests for file system components."""
 

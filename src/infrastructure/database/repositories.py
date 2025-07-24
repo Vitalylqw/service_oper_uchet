@@ -9,12 +9,12 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+from domain.interfaces import DealRepository, ReadModelRepository, SyncSessionRepository
+from domain.models import Deal, SyncSession
 from loguru import logger
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...domain.interfaces import DealRepository, ReadModelRepository, SyncSessionRepository
-from ...domain.models import Deal, SyncSession
 from .models import ReadModelDeal, ReadModelPosition, SyncSessionModel
 
 
@@ -157,7 +157,7 @@ class DealRepositoryImplementation(DealRepository):
         # In a full implementation, you might reconstruct from events
         # or have more sophisticated mapping logic
 
-        from ...domain.value_objects import Money, Period, Status
+        from domain.value_objects import Money, Period, Status
 
         # Create period
         period = Period(
@@ -205,7 +205,7 @@ class DealRepositoryImplementation(DealRepository):
 
     async def _load_deal_items(self, deal: Deal) -> None:
         """Load deal items from positions read model."""
-        from ...domain.models import DealItem
+        from domain.models import DealItem
 
         try:
             query = (
@@ -229,7 +229,7 @@ class DealRepositoryImplementation(DealRepository):
 
                 # Set money fields
                 if position_model.purchase_price_amount:
-                    from ...domain.value_objects import Money
+                    from domain.value_objects import Money
 
                     item.purchase_price = Money(
                         amount=position_model.purchase_price_amount,
@@ -237,7 +237,7 @@ class DealRepositoryImplementation(DealRepository):
                     )
 
                 if position_model.sale_price_amount:
-                    from ...domain.value_objects import Money
+                    from domain.value_objects import Money
 
                     item.sale_price = Money(
                         amount=position_model.sale_price_amount,
@@ -245,7 +245,7 @@ class DealRepositoryImplementation(DealRepository):
                     )
 
                 if position_model.revenue_amount:
-                    from ...domain.value_objects import Money
+                    from domain.value_objects import Money
 
                     item.revenue = Money(
                         amount=position_model.revenue_amount,
@@ -253,14 +253,14 @@ class DealRepositoryImplementation(DealRepository):
                     )
 
                 if position_model.margin_amount:
-                    from ...domain.value_objects import Money
+                    from domain.value_objects import Money
 
                     item.margin = Money(
                         amount=position_model.margin_amount, currency=position_model.margin_currency
                     )
 
                 if position_model.cost_amount:
-                    from ...domain.value_objects import Money
+                    from domain.value_objects import Money
 
                     item.cost = Money(
                         amount=position_model.cost_amount, currency=position_model.cost_currency
@@ -420,20 +420,22 @@ class SyncSessionRepositoryImplementation(SyncSessionRepository):
 
     def _model_to_domain(self, model: SyncSessionModel) -> SyncSession:
         """Convert database model to domain object."""
-        from ...domain.models import SyncType
-        from ...domain.value_objects import Status
+        from domain.models import SyncType
+        from domain.value_objects import Status
 
         # Create sync session
-        sync_session = SyncSession(sync_type=SyncType(model.sync_type), file_path=model.file_path)
+        sync_session = SyncSession(sync_type=SyncType(model.sync_type), source_file_path=model.file_path)
 
         # Set fields
         sync_session.id = model.id
         sync_session.status = Status(model.status)
-        sync_session.file_hash = model.file_hash
-        sync_session.file_size = model.file_size
+        sync_session.source_file_hash = model.file_hash
+        sync_session.source_file_size = model.file_size
         sync_session.started_at = model.started_at
         sync_session.finished_at = model.finished_at
-        sync_session.error_message = model.error_message
+        # Convert error_message to stats.errors
+        if model.error_message:
+            sync_session.stats.errors.append(model.error_message)
 
         # Load stats if available
         if model.stats_data:
@@ -449,12 +451,12 @@ class SyncSessionRepositoryImplementation(SyncSessionRepository):
             id=session.id,
             sync_type=session.sync_type.value,
             status=session.status.value,
-            file_path=session.file_path,
-            file_hash=session.file_hash,
-            file_size=session.file_size,
+            file_path=session.source_file_path,
+            file_hash=session.source_file_hash,
+            file_size=session.source_file_size,
             started_at=session.started_at,
             finished_at=session.finished_at,
-            error_message=session.error_message,
+            error_message="; ".join(session.stats.errors) if session.stats.errors else None,
             stats_data={},  # Convert stats to JSON if needed
         )
 
@@ -464,12 +466,12 @@ class SyncSessionRepositoryImplementation(SyncSessionRepository):
         """Update existing session model with domain data."""
         model.sync_type = session.sync_type.value
         model.status = session.status.value
-        model.file_path = session.file_path
-        model.file_hash = session.file_hash
-        model.file_size = session.file_size
+        model.file_path = session.source_file_path
+        model.file_hash = session.source_file_hash
+        model.file_size = session.source_file_size
         model.started_at = session.started_at
         model.finished_at = session.finished_at
-        model.error_message = session.error_message
+        model.error_message = "; ".join(session.stats.errors) if session.stats.errors else None
         # Update stats_data if needed
 
 

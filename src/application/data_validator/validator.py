@@ -9,10 +9,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
+from application.excel_parser import ParseResult
+from domain.models import Deal, DealItem
 from loguru import logger
 
-from ...application.excel_parser import ParseResult
-from ...domain.models import Deal, DealItem
 from .models import ErrorSeverity, ValidationError, ValidationResult
 
 

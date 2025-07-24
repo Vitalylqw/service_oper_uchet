@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import tempfile
 from decimal import Decimal
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pandas as pd
@@ -24,6 +23,7 @@ from src.application.data_validator import (
 from src.application.excel_parser import ParseResult
 from src.domain.models import Deal, DealItem, SyncSession, SyncType
 from src.domain.value_objects import Money, Period, Status
+from tests.conftest import safe_cleanup_file
 
 
 # Global fixtures available to all test classes
@@ -92,10 +92,12 @@ def sample_parse_result(sample_deal):
     )
 
 
+@pytest.mark.unit
 class TestDataValidator:
     """Test cases for DataValidator class."""
 
 
+@pytest.mark.unit
 class TestDataValidatorFileValidation:
     """Test Excel file structure validation."""
 
@@ -128,7 +130,7 @@ class TestDataValidatorFileValidation:
             assert errors[0].code == "INVALID_FILE_FORMAT"
             assert "Неподдерживаемый формат файла" in errors[0].message
         finally:
-            Path(tmp_path).unlink()
+            safe_cleanup_file(tmp_path)
 
     @patch("pandas.ExcelFile")
     def test_validate_excel_read_error(self, mock_excel_file, validator):
@@ -149,7 +151,7 @@ class TestDataValidatorFileValidation:
             assert errors[0].code == "FILE_READ_ERROR"
             assert "Ошибка чтения Excel файла" in errors[0].message
         finally:
-            Path(tmp_path).unlink()
+            safe_cleanup_file(tmp_path)
 
     @patch("pandas.ExcelFile")
     @patch("pandas.read_excel")
@@ -194,7 +196,7 @@ class TestDataValidatorFileValidation:
             assert result.stats.total_sheets == 2
             assert result.stats.valid_sheets == 2
         finally:
-            Path(tmp_path).unlink()
+            safe_cleanup_file(tmp_path)
 
     @patch("pandas.ExcelFile")
     @patch("pandas.read_excel")
@@ -223,7 +225,7 @@ class TestDataValidatorFileValidation:
             assert len(header_errors) == 1
             assert "Отсутствуют обязательные заголовки" in header_errors[0].message
         finally:
-            Path(tmp_path).unlink()
+            safe_cleanup_file(tmp_path)
 
     @patch("pandas.ExcelFile")
     @patch("pandas.read_excel")
@@ -251,9 +253,10 @@ class TestDataValidatorFileValidation:
             assert len(empty_warnings) == 1
             assert "пустой" in empty_warnings[0].message
         finally:
-            Path(tmp_path).unlink()
+                                                 safe_cleanup_file(tmp_path)
 
 
+@pytest.mark.unit
 class TestDataValidatorBusinessLogic:
     """Test business logic validation."""
 
@@ -349,6 +352,7 @@ class TestDataValidatorBusinessLogic:
         assert len(margin_warnings) == 1
 
 
+@pytest.mark.unit
 class TestDataValidatorFinancialValidation:
     """Test financial consistency validation."""
 
@@ -396,6 +400,7 @@ class TestDataValidatorFinancialValidation:
         )
 
 
+@pytest.mark.unit
 class TestValidationModels:
     """Test validation models."""
 

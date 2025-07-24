@@ -12,7 +12,8 @@ from typing import Any
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from ..dependencies import MockHealthService, get_health_service
+from ..dependencies import get_health_service
+from ..services import RealHealthService
 
 health_router = APIRouter()
 
@@ -36,7 +37,7 @@ class HealthStatus(BaseModel):
 
 @health_router.get("/", response_model=HealthResponse)
 async def health_check(
-    health_service: MockHealthService = Depends(get_health_service),
+    health_service: RealHealthService = Depends(get_health_service),
 ) -> HealthResponse:
     """
     Basic health check endpoint.
@@ -85,7 +86,7 @@ async def liveness_check() -> dict[str, str]:
 
 @health_router.get("/metrics")
 async def get_metrics(
-    health_service: MockHealthService = Depends(get_health_service),
+    health_service: RealHealthService = Depends(get_health_service),
 ) -> dict[str, Any]:
     """
     Basic metrics endpoint.

@@ -9,6 +9,7 @@ import pytest
 from src.domain.value_objects import HashKey, Money, Period, Status
 
 
+@pytest.mark.unit
 class TestMoney:
     """Tests for Money value object."""
 
@@ -77,6 +78,7 @@ class TestMoney:
         assert money1 != money3
 
 
+@pytest.mark.unit
 class TestPeriod:
     """Tests for Period value object."""
 
@@ -121,6 +123,7 @@ class TestPeriod:
         assert str(period) == "Май 2025"
 
 
+@pytest.mark.unit
 class TestHashKey:
     """Tests for HashKey value object."""
 
@@ -175,6 +178,7 @@ class TestHashKey:
         assert str(hash_key) == "abc123"
 
 
+@pytest.mark.unit
 class TestStatus:
     """Tests for Status enum."""
 
