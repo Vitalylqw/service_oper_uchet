@@ -292,3 +292,6 @@ dist/
 .turbo
 package-lock.json
 yarn.lock 
+Design/
+parser_output.json
+*.env.local 
