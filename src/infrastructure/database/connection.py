@@ -1,16 +1,18 @@
 """
-Database connection management for PostgreSQL.
+Database connection management for PostgreSQL and SQLite.
 
-Manages async connections to PostgreSQL 16 with connection pooling.
+Manages async connections with automatic database type detection and configuration.
 """
 
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Literal
 
 from loguru import logger
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, computed_field
 from pydantic_settings import BaseSettings
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -18,16 +20,27 @@ from sqlalchemy.orm import sessionmaker
 
 
 class DatabaseConfig(BaseSettings):
-    """Database configuration settings."""
+    """Database configuration settings with SQLite and PostgreSQL support."""
 
-    # PostgreSQL connection parameters (from tech requirements)
-    db_host: str = Field(default="192.168.31.5", description="Database host")
-    db_port: int = Field(default=5432, description="Database port")
-    db_name: str = Field(default="corp", description="Database name")
-    db_user: str = Field(default="etl", description="Database user")
-    db_password: str = Field(default="", description="Database password")
+    # Database type selection
+    db_type: Literal["sqlite", "postgresql"] = Field(
+        default="sqlite", description="Database type (sqlite for dev, postgresql for prod)"
+    )
 
-    # Connection pool settings
+    # SQLite configuration (for development/testing)
+    sqlite_db_path: str = Field(
+        default="data/service_oper_uchet.sqlite", 
+        description="SQLite database file path"
+    )
+
+    # PostgreSQL connection parameters (for production)
+    db_host: str = Field(default="192.168.31.5", description="PostgreSQL host")
+    db_port: int = Field(default=5432, description="PostgreSQL port")
+    db_name: str = Field(default="corp", description="PostgreSQL database name")
+    db_user: str = Field(default="etl", description="PostgreSQL user")
+    db_password: str = Field(default="", description="PostgreSQL password")
+
+    # Connection pool settings (PostgreSQL only)
     db_pool_size: int = Field(default=10, description="Connection pool size")
     db_pool_max_overflow: int = Field(default=20, description="Pool max overflow")
     db_pool_timeout: int = Field(default=30, description="Pool timeout seconds")
@@ -47,21 +60,35 @@ class DatabaseConfig(BaseSettings):
 
     model_config = ConfigDict(env_prefix="DB_", env_file=".env")
 
+    @computed_field
     @property
     def sync_database_url(self) -> str:
         """Synchronous database URL for migrations."""
-        return (
-            f"postgresql://{self.db_user}:{self.db_password}@"
-            f"{self.db_host}:{self.db_port}/{self.db_name}"
-        )
+        if self.db_type == "sqlite":
+            # Ensure directory exists
+            db_path = Path(self.sqlite_db_path)
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+            return f"sqlite:///{self.sqlite_db_path}"
+        else:
+            return (
+                f"postgresql://{self.db_user}:{self.db_password}@"
+                f"{self.db_host}:{self.db_port}/{self.db_name}"
+            )
 
+    @computed_field 
     @property
     def async_database_url(self) -> str:
         """Asynchronous database URL for application."""
-        return (
-            f"postgresql+asyncpg://{self.db_user}:{self.db_password}@"
-            f"{self.db_host}:{self.db_port}/{self.db_name}"
-        )
+        if self.db_type == "sqlite":
+            # Ensure directory exists
+            db_path = Path(self.sqlite_db_path)
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+            return f"sqlite+aiosqlite:///{self.sqlite_db_path}"
+        else:
+            return (
+                f"postgresql+asyncpg://{self.db_user}:{self.db_password}@"
+                f"{self.db_host}:{self.db_port}/{self.db_name}"
+            )
 
 
 class DatabaseManager:
@@ -79,15 +106,27 @@ class DatabaseManager:
     def async_engine(self):
         """Get or create async engine."""
         if self._async_engine is None:
-            self._async_engine = create_async_engine(
-                self.config.async_database_url,
-                pool_size=self.config.db_pool_size,
-                max_overflow=self.config.db_pool_max_overflow,
-                pool_timeout=self.config.db_pool_timeout,
-                pool_recycle=self.config.db_pool_recycle,
-                echo=False,  # Set to True for SQL debug logging
-                future=True,
-            )
+            if self.config.db_type == "sqlite":
+                # SQLite specific configuration
+                self._async_engine = create_async_engine(
+                    self.config.async_database_url,
+                    echo=False,  # Set to True for SQL debug logging
+                    future=True,
+                    # SQLite doesn't support connection pooling like PostgreSQL
+                    pool_pre_ping=True,
+                    connect_args={"check_same_thread": False}  # For SQLite threading
+                )
+            else:
+                # PostgreSQL configuration
+                self._async_engine = create_async_engine(
+                    self.config.async_database_url,
+                    pool_size=self.config.db_pool_size,
+                    max_overflow=self.config.db_pool_max_overflow,
+                    pool_timeout=self.config.db_pool_timeout,
+                    pool_recycle=self.config.db_pool_recycle,
+                    echo=False,  # Set to True for SQL debug logging
+                    future=True,
+                )
         return self._async_engine
 
     @property
@@ -107,15 +146,25 @@ class DatabaseManager:
     def sync_engine(self):
         """Get or create sync engine for migrations."""
         if self._sync_engine is None:
-            self._sync_engine = create_engine(
-                self.config.sync_database_url,
-                pool_size=self.config.db_pool_size,
-                max_overflow=self.config.db_pool_max_overflow,
-                pool_timeout=self.config.db_pool_timeout,
-                pool_recycle=self.config.db_pool_recycle,
-                echo=False,
-                future=True,
-            )
+            if self.config.db_type == "sqlite":
+                # SQLite sync engine
+                self._sync_engine = create_engine(
+                    self.config.sync_database_url,
+                    echo=False,
+                    future=True,
+                    connect_args={"check_same_thread": False}
+                )
+            else:
+                # PostgreSQL sync engine  
+                self._sync_engine = create_engine(
+                    self.config.sync_database_url,
+                    pool_size=self.config.db_pool_size,
+                    max_overflow=self.config.db_pool_max_overflow,
+                    pool_timeout=self.config.db_pool_timeout,
+                    pool_recycle=self.config.db_pool_recycle,
+                    echo=False,
+                    future=True,
+                )
         return self._sync_engine
 
     @property

@@ -2,6 +2,7 @@
 SQLAlchemy models for Event Store and Read Models.
 
 Contains models for Event Sourcing pattern and CQRS read models.
+Works with both PostgreSQL and SQLite databases.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from sqlalchemy import (
     DateTime,
     Index,
     Integer,
+    JSON,
     Numeric,
     String,
     Text,
@@ -23,6 +25,61 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, declarative_base, mapped_column
+from sqlalchemy.types import TypeDecorator, CHAR
+
+
+class GUID(TypeDecorator):
+    """
+    Platform-independent GUID type.
+    
+    Uses PostgreSQL's UUID type when available,
+    otherwise uses CHAR(32) for SQLite.
+    """
+    impl = CHAR
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == 'postgresql':
+            return dialect.type_descriptor(UUID())
+        else:
+            return dialect.type_descriptor(CHAR(36))
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+        elif dialect.name == 'postgresql':
+            return str(value)
+        else:
+            if not isinstance(value, uuid.UUID):
+                return str(uuid.UUID(value))
+            else:
+                return str(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        else:
+            if not isinstance(value, uuid.UUID):
+                return uuid.UUID(value)
+            return value
+
+
+class JSONType(TypeDecorator):
+    """
+    Platform-independent JSON type.
+    
+    Uses PostgreSQL's JSONB when available,
+    otherwise uses standard JSON for SQLite.
+    """
+    impl = JSON
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == 'postgresql':
+            return dialect.type_descriptor(JSONB())
+        else:
+            return dialect.type_descriptor(JSON())
+
 
 Base = declarative_base()
 
@@ -31,23 +88,23 @@ class EventStoreModel(Base):
     """
     Event store table for Event Sourcing.
 
-    Stores all domain events with JSONB data and metadata.
-    Partitioned by month for performance.
+    Stores all domain events with JSON data and metadata.
+    Compatible with both PostgreSQL and SQLite.
     """
 
     __tablename__ = "event_store"
 
     # Primary fields
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    event_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), default=uuid.uuid4, unique=True)
-    aggregate_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    event_id: Mapped[uuid.UUID] = mapped_column(GUID(), default=uuid.uuid4, unique=True)
+    aggregate_id: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False)
     aggregate_type: Mapped[str] = mapped_column(String(100), nullable=False)
 
     # Event details
     event_type: Mapped[str] = mapped_column(String(200), nullable=False)
     event_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
-    event_data: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    event_metadata: Mapped[dict] = mapped_column(JSONB, nullable=True)
+    event_data: Mapped[dict] = mapped_column(JSONType(), nullable=False)
+    event_metadata: Mapped[dict] = mapped_column(JSONType(), nullable=True)
 
     # Timing and sequencing
     sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
@@ -55,15 +112,12 @@ class EventStoreModel(Base):
         DateTime(timezone=True), default=func.now(), nullable=False
     )
 
-    # Indexes for performance
+    # Indexes for performance (PostgreSQL-specific indexes will be created conditionally)
     __table_args__ = (
         Index("ix_event_store_aggregate_id", "aggregate_id"),
         Index("ix_event_store_event_type", "event_type"),
         Index("ix_event_store_created_at", "created_at"),
         Index("ix_event_store_sequence", "sequence_number"),
-        # GIN index for JSONB data
-        Index("ix_event_store_event_data_gin", "event_data", postgresql_using="gin"),
-        Index("ix_event_store_metadata_gin", "event_metadata", postgresql_using="gin"),
         # Composite indexes for common queries
         Index("ix_event_store_aggregate_sequence", "aggregate_id", "sequence_number"),
         Index("ix_event_store_type_created", "event_type", "created_at"),
@@ -75,12 +129,13 @@ class ReadModelDeal(Base):
     Read model for deals - optimized for queries.
 
     Denormalized view of deal data for fast reading.
+    Compatible with both PostgreSQL and SQLite.
     """
 
     __tablename__ = "read_deals"
 
     # Primary key
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True)
 
     # Business key
     deal_key: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
@@ -148,15 +203,16 @@ class ReadModelPosition(Base):
     Read model for deal positions - optimized for queries.
 
     Denormalized view of deal items for fast reading.
+    Compatible with both PostgreSQL and SQLite.
     """
 
     __tablename__ = "read_positions"
 
     # Primary key
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True)
 
     # Foreign key to deal
-    deal_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    deal_id: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False)
     deal_key: Mapped[str] = mapped_column(String(255), nullable=False)
 
     # Item info
@@ -216,6 +272,7 @@ class ReadModelAudit(Base):
     Read model for audit trail - change history.
 
     Tracks all changes to deals and positions.
+    Compatible with both PostgreSQL and SQLite.
     """
 
     __tablename__ = "read_audit"
@@ -225,7 +282,7 @@ class ReadModelAudit(Base):
 
     # What changed
     entity_type: Mapped[str] = mapped_column(String(50), nullable=False)  # deal, position
-    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    entity_id: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False)
     entity_key: Mapped[str] = mapped_column(String(500), nullable=False)
 
     # Change details
@@ -235,8 +292,8 @@ class ReadModelAudit(Base):
     new_value: Mapped[str] = mapped_column(Text, nullable=True)
 
     # Context
-    sync_session_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
-    event_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    sync_session_id: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False)
+    event_id: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False)
 
     # Timing
     changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
@@ -255,6 +312,7 @@ class ReadModelStats(Base):
     Read model for statistics and metrics.
 
     Pre-aggregated statistics for dashboard and reporting.
+    Compatible with both PostgreSQL and SQLite.
     """
 
     __tablename__ = "read_stats"
@@ -310,12 +368,13 @@ class SyncSessionModel(Base):
     Model for sync session tracking.
 
     Tracks synchronization sessions and their results.
+    Compatible with both PostgreSQL and SQLite.
     """
 
     __tablename__ = "sync_sessions"
 
     # Primary key
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True)
 
     # Session details
     sync_type: Mapped[str] = mapped_column(String(20), nullable=False)  # full, incremental
@@ -331,7 +390,7 @@ class SyncSessionModel(Base):
     finished_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Statistics
-    stats_data: Mapped[dict] = mapped_column(JSONB, nullable=True)
+    stats_data: Mapped[dict] = mapped_column(JSONType(), nullable=True)
 
     # Results
     error_message: Mapped[str] = mapped_column(Text, nullable=True)
