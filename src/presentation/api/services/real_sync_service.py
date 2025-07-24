@@ -190,8 +190,8 @@ class RealSyncService:
                     logger.warning(f"Another session is already running: {running_session.id}")
                     raise HTTPException(status_code=400, detail=f"Another sync session is already running: {running_session.id}")
 
-            # Create sync configuration
-            config = SyncConfiguration(
+            # Create sync configuration (placeholder for orchestrator usage)
+            _config = SyncConfiguration(
                 sync_type=session_type,
                 incremental_period_months=3 if session_type == "incremental" else 12,
                 max_retry_attempts=3,
