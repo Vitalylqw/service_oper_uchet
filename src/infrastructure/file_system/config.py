@@ -100,7 +100,11 @@ class FileSystemConfig(BaseSettings):
     log_detailed_errors: bool = Field(default=True, description="Log detailed error information")
     collect_metrics: bool = Field(default=True, description="Collect file system metrics")
 
-    model_config = ConfigDict(env_prefix="FILESYSTEM_", env_file=".env")
+    model_config = ConfigDict(
+        env_prefix="FILESYSTEM_",
+        env_file=".env",
+        extra="allow"  # Allow extra fields from env files
+    )
 
     @property
     def default_port(self) -> int:

@@ -9,9 +9,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
-
-from ...domain.models import Deal, DealItem
+from pydantic import BaseModel, Field, field_validator
 
 
 class ChangeType(str, Enum):
@@ -46,13 +44,26 @@ class EntityChange(BaseModel):
         default_factory=dict, description="Map of field_name -> {old_value, new_value}"
     )
 
-    # Entity data
-    old_entity: Deal | DealItem | None = Field(default=None, description="Previous entity state")
-    new_entity: Deal | DealItem | None = Field(default=None, description="New entity state")
+    # Entity data - using Any to avoid Union validation issues
+    old_entity: Any = Field(default=None, description="Previous entity state (Deal or DealItem)")
+    new_entity: Any = Field(default=None, description="New entity state (Deal or DealItem)")
 
     # Hash comparison
     old_hash: str | None = Field(default=None, description="Previous entity hash")
     new_hash: str | None = Field(default=None, description="New entity hash")
+
+    @field_validator('old_entity', 'new_entity')
+    @classmethod
+    def validate_entity_type(cls, v: Any) -> Any:
+        """Validate that entity is Deal or DealItem or None."""
+        if v is None:
+            return v
+
+        # Check by class name to handle import issues
+        class_name = v.__class__.__name__
+        if class_name not in ('Deal', 'DealItem'):
+            raise ValueError(f"Entity must be Deal or DealItem, got {class_name}")
+        return v
 
     @property
     def has_field_changes(self) -> bool:

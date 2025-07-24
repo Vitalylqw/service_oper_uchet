@@ -14,7 +14,7 @@ from typing import Literal
 from loguru import logger
 from pydantic import ConfigDict, Field, computed_field
 from pydantic_settings import BaseSettings
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -29,7 +29,7 @@ class DatabaseConfig(BaseSettings):
 
     # SQLite configuration (for development/testing)
     sqlite_db_path: str = Field(
-        default="data/service_oper_uchet.sqlite", 
+        default="data/service_oper_uchet.sqlite",
         description="SQLite database file path"
     )
 
@@ -58,7 +58,7 @@ class DatabaseConfig(BaseSettings):
         default=24, description="Event store retention months"
     )
 
-    model_config = ConfigDict(env_prefix="DB_", env_file=".env")
+    model_config = ConfigDict(env_prefix="DB_", env_file=".env", extra="ignore")
 
     @computed_field
     @property
@@ -75,7 +75,7 @@ class DatabaseConfig(BaseSettings):
                 f"{self.db_host}:{self.db_port}/{self.db_name}"
             )
 
-    @computed_field 
+    @computed_field
     @property
     def async_database_url(self) -> str:
         """Asynchronous database URL for application."""
@@ -155,7 +155,7 @@ class DatabaseManager:
                     connect_args={"check_same_thread": False}
                 )
             else:
-                # PostgreSQL sync engine  
+                # PostgreSQL sync engine
                 self._sync_engine = create_engine(
                     self.config.sync_database_url,
                     pool_size=self.config.db_pool_size,
@@ -195,8 +195,8 @@ class DatabaseManager:
         """Test database connection."""
         try:
             async with self.get_async_session() as session:
-                result = await session.execute("SELECT 1")
-                await result.fetchone()
+                result = await session.execute(text("SELECT 1"))
+                result.fetchone()
                 logger.info("✅ Database connection successful")
                 return True
         except Exception as e:

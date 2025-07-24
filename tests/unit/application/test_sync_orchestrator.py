@@ -10,16 +10,17 @@ from datetime import datetime
 from unittest.mock import AsyncMock
 
 import pytest
+from domain.models import SyncSession, SyncType
 
 from src.application.change_detector import ChangeDetectorService
 from src.application.excel_parser import ExcelParserService
 from src.application.sync_orchestrator import SyncOrchestratorService
 from src.application.sync_orchestrator.models import SyncConfiguration, SyncResult
 from src.domain.interfaces import EventStore, SyncSessionRepository
-from src.domain.models import SyncSession, SyncType
 from src.domain.value_objects import Status
 
 
+@pytest.mark.unit
 class TestSyncOrchestratorService:
     """Test Sync Orchestrator Service."""
 

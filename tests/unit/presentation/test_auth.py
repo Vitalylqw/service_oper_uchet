@@ -6,9 +6,11 @@ Tests JWT authentication, user management, and RBAC functionality.
 
 from __future__ import annotations
 
+import pytest
 from fastapi import status
 
 
+@pytest.mark.unit
 class TestAuthentication:
     """Test authentication endpoints."""
 
@@ -86,6 +88,7 @@ class TestAuthentication:
         assert response.status_code == status.HTTP_501_NOT_IMPLEMENTED
 
 
+@pytest.mark.unit
 class TestUserManagement:
     """Test user management endpoints (admin only)."""
 
@@ -172,6 +175,7 @@ class TestUserManagement:
         assert "Password changed successfully" in response.json()["message"]
 
 
+@pytest.mark.unit
 class TestRoleBasedAccess:
     """Test role-based access control."""
 

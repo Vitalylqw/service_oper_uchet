@@ -12,10 +12,10 @@ import uuid
 from datetime import datetime
 from typing import Any
 
+from domain.interfaces import EventStore, SyncSessionRepository
+from domain.models import SyncSession, SyncType
 from loguru import logger
 
-from ...domain.interfaces import EventStore, SyncSessionRepository
-from ...domain.models import SyncSession, SyncType
 from ..change_detector import ChangeDetectorService
 from ..excel_parser import ExcelParserService
 from .models import SyncConfiguration, SyncResult, SyncSummary

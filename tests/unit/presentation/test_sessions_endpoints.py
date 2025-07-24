@@ -6,9 +6,11 @@ Tests CRUD operations, monitoring, and statistics for sync sessions.
 
 from __future__ import annotations
 
+import pytest
 from fastapi import status
 
 
+@pytest.mark.unit
 class TestSyncSessionEndpoints:
     """Test sync session management endpoints."""
 
@@ -198,6 +200,7 @@ class TestSyncSessionEndpoints:
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
+@pytest.mark.unit
 class TestSyncSessionPermissions:
     """Test role-based permissions for sync session endpoints."""
 
@@ -225,6 +228,7 @@ class TestSyncSessionPermissions:
         assert response.status_code == status.HTTP_200_OK
 
 
+@pytest.mark.unit
 class TestSyncSessionValidation:
     """Test validation for sync session endpoints."""
 

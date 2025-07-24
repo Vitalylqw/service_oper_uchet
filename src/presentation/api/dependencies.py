@@ -2,12 +2,27 @@
 Dependency injection for FastAPI.
 
 Contains dependencies for injecting services into API endpoints.
+Supports both mock services (for testing) and real services (for production).
 """
 
 from __future__ import annotations
 
-# Mock implementations for now - these would be replaced with real services
-# when database connections are established
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.application.change_detector import ChangeDetectorService
+from src.application.excel_parser import ExcelParserService
+from src.application.sync_orchestrator import SyncOrchestratorService
+from src.infrastructure.database.connection import get_database_manager, get_database_session
+from src.infrastructure.database.event_store import EventStoreImplementation
+from src.infrastructure.database.repositories import (
+    DealRepositoryImplementation,
+    SyncSessionRepositoryImplementation,
+)
+
+from .services import RealDealService, RealHealthService, RealSyncService
+
+# Mock implementations kept for backward compatibility and testing
 
 
 class MockDealService:
@@ -151,6 +166,46 @@ class MockSyncService:
             "pages": (total + limit - 1) // limit,
         }
 
+    async def get_session_by_id(self, session_id: str) -> dict | None:
+        """Get sync session by ID."""
+        from datetime import datetime
+
+        return {
+            "id": session_id,
+            "session_type": "incremental",
+            "status": "completed",
+            "started_at": datetime(2024, 1, 15, 3, 0, 0),
+            "finished_at": datetime(2024, 1, 15, 3, 5, 30),
+            "created_at": datetime(2024, 1, 15, 2, 55, 0),  # Добавляем created_at
+            "duration_seconds": 330.0,
+            "total_deals_processed": 25,
+            "success": True,
+            "error_message": None,
+            "file_path": "test_data.xlsx",
+            "file_size": 2048,
+            "file_hash": "abc123def456",
+        }
+
+    async def create_sync_session(self, file_path: str, session_type: str = "incremental", force: bool = False) -> dict:
+        """Create new sync session."""
+        import uuid
+        from datetime import datetime
+
+        session_id = str(uuid.uuid4())
+        return {
+            "id": session_id,
+            "session_type": session_type,
+            "status": "running",  # Исправлено: running вместо pending
+            "started_at": datetime.now(),
+            "finished_at": None,
+            "created_at": datetime.now(),
+            "duration_seconds": None,
+            "success": False,  # Исправлено: boolean вместо None
+            "error_message": None,
+            "file_path": file_path,
+            "created_by": None,
+        }
+
 
 class MockHealthService:
     """Mock health service for system monitoring."""
@@ -171,17 +226,82 @@ class MockHealthService:
         }
 
 
-# Dependency providers
-async def get_deal_service() -> MockDealService:
-    """Get deal service dependency."""
+# Mock dependency providers (for testing and development)
+async def get_mock_deal_service() -> MockDealService:
+    """Get mock deal service dependency."""
     return MockDealService()
 
 
-async def get_sync_service() -> MockSyncService:
-    """Get sync service dependency."""
+async def get_mock_sync_service() -> MockSyncService:
+    """Get mock sync service dependency."""
     return MockSyncService()
 
 
-async def get_health_service() -> MockHealthService:
-    """Get health service dependency."""
+async def get_mock_health_service() -> MockHealthService:
+    """Get mock health service dependency."""
     return MockHealthService()
+
+
+# Real dependency providers (for production)
+async def get_real_deal_service(
+    db: AsyncSession = Depends(get_database_session),
+) -> RealDealService:
+    """Get real deal service dependency with database connection."""
+    deal_repository = DealRepositoryImplementation(db)
+    return RealDealService(deal_repository)
+
+
+async def get_real_sync_service(
+    db: AsyncSession = Depends(get_database_session),
+) -> RealSyncService:
+    """Get real sync service dependency with orchestrator."""
+    # Create repositories
+    deal_repository = DealRepositoryImplementation(db)
+    sync_session_repository = SyncSessionRepositoryImplementation(db)
+    event_store = EventStoreImplementation(db)
+
+    # Create application services
+    excel_parser = ExcelParserService()
+    change_detector = ChangeDetectorService(deal_repository)
+
+    # Create orchestrator
+    sync_orchestrator = SyncOrchestratorService(
+        excel_parser=excel_parser,
+        change_detector=change_detector,
+        event_store=event_store,
+        sync_session_repository=sync_session_repository,
+    )
+
+    return RealSyncService(
+        sync_orchestrator=sync_orchestrator,
+        sync_session_repository=sync_session_repository,
+    )
+
+
+async def get_real_health_service() -> RealHealthService:
+    """Get real health service dependency with database manager."""
+    db_manager = await get_database_manager()
+    return RealHealthService(db_manager)
+
+
+# Current active providers (switch between mock and real)
+# Change these to switch between mock and real services globally
+async def get_deal_service(
+    real_service: RealDealService = Depends(get_real_deal_service),
+) -> RealDealService:
+    """Get active deal service dependency."""
+    return real_service
+
+
+async def get_sync_service(
+    real_service: RealSyncService = Depends(get_real_sync_service),
+) -> RealSyncService:
+    """Get active sync service dependency."""
+    return real_service
+
+
+async def get_health_service(
+    real_service: RealHealthService = Depends(get_real_health_service),
+) -> RealHealthService:
+    """Get active health service dependency."""
+    return real_service

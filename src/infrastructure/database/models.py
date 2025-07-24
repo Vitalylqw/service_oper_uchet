@@ -12,12 +12,12 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Boolean,
     DateTime,
     Index,
     Integer,
-    JSON,
     Numeric,
     String,
     Text,
@@ -25,13 +25,13 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, declarative_base, mapped_column
-from sqlalchemy.types import TypeDecorator, CHAR
+from sqlalchemy.types import CHAR, TypeDecorator
 
 
 class GUID(TypeDecorator):
     """
     Platform-independent GUID type.
-    
+
     Uses PostgreSQL's UUID type when available,
     otherwise uses CHAR(32) for SQLite.
     """
@@ -67,7 +67,7 @@ class GUID(TypeDecorator):
 class JSONType(TypeDecorator):
     """
     Platform-independent JSON type.
-    
+
     Uses PostgreSQL's JSONB when available,
     otherwise uses standard JSON for SQLite.
     """

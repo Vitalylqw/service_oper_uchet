@@ -6,9 +6,11 @@ Tests application configuration, middleware, and root endpoints.
 
 from __future__ import annotations
 
+import pytest
 from fastapi import status
 
 
+@pytest.mark.unit
 class TestMainApplication:
     """Test main FastAPI application."""
 
@@ -61,6 +63,7 @@ class TestMainApplication:
         assert app.router.lifespan_context is not None
 
 
+@pytest.mark.unit
 class TestApplicationStructure:
     """Test application router structure."""
 

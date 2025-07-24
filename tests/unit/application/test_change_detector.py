@@ -17,6 +17,7 @@ from src.domain.models import Deal, DealItem
 from src.domain.value_objects import Money, Period, Status
 
 
+@pytest.mark.unit
 class TestChangeDetectorService:
     """Test Change Detector Service."""
 

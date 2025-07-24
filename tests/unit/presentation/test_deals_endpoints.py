@@ -6,9 +6,11 @@ Tests CRUD operations, filtering, pagination, and analytics for deals.
 
 from __future__ import annotations
 
+import pytest
 from fastapi import status
 
 
+@pytest.mark.unit
 class TestDealEndpoints:
     """Test deal management endpoints."""
 
@@ -75,7 +77,8 @@ class TestDealEndpoints:
 
     def test_get_deal_success(self, client, auth_headers_viewer):
         """Test successful deal retrieval."""
-        deal_id = "test-deal-123"
+        import uuid
+        deal_id = str(uuid.uuid4())  # Используем правильный UUID
         response = client.get(f"/api/v1/deals/{deal_id}", headers=auth_headers_viewer)
 
         assert response.status_code == status.HTTP_200_OK
@@ -174,6 +177,7 @@ class TestDealEndpoints:
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
+@pytest.mark.unit
 class TestDealPermissions:
     """Test role-based permissions for deal endpoints."""
 
@@ -193,6 +197,7 @@ class TestDealPermissions:
         assert response.status_code == status.HTTP_200_OK
 
 
+@pytest.mark.unit
 class TestDealPagination:
     """Test pagination functionality for deals."""
 

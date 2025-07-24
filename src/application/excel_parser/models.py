@@ -7,10 +7,10 @@ Contains Pydantic models for parsing results and statistics.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
-from pydantic import BaseModel, Field
-
-from ...domain.models import Deal, SyncSession
+from domain.models import Deal
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ParseStats(BaseModel):
@@ -56,15 +56,31 @@ class ParseStats(BaseModel):
 class ParseResult(BaseModel):
     """Result of Excel parsing operation."""
 
-    deals: list[Deal] = Field(default_factory=list, description="Parsed deals")
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        validate_assignment=True,
+        extra="forbid"
+    )
+
+    deals: list[Any] = Field(default_factory=list, description="Parsed deals (Deal objects)")
     stats: ParseStats = Field(default_factory=ParseStats, description="Parsing statistics")
-    sync_session: SyncSession = Field(..., description="Associated sync session")
+    sync_session: Any = Field(None, description="Associated sync session")
 
     # Метаданные
     file_path: str = Field(..., description="Path to parsed file")
     file_size: int = Field(..., description="File size in bytes")
     file_hash: str = Field(..., description="File hash for integrity check")
     parsed_at: datetime = Field(default_factory=datetime.now, description="Parse timestamp")
+
+    @field_validator('deals')
+    @classmethod
+    def validate_deals(cls, v: list[Any]) -> list[Any]:
+        """Validate that deals are Deal objects."""
+        for deal in v:
+            # Check by class name to handle import issues
+            if deal.__class__.__name__ != 'Deal':
+                raise ValueError(f"All deals must be Deal objects, got {deal.__class__.__name__}")
+        return v
 
     @property
     def total_deals(self) -> int:

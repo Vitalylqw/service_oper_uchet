@@ -1,5 +1,5 @@
 """
-Integration tests для Excel Parser с реальными данными.
+Интеграционные тесты для Excel Parser с реальными данными.
 """
 
 from __future__ import annotations
@@ -7,9 +7,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from domain.exceptions import SyncFileError
 
 from src.application.excel_parser import ExcelParserService, ParseResult
-from src.domain.exceptions import SyncFileError
 from src.domain.models import SyncSession
 from src.domain.models.sync_session import SyncType
 
@@ -155,7 +155,7 @@ class TestExcelParserIntegration:
     ):
         """Тест обработки ошибок при неверном файле."""
         # Arrange & Act & Assert
-        with pytest.raises(SyncFileError):  # Ожидаем конкретное исключение
+        with pytest.raises(SyncFileError):  # Проверяем только тип исключения
             await parser_service.parse_file("nonexistent_file.xlsx", sync_session)
 
     @pytest.mark.asyncio

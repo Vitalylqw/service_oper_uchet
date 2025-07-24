@@ -13,7 +13,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class Status(str, Enum):
@@ -100,7 +100,11 @@ class Money(BaseModel):
             return False
         return self.amount == other.amount and self.currency == other.currency
 
-    model_config = {"frozen": True}  # Неизменяемый объект
+    model_config = ConfigDict(
+        frozen=True,
+        arbitrary_types_allowed=True,
+        validate_assignment=True
+    )
 
 
 class Period(BaseModel):
@@ -128,10 +132,28 @@ class Period(BaseModel):
             "ноябрь",
             "декабрь",
         }
+
+        # Нормализация месяца - приводим к нижнему регистру для проверки
         month_lower = v.lower().strip()
         if month_lower not in valid_months:
             raise ValueError(f"Invalid month name: {v}")
-        return v.strip().capitalize()
+
+        # Возвращаем месяц с заглавной буквы
+        months_map = {
+            "январь": "Январь",
+            "февраль": "Февраль",
+            "март": "Март",
+            "апрель": "Апрель",
+            "май": "Май",
+            "июнь": "Июнь",
+            "июль": "Июль",
+            "август": "Август",
+            "сентябрь": "Сентябрь",
+            "октябрь": "Октябрь",
+            "ноябрь": "Ноябрь",
+            "декабрь": "Декабрь",
+        }
+        return months_map[month_lower]
 
     @field_validator("year")
     @classmethod
@@ -191,7 +213,11 @@ class Period(BaseModel):
 
         return cls(month=found_month, year=found_year, full_name=sheet_name.strip())
 
-    model_config = {"frozen": True}  # Неизменяемый объект
+    model_config = ConfigDict(
+        frozen=True,
+        arbitrary_types_allowed=True,
+        validate_assignment=True
+    )
 
 
 class HashKey(BaseModel):
@@ -239,4 +265,8 @@ class HashKey(BaseModel):
         hash_value = hashlib.md5(text.encode("utf-8")).hexdigest()
         return cls(value=hash_value, algorithm="md5")
 
-    model_config = {"frozen": True}  # Неизменяемый объект
+    model_config = ConfigDict(
+        frozen=True,
+        arbitrary_types_allowed=True,
+        validate_assignment=True
+    )

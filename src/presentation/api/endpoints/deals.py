@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from loguru import logger
 
 from ..auth.security import require_viewer
-from ..dependencies import MockDealService, get_deal_service
+from ..dependencies import get_deal_service
 from ..models.common import PaginationParams, PaginationResponse
 from ..models.deals import (
     DealFilters,
@@ -21,6 +21,7 @@ from ..models.deals import (
     DealStatsResponse,
     DealSummary,
 )
+from ..services import RealDealService
 
 deals_router = APIRouter()
 
@@ -30,7 +31,7 @@ async def list_deals(
     pagination: PaginationParams = Depends(),
     filters: DealFilters = Depends(),
     current_user=Depends(require_viewer),
-    deal_service: MockDealService = Depends(get_deal_service),
+    deal_service: RealDealService = Depends(get_deal_service),
 ) -> PaginationResponse[DealSummary]:
     """
     List deals with filtering and pagination.
@@ -67,7 +68,7 @@ async def list_deals(
 async def get_deal(
     deal_id: str,
     current_user=Depends(require_viewer),
-    deal_service: MockDealService = Depends(get_deal_service),
+    deal_service: RealDealService = Depends(get_deal_service),
 ) -> DealResponse:
     """
     Get detailed deal information.

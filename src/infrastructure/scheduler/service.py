@@ -10,6 +10,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Any
 
+from application.sync_orchestrator import SyncConfiguration, SyncOrchestratorService
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
 from apscheduler.executors.asyncio import AsyncIOExecutor
 from apscheduler.jobstores.memory import MemoryJobStore
@@ -24,7 +25,6 @@ from tenacity import (
     wait_exponential,
 )
 
-from ...application.sync_orchestrator import SyncConfiguration, SyncOrchestratorService
 from .config import SchedulerConfig
 from .models import (
     JobExecutionResult,

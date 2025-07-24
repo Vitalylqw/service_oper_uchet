@@ -6,9 +6,11 @@ Tests system health monitoring and status endpoints.
 
 from __future__ import annotations
 
+import pytest
 from fastapi import status
 
 
+@pytest.mark.unit
 class TestHealthEndpoints:
     """Test health check endpoints."""
 
