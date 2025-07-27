@@ -39,7 +39,7 @@ class MockDealService:
                 "id": "deal-1",
                 "deal_key": "CLIENT1_INV001_2024-01-15_SELLER1",
                 "client_name": "ООО Компания 1",
-                "saller": "Продавец 1",
+                "seller": "Продавец 1",
                 "invoice_number": "INV001",
                 "invoice_date": datetime(2024, 1, 15).date(),
                 "revenue": Decimal("100000.00"),
@@ -53,7 +53,7 @@ class MockDealService:
                 "id": "deal-2",
                 "deal_key": "CLIENT2_INV002_2024-01-16_SELLER2",
                 "client_name": "ООО Компания 2",
-                "saller": "Продавец 2",
+                "seller": "Продавец 2",
                 "invoice_number": "INV002",
                 "invoice_date": datetime(2024, 1, 16).date(),
                 "revenue": Decimal("75000.00"),
@@ -65,14 +65,33 @@ class MockDealService:
             },
         ]
 
-        # Apply basic filtering
+        # Apply filtering
         filtered_deals = mock_deals
+        
+        # Client name filter
         if filters.get("client_name"):
             filtered_deals = [
                 d
                 for d in filtered_deals
                 if filters["client_name"].lower() in d["client_name"].lower()
             ]
+        
+        # Seller filter
+        if filters.get("seller"):
+            filtered_deals = [
+                d
+                for d in filtered_deals
+                if filters["seller"].lower() in d["seller"].lower()
+            ]
+        
+        # Boolean filters
+        if filters.get("is_shipped") is not None:
+            is_shipped_filter = str(filters["is_shipped"]).lower() == "true"
+            filtered_deals = [d for d in filtered_deals if d["is_shipped"] == is_shipped_filter]
+        
+        if filters.get("is_paid") is not None:
+            is_paid_filter = str(filters["is_paid"]).lower() == "true"
+            filtered_deals = [d for d in filtered_deals if d["is_paid"] == is_paid_filter]
 
         # Pagination
         total = len(filtered_deals)
@@ -97,7 +116,7 @@ class MockDealService:
             "id": deal_id,
             "deal_key": "CLIENT1_INV001_2024-01-15_SELLER1",
             "client_name": "ООО Компания 1",
-            "saller": "Продавец 1",
+            "seller": "Продавец 1",
             "invoice_number": "INV001",
             "invoice_date": datetime(2024, 1, 15).date(),
             "upd_number": "UPD001",

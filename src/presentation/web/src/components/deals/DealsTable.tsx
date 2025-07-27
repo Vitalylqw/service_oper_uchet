@@ -18,8 +18,9 @@ export default function DealsTable({
   onPageChange,
   loading,
 }: DealsTableProps) {
-  const formatAmount = (amount: number) => {
-    return amount.toLocaleString('ru-RU', {
+  const formatAmount = (amount: string) => {
+    const numAmount = parseFloat(amount)
+    return numAmount.toLocaleString('ru-RU', {
       style: 'currency',
       currency: 'RUB',
       maximumFractionDigits: 0,
@@ -34,20 +35,12 @@ export default function DealsTable({
     })
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'active':
-      case 'активна':
-        return '#48bb78'
-      case 'completed':
-      case 'завершена':
-        return '#4299e1'
-      case 'cancelled':
-      case 'отменена':
-        return '#f56565'
-      default:
-        return '#718096'
-    }
+  const formatBoolean = (value: boolean) => {
+    return value ? 'Да' : 'Нет'
+  }
+
+  const getBooleanColor = (value: boolean) => {
+    return value ? '#48bb78' : '#ed8936' // green for true, orange for false
   }
 
   if (loading) {
@@ -80,60 +73,72 @@ export default function DealsTable({
 
       <div className="table-wrapper">
         <table className="table deals-table">
-          <thead>
-            <tr>
-              <th>Контрагент</th>
-              <th>ИНН/КПП</th>
-              <th>Договор</th>
-              <th>Сумма</th>
-              <th>Статус</th>
-              <th>Обновлена</th>
-            </tr>
-          </thead>
-          <tbody>
-            {deals.map((deal) => (
-              <tr key={deal.id}>
-                <td>
-                  <div className="counterparty-cell">
-                    <div className="counterparty-name">{deal.counterparty_name}</div>
-                  </div>
-                </td>
-                <td>
-                  <div className="inn-kpp-cell">
-                    <div>ИНН: {deal.inn}</div>
-                    <div className="kpp">КПП: {deal.kpp}</div>
-                  </div>
-                </td>
-                <td>
-                  <div className="contract-cell">
-                    <div className="contract-number">№{deal.contract_number}</div>
-                    <div className="contract-date">{formatDate(deal.contract_date)}</div>
-                  </div>
-                </td>
-                <td>
-                  <div className="amount-cell">
-                    {formatAmount(deal.contract_amount)}
-                  </div>
-                </td>
-                <td>
-                  <span
-                    className="status-badge"
-                    style={{
-                      color: getStatusColor(deal.status),
-                      backgroundColor: `${getStatusColor(deal.status)}20`,
-                    }}
-                  >
-                    {deal.status}
-                  </span>
-                </td>
-                <td>
-                  <div className="date-cell">
-                    {formatDate(deal.updated_at)}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
+                     <thead>
+             <tr>
+               <th>Клиент</th>
+               <th>Продавец</th>
+               <th>Счет</th>
+               <th>Доход/Маржа</th>
+               <th>Отгружено</th>
+               <th>Оплачено</th>
+               <th>Обновлена</th>
+             </tr>
+           </thead>
+                     <tbody>
+             {deals.map((deal) => (
+               <tr key={deal.id}>
+                 <td>
+                   <div className="client-cell">
+                     <div className="client-name">{deal.client_name}</div>
+                   </div>
+                 </td>
+                 <td>
+                   <div className="saller-cell">
+                     <div className="saller-name">{deal.saller}</div>
+                   </div>
+                 </td>
+                 <td>
+                   <div className="invoice-cell">
+                     <div className="invoice-number">№{deal.invoice_number}</div>
+                     <div className="invoice-date">{formatDate(deal.invoice_date)}</div>
+                   </div>
+                 </td>
+                 <td>
+                   <div className="financial-cell">
+                     <div className="revenue">Доход: {formatAmount(deal.revenue)}</div>
+                     <div className="margin">Маржа: {formatAmount(deal.margin)}</div>
+                   </div>
+                 </td>
+                                   <td>
+                    <span
+                      className="status-badge"
+                      style={{
+                        color: getBooleanColor(deal.is_shipped),
+                        backgroundColor: `${getBooleanColor(deal.is_shipped)}20`,
+                      }}
+                    >
+                      {formatBoolean(deal.is_shipped)}
+                    </span>
+                  </td>
+                  <td>
+                    <span
+                      className="status-badge"
+                      style={{
+                        color: getBooleanColor(deal.is_paid),
+                        backgroundColor: `${getBooleanColor(deal.is_paid)}20`,
+                      }}
+                    >
+                      {formatBoolean(deal.is_paid)}
+                    </span>
+                  </td>
+                 <td>
+                   <div className="date-cell">
+                     {formatDate(deal.updated_at)}
+                   </div>
+                 </td>
+               </tr>
+             ))}
+           </tbody>
         </table>
       </div>
 

@@ -70,25 +70,31 @@ async def init_sample_data(db_manager: DatabaseManager) -> bool:
         # Import domain models
         import uuid
 
-        from domain.models import SyncSession, SyncType
+        from domain.models.sync_session import SyncSession, SyncType
 
         async with db_manager.get_async_session() as session:
-            # Create a sample sync session
-            sync_session = SyncSession(sync_type=SyncType.FULL, file_path="test_data.xlsx")
+            # Create a sample sync session using new field names
+            sync_session = SyncSession(
+                sync_type=SyncType.FULL,
+                source_file_path="test_data.xlsx",
+                source_file_hash="test_hash_123",
+                source_file_size=1024,
+            )
             sync_session.id = uuid.uuid4()
 
-            # Add to session (this would normally be done through repositories)
+            # Add to session (would normally go through repository layer)
             from infrastructure.database.models import SyncSessionModel
+
             session_model = SyncSessionModel(
                 id=sync_session.id,
                 sync_type=sync_session.sync_type.value,
                 status="completed",
-                file_path=sync_session.file_path,
-                file_hash="test_hash_123",
-                file_size=1024
+                file_path=sync_session.source_file_path,
+                file_hash=sync_session.source_file_hash,
+                file_size=sync_session.source_file_size,
             )
-            session.add(session_model)
 
+            session.add(session_model)
             await session.commit()
 
         logger.info("✅ Sample data created successfully")

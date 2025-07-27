@@ -2,14 +2,16 @@ import { useState } from 'react'
 
 interface DealsFiltersProps {
   filters: {
-    inn: string
-    counterparty_name: string
-    status: string
+    client_name: string
+    saller: string
+    is_shipped: string
+    is_paid: string
   }
   onFilterChange: (filters: Partial<{
-    inn: string
-    counterparty_name: string
-    status: string
+    client_name: string
+    saller: string
+    is_shipped: string
+    is_paid: string
   }>) => void
 }
 
@@ -26,19 +28,19 @@ export default function DealsFilters({ filters, onFilterChange }: DealsFiltersPr
 
   const handleResetFilters = () => {
     const resetFilters = {
-      inn: '',
-      counterparty_name: '',
-      status: '',
+      client_name: '',
+      saller: '',
+      is_shipped: '',
+      is_paid: '',
     }
     setLocalFilters(resetFilters)
     onFilterChange(resetFilters)
   }
 
-  const statusOptions = [
-    { value: '', label: 'Все статусы' },
-    { value: 'active', label: 'Активные' },
-    { value: 'completed', label: 'Завершенные' },
-    { value: 'cancelled', label: 'Отмененные' },
+  const booleanOptions = [
+    { value: '', label: 'Все' },
+    { value: 'true', label: 'Да' },
+    { value: 'false', label: 'Нет' },
   ]
 
   return (
@@ -49,35 +51,50 @@ export default function DealsFilters({ filters, onFilterChange }: DealsFiltersPr
 
       <div className="filters-content">
         <div className="filter-group">
-          <label htmlFor="inn-filter">ИНН</label>
+          <label htmlFor="client-filter">Клиент</label>
           <input
             type="text"
-            id="inn-filter"
-            value={localFilters.inn}
-            onChange={(e) => handleInputChange('inn', e.target.value)}
-            placeholder="Введите ИНН"
+            id="client-filter"
+            value={localFilters.client_name}
+            onChange={(e) => handleInputChange('client_name', e.target.value)}
+            placeholder="Название клиента"
           />
         </div>
 
         <div className="filter-group">
-          <label htmlFor="counterparty-filter">Контрагент</label>
+          <label htmlFor="saller-filter">Продавец</label>
           <input
             type="text"
-            id="counterparty-filter"
-            value={localFilters.counterparty_name}
-            onChange={(e) => handleInputChange('counterparty_name', e.target.value)}
-            placeholder="Название контрагента"
+            id="saller-filter"
+            value={localFilters.saller}
+            onChange={(e) => handleInputChange('saller', e.target.value)}
+            placeholder="Имя продавца"
           />
         </div>
 
         <div className="filter-group">
-          <label htmlFor="status-filter">Статус</label>
+          <label htmlFor="shipped-filter">Отгружено</label>
           <select
-            id="status-filter"
-            value={localFilters.status}
-            onChange={(e) => handleInputChange('status', e.target.value)}
+            id="shipped-filter"
+            value={localFilters.is_shipped}
+            onChange={(e) => handleInputChange('is_shipped', e.target.value)}
           >
-            {statusOptions.map((option) => (
+            {booleanOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="filter-group">
+          <label htmlFor="paid-filter">Оплачено</label>
+          <select
+            id="paid-filter"
+            value={localFilters.is_paid}
+            onChange={(e) => handleInputChange('is_paid', e.target.value)}
+          >
+            {booleanOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>

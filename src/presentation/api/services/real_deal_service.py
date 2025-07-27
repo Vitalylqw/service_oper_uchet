@@ -13,7 +13,7 @@ from decimal import Decimal
 
 from loguru import logger
 
-from src.infrastructure.database.repositories import DealRepositoryImplementation
+from infrastructure.database.repositories import DealRepositoryImplementation
 
 
 class RealDealService:
@@ -44,41 +44,22 @@ class RealDealService:
         try:
             logger.info(f"Getting paginated deals: page={page}, limit={limit}, filters={filters}")
 
-            # For now, return empty results as database is not yet populated
-            # This will be expanded as we add real data
-            deals = []
-
-            # Apply filtering if filters are provided
-            if filters.get("client_name"):
-                # Future implementation: filter by client name
-                logger.debug(f"Would filter by client_name: {filters['client_name']}")
-
-            if filters.get("period_month") and filters.get("period_year"):
-                # Future implementation: filter by period
-                logger.debug(f"Would filter by period: {filters['period_month']} {filters['period_year']}")
-
-            # Pagination calculation
-            total = len(deals)
-            start = (page - 1) * limit
-            end = start + limit
-            paginated_deals = deals[start:end]
-
-            # Convert domain models to API format
+            # Get deals from database through repository
+            result = await self.deal_repository.find_all_paginated(page, limit, filters)
+            
+            # Convert read model deals to API format
             api_deals = []
-            for deal in paginated_deals:
-                api_deal = await self._domain_deal_to_api_format(deal)
+            for deal_model in result["items"]:
+                api_deal = self._read_model_to_api_format(deal_model)
                 api_deals.append(api_deal)
-
-            result = {
+            
+            return {
                 "items": api_deals,
-                "total": total,
-                "page": page,
-                "limit": limit,
-                "pages": (total + limit - 1) // limit if total > 0 else 0,
+                "total": result["total"],
+                "page": result["page"],
+                "limit": result["limit"],
+                "pages": result["pages"],
             }
-
-            logger.debug(f"Returned {len(api_deals)} deals (total: {total})")
-            return result
 
         except Exception as e:
             logger.error(f"Failed to get paginated deals: {e}")
@@ -107,24 +88,32 @@ class RealDealService:
             # Convert string ID to UUID
             try:
                 deal_uuid = uuid.UUID(deal_id)
+                logger.debug(f"Converted to UUID: {deal_uuid}")
             except ValueError:
                 logger.warning(f"Invalid UUID format: {deal_id}")
                 return None
 
             # Get deal from repository
+            logger.debug(f"Calling repository.get_by_id({deal_uuid})")
             deal = await self.deal_repository.get_by_id(deal_uuid)
 
             if not deal:
                 logger.debug(f"Deal not found: {deal_id}")
                 return None
 
+            logger.debug(f"Deal found: {deal.id}, client: {deal.client_name}")
+            logger.debug(f"Deal period type: {type(deal.period)}, value: {deal.period}")
+
             # Convert to API format
+            logger.debug("Converting to API format...")
             api_deal = await self._domain_deal_to_api_format(deal, include_items=True)
-            logger.debug(f"Retrieved deal: {deal.deal_key}")
+            logger.debug(f"API conversion successful, deal_key: {deal.deal_key}")
             return api_deal
 
         except Exception as e:
             logger.error(f"Failed to get deal by ID {deal_id}: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return None
 
     async def get_deals_by_client(self, client_name: str) -> list[dict]:
@@ -195,62 +184,71 @@ class RealDealService:
         Returns:
             dict: Deal data in API-compatible format
         """
+        try:
+            logger.debug(f"Converting deal {deal.id} to API format")
+            logger.debug(f"Deal period: {deal.period}, type: {type(deal.period)}")
 
-        # Basic deal information
-        api_deal = {
-            "id": str(deal.id),
-            "deal_key": deal.deal_key or "",
-            "client_name": deal.client_name or "",
-            "seller": deal.seller or "",
-            "invoice_info": deal.invoice_info or "",
-            "invoice_number": deal.invoice_number or "",
-            "invoice_date": deal.invoice_date or "",
-            "upd_number": deal.upd_number or "",
-            "upd_date": getattr(deal, 'upd_date', None),
-            "is_shipped": self._status_to_bool(deal.is_shipped),
-            "is_paid": self._status_to_bool(deal.is_paid),
-            "period_month": deal.period.month if deal.period else "",
-            "period_year": deal.period.year if deal.period else "",
-            "created_at": getattr(deal, 'created_at', datetime.utcnow()),
-            "updated_at": getattr(deal, 'updated_at', datetime.utcnow()),
-        }
+            # Basic deal information
+            api_deal = {
+                "id": str(deal.id),
+                "deal_key": deal.deal_key or "",
+                "client_name": deal.client_name or "",
+                "seller": deal.seller or "",
+                "invoice_info": deal.invoice_info or "",
+                "invoice_number": deal.invoice_number or "",
+                "invoice_date": deal.invoice_date or None,
+                "upd_number": deal.upd_number or "",
+                "upd_date": getattr(deal, 'upd_date', None),
+                "is_shipped": self._status_to_bool(deal.is_shipped),
+                "is_paid": self._status_to_bool(deal.is_paid),
+                "period_month": getattr(deal.period, 'month', "") if deal.period else "",
+                "period_year": getattr(deal.period, 'year', "") if deal.period else "",
+                "created_at": getattr(deal, 'created_at', datetime.utcnow()),
+                "updated_at": getattr(deal, 'updated_at', datetime.utcnow()) or datetime.utcnow(),
+            }
 
-        # Financial information
-        if deal.total_revenue:
-            api_deal["revenue"] = deal.total_revenue.amount
-        else:
-            api_deal["revenue"] = Decimal("0.00")
+            # Financial information
+            if deal.total_revenue:
+                api_deal["revenue"] = deal.total_revenue.amount
+            else:
+                api_deal["revenue"] = Decimal("0.00")
 
-        if deal.total_margin:
-            api_deal["margin"] = deal.total_margin.amount
-        else:
-            api_deal["margin"] = Decimal("0.00")
+            if deal.total_margin:
+                api_deal["margin"] = deal.total_margin.amount
+            else:
+                api_deal["margin"] = Decimal("0.00")
 
-        if deal.total_cost:
-            api_deal["cost"] = deal.total_cost.amount
-        else:
-            api_deal["cost"] = Decimal("0.00")
+            if deal.total_cost:
+                api_deal["cost"] = deal.total_cost.amount
+            else:
+                api_deal["cost"] = Decimal("0.00")
 
-        # Item count
-        api_deal["items_count"] = len(deal.items)
+            # Item count
+            api_deal["items_count"] = len(deal.items)
 
-        # Include items if requested
-        if include_items:
-            items = []
-            for item in deal.items:
-                api_item = {
-                    "id": str(item.id),
-                    "product_name": item.product_name or "",
-                    "quantity": item.quantity or Decimal("0"),
-                    "purchase_price": item.purchase_price.amount if item.purchase_price else Decimal("0"),
-                    "sale_price": item.sale_price.amount if item.sale_price else Decimal("0"),
-                    "supplier_name": item.supplier_name or "",
-                    "pickup_date": item.pickup_date or "",
-                }
-                items.append(api_item)
-            api_deal["items"] = items
+            # Include items if requested
+            if include_items:
+                items = []
+                for item in deal.items:
+                    api_item = {
+                        "id": str(item.id),
+                        "product_name": item.product_name or "",
+                        "quantity": item.quantity or Decimal("0"),
+                        "purchase_price": item.purchase_price.amount if item.purchase_price else Decimal("0"),
+                        "sale_price": item.sale_price.amount if item.sale_price else Decimal("0"),
+                        "supplier_name": item.supplier_name or "",
+                        "pickup_date": item.pickup_date or "",
+                    }
+                    items.append(api_item)
+                api_deal["items"] = items
 
-        return api_deal
+            return api_deal
+
+        except Exception as e:
+            logger.error(f"Error converting deal to API format: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            raise
 
     def _status_to_bool(self, status) -> bool:
         """Convert domain Status to boolean for API compatibility."""
@@ -268,3 +266,32 @@ class RealDealService:
 
         # Boolean status
         return bool(status)
+
+    def _read_model_to_api_format(self, read_model) -> dict:
+        """
+        Convert ReadModel to API format.
+
+        Args:
+            read_model: ReadModelDeal object from database
+
+        Returns:
+            dict: Deal data in API-compatible format
+        """
+        # Convert string status values to boolean for API
+        is_shipped = read_model.is_shipped == "completed"
+        is_paid = read_model.is_paid == "completed"
+
+        return {
+            "id": str(read_model.id),
+            "deal_key": read_model.deal_key or "",
+            "client_name": read_model.client_name or "",
+                            "seller": read_model.seller or "",
+            "invoice_number": read_model.invoice_number or "",
+            "invoice_date": read_model.invoice_date or "",
+            "revenue": str(read_model.total_revenue_amount or "0.00"),
+            "margin": str(read_model.total_margin_amount or "0.00"),
+            "is_shipped": is_shipped,
+            "is_paid": is_paid,
+            "items_count": read_model.items_count or 0,
+            "updated_at": read_model.updated_at or read_model.created_at,
+        }

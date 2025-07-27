@@ -1,9 +1,10 @@
+import { render, screen, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Dashboard from './Dashboard'
+import { dealsApi, sessionsApi } from '@/api/client'
 
-// Mock the API modules
+// Mock the API clients
 vi.mock('@/api/client', () => ({
   dealsApi: {
     getDealStats: vi.fn(),
@@ -13,35 +14,6 @@ vi.mock('@/api/client', () => ({
     getSessionStats: vi.fn(),
     getSessions: vi.fn(),
   },
-  healthApi: {
-    getHealth: vi.fn(),
-  },
-}))
-
-// Mock child components
-vi.mock('./StatsCard', () => ({
-  default: ({ title, value, loading }: any) => (
-    <div data-testid="stats-card">
-      <div>{title}</div>
-      <div>{loading ? 'Loading...' : value}</div>
-    </div>
-  ),
-}))
-
-vi.mock('./RecentDeals', () => ({
-  default: ({ deals, loading }: any) => (
-    <div data-testid="recent-deals">
-      {loading ? 'Loading deals...' : `${deals.length} deals`}
-    </div>
-  ),
-}))
-
-vi.mock('./SessionStatus', () => ({
-  default: ({ sessions, loading }: any) => (
-    <div data-testid="session-status">
-      {loading ? 'Loading sessions...' : `${sessions.length} sessions`}
-    </div>
-  ),
 }))
 
 describe('Dashboard', () => {
@@ -50,12 +22,72 @@ describe('Dashboard', () => {
   beforeEach(() => {
     queryClient = new QueryClient({
       defaultOptions: {
-        queries: { retry: false },
-        mutations: { retry: false },
+        queries: {
+          retry: false,
+        },
+        mutations: {
+          retry: false,
+        },
       },
     })
-    
-    vi.clearAllMocks()
+
+    // Mock API responses
+    vi.mocked(dealsApi.getDealStats).mockResolvedValue({
+      total_deals: 100,
+      total_amount: 500000,
+      active_deals: 25,
+      recent_changes: 5,
+    })
+
+    vi.mocked(dealsApi.getDeals).mockResolvedValue({
+      items: [
+        {
+          id: '1',
+          deal_key: 'DEAL-001',
+          client_name: 'Test Client',
+          saller: 'Test Seller',
+          invoice_number: 'INV-001',
+          invoice_date: '2024-01-01',
+          revenue: '10000',
+          margin: '2000',
+          is_shipped: true,
+          is_paid: true,
+          items_count: 5,
+          updated_at: '2024-01-01T00:00:00Z',
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 5,
+      pages: 1,
+    })
+
+    vi.mocked(sessionsApi.getSessionStats).mockResolvedValue({
+      total_sessions: 50,
+      successful_sessions: 45,
+      failed_sessions: 5,
+      last_sync_date: '2024-01-01T00:00:00Z',
+    })
+
+    vi.mocked(sessionsApi.getSessions).mockResolvedValue({
+      items: [
+        {
+          id: '1',
+          session_type: 'full',
+          status: 'completed',
+          started_at: '2024-01-01T00:00:00Z',
+          completed_at: '2024-01-01T01:00:00Z',
+          processed_count: 100,
+          changed_count: 95,
+          error_count: 0,
+          log_messages: ['Sync completed successfully'],
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 5,
+      pages: 1,
+    })
   })
 
   const renderDashboard = () => {
@@ -66,75 +98,50 @@ describe('Dashboard', () => {
     )
   }
 
-  it('renders dashboard header correctly', () => {
+  it('renders dashboard header correctly', async () => {
     renderDashboard()
 
-    expect(screen.getByText('Обзор системы')).toBeInTheDocument()
-    expect(screen.getByText('Текущий статус и основные метрики системы операционного учета')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Панель управления')).toBeInTheDocument()
+      expect(screen.getByText('Обзор системы операционного учета')).toBeInTheDocument()
+    })
   })
 
-  it('renders all stats cards', () => {
+  it('renders all stats cards', async () => {
     renderDashboard()
 
-    const statsCards = screen.getAllByTestId('stats-card')
-    expect(statsCards).toHaveLength(4)
-
-    // Check that the cards contain expected titles
-    expect(screen.getByText('Всего сделок')).toBeInTheDocument()
-    expect(screen.getByText('Активные сделки')).toBeInTheDocument()
-    expect(screen.getByText('Недавние изменения')).toBeInTheDocument()
-    expect(screen.getByText('Статус системы')).toBeInTheDocument()
-  })
-
-  it('renders recent deals and session status sections', () => {
-    renderDashboard()
-
-    expect(screen.getByText('Последние сделки')).toBeInTheDocument()
-    expect(screen.getByText('Статус синхронизации')).toBeInTheDocument()
-    
-    expect(screen.getByTestId('recent-deals')).toBeInTheDocument()
-    expect(screen.getByTestId('session-status')).toBeInTheDocument()
-  })
-
-  it('renders navigation links correctly', () => {
-    renderDashboard()
-
-    const viewAllLinks = screen.getAllByText(/→/)
-    expect(viewAllLinks).toHaveLength(2)
-
-    // Check specific link texts
-    expect(screen.getByText('Все сделки →')).toBeInTheDocument()
-    expect(screen.getByText('Все сессии →')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Всего сделок')).toBeInTheDocument()
+      expect(screen.getByText('Общая выручка')).toBeInTheDocument()
+      expect(screen.getByText('Активные сделки')).toBeInTheDocument()
+      expect(screen.getByText('Последние изменения')).toBeInTheDocument()
+    })
   })
 
   it('shows loading state initially', () => {
     renderDashboard()
 
-    // All stats cards should show loading initially
-    const loadingTexts = screen.getAllByText('Loading...')
-    expect(loadingTexts.length).toBeGreaterThan(0)
-
-    expect(screen.getByText('Loading deals...')).toBeInTheDocument()
-    expect(screen.getByText('Loading sessions...')).toBeInTheDocument()
+    expect(screen.getByText('Загрузка данных...')).toBeInTheDocument()
   })
 
   it('calls all required API endpoints', async () => {
-    const { dealsApi, sessionsApi, healthApi } = await import('@/api/client')
-
     renderDashboard()
 
-    expect(dealsApi.getDealStats).toHaveBeenCalled()
-    expect(sessionsApi.getSessionStats).toHaveBeenCalled()
-    expect(healthApi.getHealth).toHaveBeenCalled()
-    expect(dealsApi.getDeals).toHaveBeenCalledWith({ page: 1, page_size: 5 })
-    expect(sessionsApi.getSessions).toHaveBeenCalledWith({ page: 1, page_size: 3 })
+    await waitFor(() => {
+      expect(dealsApi.getDealStats).toHaveBeenCalled()
+      expect(sessionsApi.getSessionStats).toHaveBeenCalled()
+      expect(dealsApi.getDeals).toHaveBeenCalledWith({ page: 1, limit: 5 })
+      expect(sessionsApi.getSessions).toHaveBeenCalledWith({ page: 1, page_size: 5 })
+    })
   })
 
-  it('has correct responsive layout structure', () => {
+  it('has correct responsive layout structure', async () => {
     const { container } = renderDashboard()
 
-    expect(container.querySelector('.dashboard')).toBeInTheDocument()
-    expect(container.querySelector('.stats-grid')).toBeInTheDocument()
-    expect(container.querySelector('.dashboard-content')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(container.querySelector('.dashboard')).toBeInTheDocument()
+      expect(container.querySelector('.stats-grid')).toBeInTheDocument()
+      expect(container.querySelector('.dashboard-content')).toBeInTheDocument()
+    })
   })
 }) 

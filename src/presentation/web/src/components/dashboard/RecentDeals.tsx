@@ -24,8 +24,9 @@ export default function RecentDeals({ deals, loading }: RecentDealsProps) {
     )
   }
 
-  const formatAmount = (amount: number) => {
-    return amount.toLocaleString('ru-RU', {
+  const formatAmount = (amount: string) => {
+    const numAmount = parseFloat(amount)
+    return numAmount.toLocaleString('ru-RU', {
       style: 'currency',
       currency: 'RUB',
       maximumFractionDigits: 0,
@@ -40,20 +41,18 @@ export default function RecentDeals({ deals, loading }: RecentDealsProps) {
     })
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'active':
-      case 'активна':
-        return '#48bb78'
-      case 'completed':
-      case 'завершена':
-        return '#4299e1'
-      case 'cancelled':
-      case 'отменена':
-        return '#f56565'
-      default:
-        return '#718096'
-    }
+  const getStatus = (isShipped: boolean, isPaid: boolean) => {
+    if (isShipped && isPaid) return 'Завершена'
+    if (isShipped && !isPaid) return 'Отгружена'
+    if (!isShipped && isPaid) return 'Оплачена'
+    return 'Активна'
+  }
+
+  const getStatusColor = (isShipped: boolean, isPaid: boolean) => {
+    if (isShipped && isPaid) return '#4299e1' // blue - completed
+    if (isShipped && !isPaid) return '#ed8936' // orange - shipped
+    if (!isShipped && isPaid) return '#38b2ac' // teal - paid
+    return '#48bb78' // green - active
   }
 
   return (
@@ -63,22 +62,22 @@ export default function RecentDeals({ deals, loading }: RecentDealsProps) {
           <div key={deal.id} className="deal-item">
             <div className="deal-header">
               <div className="deal-counterparty">
-                <strong>{deal.counterparty_name}</strong>
-                <span className="deal-inn">ИНН: {deal.inn}</span>
+                <strong>{deal.client_name}</strong>
+                <span className="deal-saller">Продавец: {deal.saller}</span>
               </div>
               <div 
                 className="deal-status"
-                style={{ color: getStatusColor(deal.status) }}
+                style={{ color: getStatusColor(deal.is_shipped, deal.is_paid) }}
               >
-                {deal.status}
+                {getStatus(deal.is_shipped, deal.is_paid)}
               </div>
             </div>
             <div className="deal-details">
               <div className="deal-contract">
-                Договор №{deal.contract_number} от {formatDate(deal.contract_date)}
+                Счет №{deal.invoice_number} от {formatDate(deal.invoice_date)}
               </div>
               <div className="deal-amount">
-                {formatAmount(deal.contract_amount)}
+                {formatAmount(deal.revenue)}
               </div>
             </div>
             <div className="deal-footer">

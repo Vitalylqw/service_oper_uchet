@@ -1,13 +1,15 @@
 export interface Deal {
   id: string
-  inn: string
-  kpp: string
-  counterparty_name: string
-  contract_number: string
-  contract_date: string
-  contract_amount: number
-  status: string
-  created_at: string
+  deal_key: string
+  client_name: string
+  saller: string
+  invoice_number: string
+  invoice_date: string
+  revenue: string
+  margin: string
+  is_shipped: boolean
+  is_paid: boolean
+  items_count: number
   updated_at: string
 }
 
@@ -45,8 +47,8 @@ export interface PaginatedResponse<T> {
   items: T[]
   total: number
   page: number
-  page_size: number
-  total_pages: number
+  limit: number
+  pages: number
 }
 
 export interface ApiError {

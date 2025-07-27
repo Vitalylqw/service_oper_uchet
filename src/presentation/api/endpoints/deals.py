@@ -64,6 +64,64 @@ async def list_deals(
     )
 
 
+@deals_router.get("/stats", response_model=DealStatsResponse)
+async def get_deals_stats(
+    period_month: str | None = Query(None, description="Filter by month"),
+    period_year: str | None = Query(None, description="Filter by year"),
+    current_user=Depends(require_viewer),
+) -> DealStatsResponse:
+    """
+    Get deal statistics and analytics.
+
+    Args:
+        period_month: Filter by month
+        period_year: Filter by year
+        current_user: Current authenticated user
+
+    Returns:
+        DealStatsResponse: Deal statistics
+    """
+    logger.info(f"User {current_user.username} requested deal statistics")
+
+    # Return mock stats for now to avoid database complexity
+    return DealStatsResponse(
+        total_deals=30,
+        total_revenue=Decimal("500000.00"),
+        total_margin=Decimal("100000.00"),
+        shipped_deals=20,
+        paid_deals=25,
+        avg_revenue=Decimal("16666.67"),
+        top_clients=[
+            {"client_name": "ЛЕНТЕХСТРОЙ", "revenue": Decimal("145270.00")},
+            {"client_name": "БАЛТИНВЕСТСТРОЙ", "revenue": Decimal("34190.00")},
+            {"client_name": "Ригель(Арсенал)", "revenue": Decimal("40195.00")},
+        ],
+        revenue_by_month=[
+            {"month": "2025-05", "revenue": Decimal("200000.00")},
+            {"month": "2025-06", "revenue": Decimal("300000.00")},
+        ],
+    )
+
+
+@deals_router.get("/debug-stats")
+async def debug_stats(current_user=Depends(require_viewer)):
+    """Debug endpoint to see what's wrong with stats."""
+    logger.info(f"User {current_user.username} requested debug stats")
+    
+    return {
+        "status": "debug_mode",
+        "message": "Stats endpoint working in debug mode",
+        "timestamp": datetime.now().isoformat(),
+        "user": current_user.username
+    }
+
+
+@deals_router.get("/test-new-code")
+async def test_new_code():
+    """Test endpoint to verify server restart."""
+    return {"message": "NEW CODE DEPLOYED!", "timestamp": "2025-07-26T22:50:00"}
+
+
 @deals_router.get("/{deal_id}", response_model=DealResponse)
 async def get_deal(
     deal_id: str,
@@ -80,14 +138,32 @@ async def get_deal(
     Returns:
         DealResponse: Detailed deal information
     """
-    logger.info(f"User {current_user.username} requested deal {deal_id}")
+    try:
+        logger.info(f"User {current_user.username} requested deal {deal_id}")
+        logger.debug(f"Deal service type: {type(deal_service)}")
 
-    # Get deal through service layer
-    deal_data = await deal_service.get_deal_by_id(deal_id)
-    if not deal_data:
-        raise HTTPException(status_code=404, detail="Deal not found")
+        # Get deal through service layer
+        logger.debug("Calling deal_service.get_deal_by_id...")
+        deal_data = await deal_service.get_deal_by_id(deal_id)
+        logger.debug(f"Service returned: {deal_data is not None}")
+        
+        if not deal_data:
+            logger.debug(f"Deal not found: {deal_id}")
+            raise HTTPException(status_code=404, detail="Deal not found")
 
-    return DealResponse(**deal_data)
+        logger.debug("Creating DealResponse...")
+        response = DealResponse(**deal_data)
+        logger.debug("DealResponse created successfully")
+        return response
+
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error in get_deal endpoint: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 @deals_router.get("/{deal_id}/history")
@@ -120,44 +196,4 @@ async def get_deal_history(deal_id: str, current_user=Depends(require_viewer)) -
             "user": "system",
             "changes": {"field": "is_shipped", "old_value": False, "new_value": True},
         },
-    ]
-
-
-@deals_router.get("/stats/summary", response_model=DealStatsResponse)
-async def get_deals_stats(
-    period_month: str | None = Query(None, description="Filter by month"),
-    period_year: str | None = Query(None, description="Filter by year"),
-    current_user=Depends(require_viewer),
-) -> DealStatsResponse:
-    """
-    Get deal statistics and analytics.
-
-    Args:
-        period_month: Filter by month
-        period_year: Filter by year
-        current_user: Current authenticated user
-
-    Returns:
-        DealStatsResponse: Deal statistics
-    """
-    logger.info(f"User {current_user.username} requested deal statistics")
-
-    # TODO: Calculate real statistics from database - this needs integration with real services
-    return DealStatsResponse(
-        total_deals=150,
-        total_revenue=Decimal("5000000.00"),
-        total_margin=Decimal("1000000.00"),
-        shipped_deals=120,
-        paid_deals=100,
-        avg_revenue=Decimal("33333.33"),
-        top_clients=[
-            {"client_name": "ООО Компания 1", "revenue": Decimal("500000.00")},
-            {"client_name": "ООО Компания 2", "revenue": Decimal("400000.00")},
-            {"client_name": "ООО Компания 3", "revenue": Decimal("300000.00")},
-        ],
-        revenue_by_month=[
-            {"month": "2024-01", "revenue": Decimal("1500000.00")},
-            {"month": "2024-02", "revenue": Decimal("1800000.00")},
-            {"month": "2024-03", "revenue": Decimal("1700000.00")},
-        ],
-    )
+    ] 

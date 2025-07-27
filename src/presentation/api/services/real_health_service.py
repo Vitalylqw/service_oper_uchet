@@ -13,7 +13,7 @@ from datetime import datetime
 import psutil
 from loguru import logger
 
-from src.infrastructure.database.connection import DatabaseManager
+from infrastructure.database.connection import DatabaseManager
 
 
 class RealHealthService:

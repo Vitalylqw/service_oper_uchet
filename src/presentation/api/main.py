@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     try:
         # Initialize database connection
-        from infrastructure.database.connection import init_database
+        from src.infrastructure.database.connection import init_database
         logger.info("Initializing database connection...")
         await init_database()
         logger.info("✅ Database connection initialized successfully")
@@ -61,7 +61,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     try:
         # Close database connections
-        from infrastructure.database.connection import close_database
+        from src.infrastructure.database.connection import close_database
         await close_database()
         logger.info("✅ Database connections closed")
 

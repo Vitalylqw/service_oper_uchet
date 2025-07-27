@@ -50,13 +50,7 @@ apiClient.interceptors.response.use(
 // Auth API
 export const authApi = {
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
-    const formData = new FormData()
-    formData.append('username', credentials.username)
-    formData.append('password', credentials.password)
-    
-    const response = await apiClient.post<LoginResponse>('/auth/login', formData, {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    })
+    const response = await apiClient.post<LoginResponse>('/auth/login', credentials)
     return response.data
   },
 
@@ -75,13 +69,25 @@ export const authApi = {
 export const dealsApi = {
   getDeals: async (params?: {
     page?: number
-    page_size?: number
-    inn?: string
-    counterparty_name?: string
-    status?: string
+    limit?: number
+    client_name?: string
+    saller?: string
+    is_shipped?: string
+    is_paid?: string
   }): Promise<PaginatedResponse<Deal>> => {
+    // Очистка пустых параметров для предотвращения ошибок валидации
+    const cleanParams = {} as any
+    if (params) {
+      Object.keys(params).forEach(key => {
+        const value = (params as any)[key]
+        if (value !== undefined && value !== null && value !== '') {
+          cleanParams[key] = value
+        }
+      })
+    }
+    
     const response = await apiClient.get<PaginatedResponse<Deal>>('/api/v1/deals/', {
-      params,
+      params: cleanParams,
     })
     return response.data
   },

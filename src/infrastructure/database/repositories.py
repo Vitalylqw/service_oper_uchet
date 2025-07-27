@@ -112,6 +112,73 @@ class DealRepositoryImplementation(DealRepository):
             logger.error(f"Failed to find deals by period {period_month} {period_year}: {e}")
             raise
 
+    async def find_all_paginated(
+        self, 
+        page: int, 
+        limit: int, 
+        filters: dict | None = None
+    ) -> dict:
+        """Find all deals with pagination and filters."""
+        try:
+            # Base query
+            query = select(ReadModelDeal).where(ReadModelDeal.is_active)
+            
+            # Apply filters
+            if filters:
+                if filters.get("client_name"):
+                    query = query.where(
+                        ReadModelDeal.client_name.ilike(f"%{filters['client_name']}%")
+                    )
+                
+                if filters.get("seller"):
+                    query = query.where(
+                        ReadModelDeal.seller.ilike(f"%{filters['seller']}%")
+                    )
+                
+                if filters.get("is_shipped") is not None:
+                    # Convert boolean filter to string value used in database
+                    shipped_filter = str(filters["is_shipped"]).lower()
+                    if shipped_filter == "true":
+                        query = query.where(ReadModelDeal.is_shipped == "completed")
+                    elif shipped_filter == "false":
+                        query = query.where(ReadModelDeal.is_shipped == "pending")
+                
+                if filters.get("is_paid") is not None:
+                    # Convert boolean filter to string value used in database
+                    paid_filter = str(filters["is_paid"]).lower()
+                    if paid_filter == "true":
+                        query = query.where(ReadModelDeal.is_paid == "completed")
+                    elif paid_filter == "false":
+                        query = query.where(ReadModelDeal.is_paid == "pending")
+            
+            # Count total for pagination
+            count_query = select(func.count()).select_from(query.subquery())
+            total_result = await self.session.execute(count_query)
+            total = total_result.scalar()
+            
+            # Apply pagination and ordering
+            query = query.order_by(ReadModelDeal.created_at.desc())
+            query = query.offset((page - 1) * limit).limit(limit)
+            
+            # Execute query
+            result = await self.session.execute(query)
+            deal_models = result.scalars().all()
+            
+            # Return read models directly for API usage
+            logger.debug(f"Found {len(deal_models)} deals (page {page}, total {total})")
+            
+            return {
+                "items": deal_models,
+                "total": total,
+                "page": page,
+                "limit": limit,
+                "pages": (total + limit - 1) // limit if total > 0 else 0,
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to find paginated deals: {e}")
+            raise
+
     async def save(self, deal: Deal) -> None:
         """Save deal - this should trigger event creation (handled by application layer)."""
         # NOTE: This is a read-only repository in Event Sourcing architecture
@@ -169,7 +236,7 @@ class DealRepositoryImplementation(DealRepository):
 
         # Set ID and other fields
         deal.id = model.id
-        deal.deal_key = model.deal_key
+        # deal_key is a computed field - cannot be set directly
         deal.invoice_number = model.invoice_number or ""
         deal.invoice_date = model.invoice_date or ""
         deal.is_shipped = Status.from_string(model.is_shipped) if model.is_shipped else None

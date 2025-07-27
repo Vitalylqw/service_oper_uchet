@@ -48,11 +48,11 @@ async def login(login_data: LoginRequest) -> TokenResponse:
     """
     # TODO: Validate credentials against database
     # For now, use mock validation
-    if login_data.username == "admin" and login_data.password == "admin123":
+    if login_data.username == "admin" and login_data.password == "password":
         user_data = {"sub": login_data.username, "user_id": 1, "role": "admin"}
-    elif login_data.username == "analyst" and login_data.password == "analyst123":
+    elif login_data.username == "analyst" and login_data.password == "password":
         user_data = {"sub": login_data.username, "user_id": 2, "role": "analyst"}
-    elif login_data.username == "viewer" and login_data.password == "viewer123":
+    elif login_data.username == "viewer" and login_data.password == "password":
         user_data = {"sub": login_data.username, "user_id": 3, "role": "viewer"}
     else:
         logger.warning(f"Failed login attempt for username: {login_data.username}")

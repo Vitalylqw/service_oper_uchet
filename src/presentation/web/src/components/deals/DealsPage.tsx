@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { dealsApi } from '@/api/client'
-import type { Deal } from '@/types/api'
 import DealsTable from './DealsTable'
 import DealsFilters from './DealsFilters'
 import './DealsPage.css'
@@ -9,15 +8,23 @@ import './DealsPage.css'
 export default function DealsPage() {
   const [filters, setFilters] = useState({
     page: 1,
-    page_size: 20,
-    inn: '',
-    counterparty_name: '',
-    status: '',
+    limit: 20,
+    client_name: '',
+    saller: '',
+    is_shipped: '',
+    is_paid: '',
   })
 
+  // Очистка пустых фильтров для корректного cache key
+  const cleanFilters = Object.fromEntries(
+    Object.entries(filters).filter(([, value]) => 
+      value !== undefined && value !== null && value !== ''
+    )
+  )
+
   const { data: dealsData, isLoading, error } = useQuery({
-    queryKey: ['deals', filters],
-    queryFn: () => dealsApi.getDeals(filters),
+    queryKey: ['deals', cleanFilters],
+    queryFn: () => dealsApi.getDeals(cleanFilters),
   })
 
   const handleFilterChange = (newFilters: Partial<typeof filters>) => {
@@ -59,7 +66,7 @@ export default function DealsPage() {
           deals={dealsData?.items || []}
           totalCount={dealsData?.total || 0}
           currentPage={filters.page}
-          pageSize={filters.page_size}
+          pageSize={filters.limit}
           onPageChange={handlePageChange}
           loading={isLoading}
         />

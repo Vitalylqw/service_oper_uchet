@@ -190,6 +190,25 @@ class SyncOrchestratorService:
             sync_session = SyncSession(sync_type=sync_type)
             sync_session.id = uuid.UUID(session_id)
             sync_session.source_file_path = file_path
+
+            # Compute file metadata to satisfy NOT NULL DB constraints
+            try:
+                from pathlib import Path as _Path
+                import hashlib as _hashlib
+
+                _p = _Path(file_path)
+                if _p.exists() and _p.is_file():
+                    sync_session.source_file_size = _p.stat().st_size
+                    sync_session.source_file_hash = _hashlib.sha256(_p.read_bytes()).hexdigest()
+                else:
+                    # Fallback placeholders to avoid DB nulls
+                    sync_session.source_file_size = 0
+                    sync_session.source_file_hash = "unknown"
+            except Exception as _e:
+                logger.warning(f"Failed to compute file metadata for {file_path}: {_e}")
+                sync_session.source_file_size = 0
+                sync_session.source_file_hash = "unknown"
+
             sync_session.start()
 
             # Save to database

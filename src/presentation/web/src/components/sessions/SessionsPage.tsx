@@ -1,19 +1,14 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { sessionsApi } from '@/api/client'
-import { useAuthStore } from '@/stores/authStore'
-import type { SyncSession } from '@/types/api'
 import SessionsTable from './SessionsTable'
 import SessionsFilters from './SessionsFilters'
 import './SessionsPage.css'
 
 export default function SessionsPage() {
-  const { user } = useAuthStore()
-  const queryClient = useQueryClient()
-  
   const [filters, setFilters] = useState({
     page: 1,
-    page_size: 20,
+    limit: 20,
     session_type: '',
     status: '',
   })
@@ -23,30 +18,17 @@ export default function SessionsPage() {
     queryFn: () => sessionsApi.getSessions(filters),
   })
 
-  const createSessionMutation = useMutation({
-    mutationFn: sessionsApi.createSession,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] })
-    },
-  })
-
   const handleFilterChange = (newFilters: Partial<typeof filters>) => {
     setFilters((prev) => ({
       ...prev,
       ...newFilters,
-      page: 1,
+      page: 1, // Сброс на первую страницу при изменении фильтров
     }))
   }
 
   const handlePageChange = (page: number) => {
     setFilters((prev) => ({ ...prev, page }))
   }
-
-  const handleCreateSession = (sessionType: 'full' | 'incremental') => {
-    createSessionMutation.mutate(sessionType)
-  }
-
-  const canCreateSession = user?.role === 'admin' || user?.role === 'analyst'
 
   if (error) {
     return (
@@ -61,36 +43,9 @@ export default function SessionsPage() {
   return (
     <div className="sessions-page">
       <div className="page-header">
-        <div className="header-content">
-          <h2>Сессии синхронизации</h2>
-          <p>Управление и мониторинг процессов синхронизации данных</p>
-        </div>
-        
-        {canCreateSession && (
-          <div className="header-actions">
-            <button
-              className="btn btn-secondary"
-              onClick={() => handleCreateSession('incremental')}
-              disabled={createSessionMutation.isPending}
-            >
-              Инкрементальная синхронизация
-            </button>
-            <button
-              className="btn btn-primary"
-              onClick={() => handleCreateSession('full')}
-              disabled={createSessionMutation.isPending}
-            >
-              Полная синхронизация
-            </button>
-          </div>
-        )}
+        <h2>Сессии синхронизации</h2>
+        <p>Управление и мониторинг сессий синхронизации данных</p>
       </div>
-
-      {createSessionMutation.error && (
-        <div className="error">
-          Ошибка создания сессии: {(createSessionMutation.error as any)?.response?.data?.detail || 'Неизвестная ошибка'}
-        </div>
-      )}
 
       <div className="page-content">
         <SessionsFilters
@@ -102,7 +57,7 @@ export default function SessionsPage() {
           sessions={sessionsData?.items || []}
           totalCount={sessionsData?.total || 0}
           currentPage={filters.page}
-          pageSize={filters.page_size}
+          pageSize={filters.limit}
           onPageChange={handlePageChange}
           loading={isLoading}
         />
