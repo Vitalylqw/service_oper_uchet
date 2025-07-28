@@ -16,7 +16,7 @@ from loguru import logger
 
 from domain.exceptions import SyncFileError
 from domain.models import Deal, DealItem, SyncSession
-from domain.value_objects import Money, Period, Status
+from domain.value_objects import Money, SignedMoney, Period, Status
 
 from .models import ParseResult, ParseStats
 
@@ -334,7 +334,7 @@ class ExcelParserService:
             if len(columns) > 6:
                 margin_val = safe_get(6)
                 if margin_val is not None:
-                    deal.total_margin = Money(amount=Decimal(str(margin_val)))
+                    deal.total_margin = SignedMoney(amount=Decimal(str(margin_val)))
 
             if len(columns) > 7:
                 deal.seller = self._safe_string(safe_get(7))
@@ -404,7 +404,7 @@ class ExcelParserService:
             if len(columns) > 6:
                 margin_val = safe_get(6)
                 if margin_val is not None:
-                    item.margin = Money(amount=Decimal(str(margin_val)))
+                    item.margin = SignedMoney(amount=Decimal(str(margin_val)))
 
             # Cost
             if len(columns) > 8:

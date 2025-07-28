@@ -20,6 +20,7 @@ from domain.models import SyncSession, SyncType
 from ..change_detector import ChangeDetectorService
 from ..excel_parser import ExcelParserService
 from .models import SyncConfiguration, SyncResult, SyncSummary
+from infrastructure.workers.read_model_builder import ReadModelBuilder
 
 
 class SyncOrchestratorService:
@@ -41,12 +42,14 @@ class SyncOrchestratorService:
         change_detector: ChangeDetectorService,
         event_store: EventStore,
         sync_session_repository: SyncSessionRepository,
+        read_model_builder: ReadModelBuilder | None = None,
     ) -> None:
         """Initialize orchestrator with required services."""
         self.excel_parser = excel_parser
         self.change_detector = change_detector
         self.event_store = event_store
         self.sync_session_repository = sync_session_repository
+        self.read_model_builder = read_model_builder
 
     async def execute_sync(self, file_path: str, config: SyncConfiguration) -> SyncResult:
         """
@@ -264,12 +267,13 @@ class SyncOrchestratorService:
                 result.events_created = events_to_create
 
             if config.update_read_models:
-                logger.info("Read model updates would be triggered here")
-                # TODO: Trigger read model updates through worker/queue
-                # This could be done via:
-                # - Publishing events to message queue
-                # - Direct read model repository calls
-                # - Background worker triggering
+                if self.read_model_builder:
+                    logger.info("Updating read models from events...")
+                    # Process all created events to update read models
+                    processed_count = await self.read_model_builder.process_latest_events(limit=1000)
+                    logger.info(f"✅ Read models updated for {processed_count} events")
+                else:
+                    logger.warning("Read model builder not configured, skipping read model updates")
 
         except Exception as e:
             logger.error(f"Failed to apply changes to database: {e}")

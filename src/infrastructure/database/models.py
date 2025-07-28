@@ -21,6 +21,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -264,6 +265,8 @@ class ReadModelPosition(Base):
         Index("ix_read_positions_hash_key", "hash_key"),
         # Composite indexes
         Index("ix_read_positions_deal_product", "deal_id", "product_name"),
+        # Unique constraint for position key within deal
+        Index("ix_read_positions_deal_position_key", "deal_id", "position_key", unique=True),
     )
 
 

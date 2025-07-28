@@ -37,6 +37,7 @@ from infrastructure.database.repositories import (
     DealRepositoryImplementation,
     SyncSessionRepositoryImplementation,
 )
+from infrastructure.workers.read_model_builder import ReadModelBuilder
 
 
 async def run_sync(file_path: str, sync_type: str = "full") -> None:
@@ -57,19 +58,21 @@ async def run_sync(file_path: str, sync_type: str = "full") -> None:
 
         excel_parser = ExcelParserService()
         change_detector = ChangeDetectorService(deal_repo)
+        read_model_builder = ReadModelBuilder(session, event_store)
 
         orchestrator = SyncOrchestratorService(
             excel_parser=excel_parser,
             change_detector=change_detector,
             event_store=event_store,
             sync_session_repository=sync_session_repo,
+            read_model_builder=read_model_builder,
         )
 
         # 4. Build configuration
         cfg = SyncConfiguration(
             sync_type=sync_type,
             create_events=True,
-            update_read_models=False,
+            update_read_models=True,  # Включаем обновление read models
             continue_on_errors=True,
             rollback_on_failure=False,
         )

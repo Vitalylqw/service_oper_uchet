@@ -53,7 +53,7 @@ class Status(str, Enum):
 
 
 class Money(BaseModel):
-    """Денежная сумма с валютой."""
+    """Денежная сумма с валютой (только положительные значения)."""
 
     amount: Decimal = Field(..., description="Сумма")
     currency: str = Field(default="RUB", description="Валюта")
@@ -99,6 +99,138 @@ class Money(BaseModel):
         if not isinstance(other, Money):
             return False
         return self.amount == other.amount and self.currency == other.currency
+
+    model_config = ConfigDict(
+        frozen=True,
+        arbitrary_types_allowed=True,
+        validate_assignment=True
+    )
+
+
+class SignedMoney(BaseModel):
+    """Денежная сумма с валютой (может быть отрицательной)."""
+
+    amount: Decimal = Field(..., description="Сумма")
+    currency: str = Field(default="RUB", description="Валюта")
+
+    @field_validator("amount")
+    @classmethod
+    def validate_amount(cls, v: Decimal) -> Decimal:
+        """Validate amount precision."""
+        return v.quantize(Decimal("0.01"))  # Округляем до копеек
+
+    @field_validator("currency")
+    @classmethod
+    def validate_currency(cls, v: str) -> str:
+        """Validate currency code."""
+        if len(v) != 3:
+            raise ValueError("Currency code must be 3 characters")
+        return v.upper()
+
+    def __str__(self) -> str:
+        """String representation."""
+        return f"{self.amount} {self.currency}"
+
+    def __add__(self, other: SignedMoney) -> SignedMoney:
+        """Add two signed money amounts."""
+        if self.currency != other.currency:
+            raise ValueError("Cannot add different currencies")
+        return SignedMoney(amount=self.amount + other.amount, currency=self.currency)
+
+    def __sub__(self, other: SignedMoney) -> SignedMoney:
+        """Subtract two signed money amounts."""
+        if self.currency != other.currency:
+            raise ValueError("Cannot subtract different currencies")
+        return SignedMoney(amount=self.amount - other.amount, currency=self.currency)
+
+    def __mul__(self, multiplier: Decimal | float | int) -> SignedMoney:
+        """Multiply signed money by a number."""
+        return SignedMoney(amount=self.amount * Decimal(str(multiplier)), currency=self.currency)
+
+    def __eq__(self, other: object) -> bool:
+        """Check equality."""
+        if not isinstance(other, SignedMoney):
+            return False
+        return self.amount == other.amount and self.currency == other.currency
+
+    @property
+    def is_positive(self) -> bool:
+        """Check if amount is positive."""
+        return self.amount > 0
+
+    @property
+    def is_negative(self) -> bool:
+        """Check if amount is negative."""
+        return self.amount < 0
+
+    @property
+    def is_zero(self) -> bool:
+        """Check if amount is zero."""
+        return self.amount == 0
+
+    def abs(self) -> Money:
+        """Get absolute value as Money."""
+        return Money(amount=abs(self.amount), currency=self.currency)
+
+    model_config = ConfigDict(
+        frozen=True,
+        arbitrary_types_allowed=True,
+        validate_assignment=True
+    )
+
+
+class DebtMoney(BaseModel):
+    """Денежная сумма для долгов и кредитов (всегда отрицательная)."""
+
+    amount: Decimal = Field(..., description="Сумма долга (отрицательная)")
+    currency: str = Field(default="RUB", description="Валюта")
+
+    @field_validator("amount")
+    @classmethod
+    def validate_amount(cls, v: Decimal) -> Decimal:
+        """Validate amount precision."""
+        if v >= 0:
+            raise ValueError("Debt amount must be negative")
+        return v.quantize(Decimal("0.01"))  # Округляем до копеек
+
+    @field_validator("currency")
+    @classmethod
+    def validate_currency(cls, v: str) -> str:
+        """Validate currency code."""
+        if len(v) != 3:
+            raise ValueError("Currency code must be 3 characters")
+        return v.upper()
+
+    def __str__(self) -> str:
+        """String representation."""
+        return f"{self.amount} {self.currency}"
+
+    def __add__(self, other: DebtMoney) -> DebtMoney:
+        """Add two debt amounts."""
+        if self.currency != other.currency:
+            raise ValueError("Cannot add different currencies")
+        return DebtMoney(amount=self.amount + other.amount, currency=self.currency)
+
+    def __sub__(self, other: DebtMoney) -> DebtMoney:
+        """Subtract two debt amounts."""
+        if self.currency != other.currency:
+            raise ValueError("Cannot subtract different currencies")
+        return DebtMoney(amount=self.amount - other.amount, currency=self.currency)
+
+    def __mul__(self, multiplier: Decimal | float | int) -> DebtMoney:
+        """Multiply debt by a number."""
+        return DebtMoney(amount=self.amount * Decimal(str(multiplier)), currency=self.currency)
+
+    def __eq__(self, other: object) -> bool:
+        """Check equality."""
+        if not isinstance(other, DebtMoney):
+            return False
+        return self.amount == other.amount and self.currency == other.currency
+
+    @property
+    def absolute_value(self) -> Money:
+        """Get absolute value as Money."""
+        return Money(amount=abs(self.amount), currency=self.currency)
 
     model_config = ConfigDict(
         frozen=True,

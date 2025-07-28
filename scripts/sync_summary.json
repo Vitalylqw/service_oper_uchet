@@ -1,0 +1,30 @@
+{
+  "timing": {
+    "started_at": "2025-07-28T22:49:50.933265",
+    "finished_at": "2025-07-28T22:50:27.297677",
+    "duration_seconds": 36.39036202430725,
+    "parsing_duration": 6.349730730056763,
+    "change_detection_duration": 0.0,
+    "database_update_duration": 29.99384069442749
+  },
+  "file": {
+    "path": "data/excel/Data_source_excel.xlsx",
+    "size_bytes": 2588167,
+    "hash": "20006f2ee51f34692c53f1bcba0853c0"
+  },
+  "data": {
+    "deals_processed": 3242,
+    "items_processed": 18032
+  },
+  "changes": {
+    "insertions": 3242,
+    "updates": 0,
+    "deletions": 0,
+    "total": 3242
+  },
+  "status": {
+    "success": true,
+    "error_message": null,
+    "success_rate": 100.0
+  }
+}
