@@ -10,8 +10,8 @@ from datetime import datetime
 from unittest.mock import AsyncMock
 
 import pytest
-from domain.models import SyncSession, SyncType
 
+from domain.models import SyncSession, SyncType
 from src.application.change_detector import ChangeDetectorService
 from src.application.excel_parser import ExcelParserService
 from src.application.sync_orchestrator import SyncOrchestratorService

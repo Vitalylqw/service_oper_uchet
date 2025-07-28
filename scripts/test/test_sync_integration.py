@@ -17,8 +17,8 @@ async def test_full_sync():
     """Test full synchronization process."""
     
     try:
-        from application.excel_parser import ExcelParserService
         from application.change_detector import ChangeDetectorService
+        from application.excel_parser import ExcelParserService
         from application.sync_orchestrator import SyncOrchestratorService
         from application.sync_orchestrator.models import SyncConfiguration
         from domain.models import SyncSession, SyncType
@@ -74,7 +74,7 @@ async def test_full_sync():
             result = await orchestrator.execute_sync(str(excel_file), sync_config)
             
             logger.info("✅ Synchronization completed!")
-            logger.info(f"📊 Summary:")
+            logger.info("📊 Summary:")
             logger.info(f"  - Success: {result.summary.success}")
             logger.info(f"  - Insertions: {result.summary.insertions_count}")
             logger.info(f"  - Updates: {result.summary.updates_count}")
@@ -165,4 +165,4 @@ async def main():
 
 if __name__ == "__main__":
     exit_code = asyncio.run(main())
-    sys.exit(exit_code) 
+    sys.exit(exit_code)

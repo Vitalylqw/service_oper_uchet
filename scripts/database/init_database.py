@@ -12,9 +12,10 @@ import os
 import sys
 from pathlib import Path
 
+from loguru import logger
+
 from infrastructure.database.connection import DatabaseConfig, DatabaseManager
 from infrastructure.database.models import Base
-from loguru import logger
 
 
 async def create_tables(db_manager: DatabaseManager) -> bool:

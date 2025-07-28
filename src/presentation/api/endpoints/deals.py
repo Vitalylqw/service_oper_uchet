@@ -107,7 +107,7 @@ async def get_deals_stats(
 async def debug_stats(current_user=Depends(require_viewer)):
     """Debug endpoint to see what's wrong with stats."""
     logger.info(f"User {current_user.username} requested debug stats")
-    
+
     return {
         "status": "debug_mode",
         "message": "Stats endpoint working in debug mode",
@@ -146,7 +146,7 @@ async def get_deal(
         logger.debug("Calling deal_service.get_deal_by_id...")
         deal_data = await deal_service.get_deal_by_id(deal_id)
         logger.debug(f"Service returned: {deal_data is not None}")
-        
+
         if not deal_data:
             logger.debug(f"Deal not found: {deal_id}")
             raise HTTPException(status_code=404, detail="Deal not found")
@@ -163,7 +163,7 @@ async def get_deal(
         logger.error(f"Unexpected error in get_deal endpoint: {e}")
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}") from e
 
 
 @deals_router.get("/{deal_id}/history")
@@ -196,4 +196,4 @@ async def get_deal_history(deal_id: str, current_user=Depends(require_viewer)) -
             "user": "system",
             "changes": {"field": "is_shipped", "old_value": False, "new_value": True},
         },
-    ] 
+    ]

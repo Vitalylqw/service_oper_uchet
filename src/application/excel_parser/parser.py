@@ -12,10 +12,11 @@ from decimal import Decimal
 from pathlib import Path
 
 import pandas as pd
+from loguru import logger
+
 from domain.exceptions import SyncFileError
 from domain.models import Deal, DealItem, SyncSession
 from domain.value_objects import Money, Period, Status
-from loguru import logger
 
 from .models import ParseResult, ParseStats
 

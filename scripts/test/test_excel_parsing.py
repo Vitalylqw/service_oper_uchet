@@ -40,7 +40,7 @@ async def test_excel_parsing():
         # Parse Excel file
         result = await parser.parse_file(str(excel_file), session)
         
-        logger.info(f"✅ Parsing completed successfully!")
+        logger.info("✅ Parsing completed successfully!")
         logger.info(f"📊 Total deals: {result.total_deals}")
         logger.info(f"📊 Total items: {result.total_items}")
         logger.info(f"📊 Errors: {len(result.stats.errors)}")
@@ -71,8 +71,8 @@ async def test_change_detection():
     """Test change detection with parsed data."""
     
     try:
-        from application.excel_parser import ExcelParserService
         from application.change_detector import ChangeDetectorService
+        from application.excel_parser import ExcelParserService
         from domain.models import SyncSession, SyncType
         from infrastructure.database.connection import DatabaseConfig, DatabaseManager
         from infrastructure.database.repositories import DealRepositoryImplementation
@@ -97,7 +97,7 @@ async def test_change_detection():
             # Detect changes
             changes = await detector.detect_changes(parse_result.deals, sync_period_months=12)
             
-            logger.info(f"✅ Change detection completed!")
+            logger.info("✅ Change detection completed!")
             logger.info(f"📊 Insertions: {changes.insertion_count}")
             logger.info(f"📊 Updates: {changes.update_count}")
             logger.info(f"📊 Deletions: {changes.deletion_count}")
@@ -132,4 +132,4 @@ async def main():
 
 if __name__ == "__main__":
     exit_code = asyncio.run(main())
-    sys.exit(exit_code) 
+    sys.exit(exit_code)

@@ -2,9 +2,11 @@
 """Test service directly to see raw data."""
 
 import asyncio
+
 from src.infrastructure.database.connection import get_database_session
 from src.infrastructure.database.repositories import DealRepositoryImplementation
 from src.presentation.api.services.real_deal_service import RealDealService
+
 
 async def test_raw_service():
     print("🔧 Тестирование raw service...")
@@ -50,4 +52,4 @@ async def test_raw_service():
         traceback.print_exc()
 
 if __name__ == "__main__":
-    asyncio.run(test_raw_service()) 
+    asyncio.run(test_raw_service())

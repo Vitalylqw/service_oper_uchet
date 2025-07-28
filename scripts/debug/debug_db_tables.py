@@ -2,7 +2,9 @@
 """Debug database tables creation."""
 
 import asyncio
+
 from sqlalchemy import text
+
 from src.infrastructure.database.connection import get_database_manager
 from src.infrastructure.database.models import Base
 
@@ -54,4 +56,4 @@ async def debug_tables():
 
 
 if __name__ == "__main__":
-    asyncio.run(debug_tables()) 
+    asyncio.run(debug_tables())

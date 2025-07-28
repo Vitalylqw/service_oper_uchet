@@ -3,7 +3,7 @@
 Run single synchronization via SyncOrchestratorService.
 
 Usage (PowerShell):
-    python scripts/run_sync_once.py D:\path\to\file.xlsx
+    python scripts/run_sync_once.py D:\\path\to\file.xlsx
 
 The script:
 1. Инициализирует DatabaseManager с текущими переменными окружения (SQLite по умолчанию)
@@ -116,4 +116,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main() 
+    main()

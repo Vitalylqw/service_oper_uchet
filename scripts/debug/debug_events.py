@@ -3,7 +3,9 @@
 
 import asyncio
 import json
+
 from sqlalchemy import text
+
 from src.infrastructure.database.connection import get_database_session
 
 
@@ -52,4 +54,4 @@ async def debug_events():
 
 
 if __name__ == "__main__":
-    asyncio.run(debug_events()) 
+    asyncio.run(debug_events())

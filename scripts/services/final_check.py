@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Final system check - all components."""
 
-import requests
-import json
 import asyncio
+import json
+
+import requests
 from sqlalchemy import text
+
 from src.infrastructure.database.connection import get_database_session
 
 
@@ -28,7 +30,7 @@ def check_api_endpoints():
     # Try common endpoint patterns
     endpoints_to_try = [
         "/deals",
-        "/api/deals", 
+        "/api/deals",
         "/api/v1/deals",
         "/v1/deals",
         "/sessions",
@@ -91,9 +93,9 @@ def main():
     
     print("\n" + "=" * 50)
     print("📊 SUMMARY:")
-    print(f"✅ API Server: Running on port 8000")
-    print(f"✅ Authentication: Working")
-    print(f"✅ Database: Connected with data")
+    print("✅ API Server: Running on port 8000")
+    print("✅ Authentication: Working")
+    print("✅ Database: Connected with data")
     print(f"📋 API Endpoints found: {len(working_endpoints)}")
     
     if working_endpoints:
@@ -105,4 +107,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()

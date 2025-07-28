@@ -189,7 +189,7 @@ def test_api_endpoints() -> dict:
             logger.info(f"✅ Deals endpoint: {deals_data.get('total', 0)} сделок, {response_time:.3f}с")
         else:
             results["deals"] = {
-                "status": "error", 
+                "status": "error",
                 "error": f"HTTP {response.status_code}",
                 "response_time": response_time
             }
@@ -409,8 +409,8 @@ def main():
     log_level = "DEBUG" if args.verbose else "INFO"
     logger.remove()
     logger.add(
-        sys.stderr, 
-        level=log_level, 
+        sys.stderr,
+        level=log_level,
         format="<level>{time:HH:mm:ss}</level> | <level>{message}</level>"
     )
     
@@ -440,4 +440,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()

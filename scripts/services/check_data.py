@@ -2,7 +2,9 @@
 """Check data in database."""
 
 import asyncio
+
 from sqlalchemy import text
+
 from infrastructure.database.connection import get_database_session
 
 
@@ -56,4 +58,4 @@ async def check_data():
 
 
 if __name__ == "__main__":
-    asyncio.run(check_data()) 
+    asyncio.run(check_data())

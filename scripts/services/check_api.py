@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Check API endpoints with authentication."""
 
-import requests
 import json
+
+import requests
 
 
 def test_api():
@@ -80,4 +81,4 @@ def test_api():
 
 
 if __name__ == "__main__":
-    test_api() 
+    test_api()

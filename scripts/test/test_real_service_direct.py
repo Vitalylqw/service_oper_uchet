@@ -2,9 +2,11 @@
 """Direct test of RealDealService."""
 
 import asyncio
+
 from src.infrastructure.database.connection import get_database_session
 from src.infrastructure.database.repositories import DealRepositoryImplementation
 from src.presentation.api.services.real_deal_service import RealDealService
+
 
 async def test_real_service_direct():
     print("🔧 Тестирование RealDealService напрямую...")
@@ -28,7 +30,7 @@ async def test_real_service_direct():
                 print("2️⃣ Первые сделки:")
                 for i, deal in enumerate(items[:3], 1):
                     client_name = deal.get('client_name', 'N/A')
-                    invoice_number = deal.get('invoice_number', 'N/A') 
+                    invoice_number = deal.get('invoice_number', 'N/A')
                     revenue = deal.get('revenue', 'N/A')
                     print(f"   {i}. {client_name} | {invoice_number} | {revenue}")
                     
@@ -52,4 +54,4 @@ async def test_real_service_direct():
         traceback.print_exc()
 
 if __name__ == "__main__":
-    asyncio.run(test_real_service_direct()) 
+    asyncio.run(test_real_service_direct())

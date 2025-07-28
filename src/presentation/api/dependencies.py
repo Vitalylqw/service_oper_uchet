@@ -67,7 +67,7 @@ class MockDealService:
 
         # Apply filtering
         filtered_deals = mock_deals
-        
+
         # Client name filter
         if filters.get("client_name"):
             filtered_deals = [
@@ -75,7 +75,7 @@ class MockDealService:
                 for d in filtered_deals
                 if filters["client_name"].lower() in d["client_name"].lower()
             ]
-        
+
         # Seller filter
         if filters.get("seller"):
             filtered_deals = [
@@ -83,12 +83,12 @@ class MockDealService:
                 for d in filtered_deals
                 if filters["seller"].lower() in d["seller"].lower()
             ]
-        
+
         # Boolean filters
         if filters.get("is_shipped") is not None:
             is_shipped_filter = str(filters["is_shipped"]).lower() == "true"
             filtered_deals = [d for d in filtered_deals if d["is_shipped"] == is_shipped_filter]
-        
+
         if filters.get("is_paid") is not None:
             is_paid_filter = str(filters["is_paid"]).lower() == "true"
             filtered_deals = [d for d in filtered_deals if d["is_paid"] == is_paid_filter]

@@ -9,11 +9,12 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from domain.interfaces import DealRepository, ReadModelRepository, SyncSessionRepository
-from domain.models import Deal, SyncSession
 from loguru import logger
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from domain.interfaces import DealRepository, ReadModelRepository, SyncSessionRepository
+from domain.models import Deal, SyncSession
 
 from .models import ReadModelDeal, ReadModelPosition, SyncSessionModel
 
@@ -113,28 +114,28 @@ class DealRepositoryImplementation(DealRepository):
             raise
 
     async def find_all_paginated(
-        self, 
-        page: int, 
-        limit: int, 
+        self,
+        page: int,
+        limit: int,
         filters: dict | None = None
     ) -> dict:
         """Find all deals with pagination and filters."""
         try:
             # Base query
             query = select(ReadModelDeal).where(ReadModelDeal.is_active)
-            
+
             # Apply filters
             if filters:
                 if filters.get("client_name"):
                     query = query.where(
                         ReadModelDeal.client_name.ilike(f"%{filters['client_name']}%")
                     )
-                
+
                 if filters.get("seller"):
                     query = query.where(
                         ReadModelDeal.seller.ilike(f"%{filters['seller']}%")
                     )
-                
+
                 if filters.get("is_shipped") is not None:
                     # Convert boolean filter to string value used in database
                     shipped_filter = str(filters["is_shipped"]).lower()
@@ -142,7 +143,7 @@ class DealRepositoryImplementation(DealRepository):
                         query = query.where(ReadModelDeal.is_shipped == "completed")
                     elif shipped_filter == "false":
                         query = query.where(ReadModelDeal.is_shipped == "pending")
-                
+
                 if filters.get("is_paid") is not None:
                     # Convert boolean filter to string value used in database
                     paid_filter = str(filters["is_paid"]).lower()
@@ -150,23 +151,23 @@ class DealRepositoryImplementation(DealRepository):
                         query = query.where(ReadModelDeal.is_paid == "completed")
                     elif paid_filter == "false":
                         query = query.where(ReadModelDeal.is_paid == "pending")
-            
+
             # Count total for pagination
             count_query = select(func.count()).select_from(query.subquery())
             total_result = await self.session.execute(count_query)
             total = total_result.scalar()
-            
+
             # Apply pagination and ordering
             query = query.order_by(ReadModelDeal.created_at.desc())
             query = query.offset((page - 1) * limit).limit(limit)
-            
+
             # Execute query
             result = await self.session.execute(query)
             deal_models = result.scalars().all()
-            
+
             # Return read models directly for API usage
             logger.debug(f"Found {len(deal_models)} deals (page {page}, total {total})")
-            
+
             return {
                 "items": deal_models,
                 "total": total,
@@ -174,7 +175,7 @@ class DealRepositoryImplementation(DealRepository):
                 "limit": limit,
                 "pages": (total + limit - 1) // limit if total > 0 else 0,
             }
-            
+
         except Exception as e:
             logger.error(f"Failed to find paginated deals: {e}")
             raise

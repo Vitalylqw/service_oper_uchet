@@ -9,8 +9,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from domain.models import Deal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from domain.models import Deal
 
 
 class ParseStats(BaseModel):

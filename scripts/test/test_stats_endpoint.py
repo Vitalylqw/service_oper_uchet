@@ -2,7 +2,9 @@
 """Test stats endpoint specifically."""
 
 import asyncio
+
 import httpx
+
 
 async def test_stats():
     base_url = "http://localhost:8000"
@@ -31,7 +33,7 @@ async def test_stats():
                 if login_response.status_code == 200:
                     token_data = login_response.json()
                     token = token_data.get("access_token")
-                    print(f"   ✅ Token получен")
+                    print("   ✅ Token получен")
                     
                     # 3. Test stats endpoint
                     print("\n3️⃣ Тест stats endpoint...")
@@ -43,7 +45,7 @@ async def test_stats():
                         
                         if stats_response.status_code == 200:
                             stats_data = stats_response.json()
-                            print(f"   ✅ Stats успешно получены!")
+                            print("   ✅ Stats успешно получены!")
                             print(f"   Total deals: {stats_data.get('total_deals', 0)}")
                             print(f"   Total revenue: {stats_data.get('total_revenue', 0)}")
                         else:
@@ -64,7 +66,7 @@ async def test_stats():
                         
                         if deals_response.status_code == 200:
                             deals_data = deals_response.json()
-                            print(f"   ✅ Deals успешно получены!")
+                            print("   ✅ Deals успешно получены!")
                             print(f"   Total deals: {deals_data.get('total', 0)}")
                             items = deals_data.get('items', [])
                             if items:
@@ -96,4 +98,4 @@ async def test_stats():
         print(f"❌ Общая ошибка: {e}")
 
 if __name__ == "__main__":
-    asyncio.run(test_stats()) 
+    asyncio.run(test_stats())

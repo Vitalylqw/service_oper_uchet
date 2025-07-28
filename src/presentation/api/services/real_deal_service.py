@@ -46,13 +46,13 @@ class RealDealService:
 
             # Get deals from database through repository
             result = await self.deal_repository.find_all_paginated(page, limit, filters)
-            
+
             # Convert read model deals to API format
             api_deals = []
             for deal_model in result["items"]:
                 api_deal = self._read_model_to_api_format(deal_model)
                 api_deals.append(api_deal)
-            
+
             return {
                 "items": api_deals,
                 "total": result["total"],

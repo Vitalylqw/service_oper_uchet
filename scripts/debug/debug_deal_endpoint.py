@@ -3,9 +3,10 @@
 Debug deal endpoint with detailed error reporting.
 """
 
-import requests
 import json
 import sys
+
+import requests
 
 
 def debug_deal_endpoint():
@@ -103,4 +104,4 @@ def debug_deal_endpoint():
 
 if __name__ == "__main__":
     success = debug_deal_endpoint()
-    sys.exit(0 if success else 1) 
+    sys.exit(0 if success else 1)

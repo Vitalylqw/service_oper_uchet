@@ -5,8 +5,9 @@ Test frontend functionality.
 
 import asyncio
 import sys
-import httpx
 from pathlib import Path
+
+import httpx
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -155,4 +156,4 @@ async def main():
 
 if __name__ == "__main__":
     exit_code = asyncio.run(main())
-    sys.exit(exit_code) 
+    sys.exit(exit_code)

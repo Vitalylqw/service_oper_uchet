@@ -2,8 +2,10 @@
 """Quick API test to check if real data is returned."""
 
 import asyncio
-import httpx
 import json
+
+import httpx
+
 
 async def test_api():
     base_url = "http://localhost:8000"
@@ -44,7 +46,7 @@ async def test_api():
                         client_name = first_deal.get('client_name', '')
                         deal_key = first_deal.get('deal_key', '')
                         
-                        print(f"   Первая сделка:")
+                        print("   Первая сделка:")
                         print(f"     - Клиент: {client_name}")
                         print(f"     - Deal Key: {deal_key}")
                         
@@ -64,4 +66,4 @@ async def test_api():
         print(f"❌ Ошибка подключения к API: {e}")
 
 if __name__ == "__main__":
-    asyncio.run(test_api()) 
+    asyncio.run(test_api())

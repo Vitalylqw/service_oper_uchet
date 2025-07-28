@@ -2,8 +2,10 @@
 """Check available endpoints via OpenAPI spec."""
 
 import asyncio
-import httpx
 import json
+
+import httpx
+
 
 async def check_swagger():
     base_url = "http://localhost:8000"
@@ -40,4 +42,4 @@ async def check_swagger():
         print(f"❌ Ошибка: {e}")
 
 if __name__ == "__main__":
-    asyncio.run(check_swagger()) 
+    asyncio.run(check_swagger())

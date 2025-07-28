@@ -3,10 +3,11 @@
 Test specific deal endpoint with detailed diagnostics.
 """
 
-import requests
 import json
 import sys
 from datetime import datetime
+
+import requests
 
 
 def test_specific_deal():
@@ -124,7 +125,7 @@ def test_specific_deal():
         print(f"   ❌ Request error: {e}")
     
     # Step 5: Test with a known valid UUID format
-    print(f"\n5. Testing with a different UUID format...")
+    print("\n5. Testing with a different UUID format...")
     
     # Try with a different UUID that might exist
     try:
@@ -158,4 +159,4 @@ def test_specific_deal():
 
 if __name__ == "__main__":
     success = test_specific_deal()
-    sys.exit(0 if success else 1) 
+    sys.exit(0 if success else 1)

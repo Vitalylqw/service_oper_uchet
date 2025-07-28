@@ -12,9 +12,10 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from infrastructure.database.connection import DatabaseConfig, DatabaseManager
-from sqlalchemy import text
 from loguru import logger
+from sqlalchemy import text
+
+from infrastructure.database.connection import DatabaseConfig, DatabaseManager
 
 
 async def debug_database_stats():
@@ -38,8 +39,8 @@ async def debug_database_stats():
             # 2. Check is_active field values
             logger.info("2. Checking is_active field values...")
             active_check = await session.execute(text("""
-                SELECT is_active, COUNT(*) as count 
-                FROM read_deals 
+                SELECT is_active, COUNT(*) as count
+                FROM read_deals
                 GROUP BY is_active
             """))
             for row in active_check.fetchall():
@@ -52,7 +53,7 @@ async def debug_database_stats():
             count_1 = await session.execute(text("SELECT COUNT(*) FROM read_deals WHERE is_active = 1"))
             logger.info(f"is_active = 1: {count_1.scalar()} deals")
             
-            # Test is_active = true  
+            # Test is_active = true
             count_true = await session.execute(text("SELECT COUNT(*) FROM read_deals WHERE is_active = true"))
             logger.info(f"is_active = true: {count_true.scalar()} deals")
             
@@ -67,7 +68,7 @@ async def debug_database_stats():
             # 4. Check financial data
             logger.info("4. Checking financial data...")
             financial_check = await session.execute(text("""
-                SELECT 
+                SELECT
                     COUNT(*) as deals_count,
                     SUM(total_revenue_amount) as total_revenue,
                     SUM(total_margin_amount) as total_margin,
@@ -81,13 +82,13 @@ async def debug_database_stats():
             # 5. Check sample deal data
             logger.info("5. Sample deal data...")
             sample_deals = await session.execute(text("""
-                SELECT 
-                    client_name, 
-                    is_active, 
+                SELECT
+                    client_name,
+                    is_active,
                     total_revenue_amount,
                     is_shipped,
                     is_paid
-                FROM read_deals 
+                FROM read_deals
                 LIMIT 3
             """))
             for i, row in enumerate(sample_deals.fetchall()):
@@ -120,4 +121,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    asyncio.run(main())

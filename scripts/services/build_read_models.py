@@ -2,8 +2,9 @@
 """Build read models from events."""
 
 import asyncio
+
 from src.infrastructure.database.connection import get_database_session
-from src.infrastructure.database.event_store import EventStoreImplementation  
+from src.infrastructure.database.event_store import EventStoreImplementation
 from src.infrastructure.workers.read_model_builder import ReadModelBuilder
 
 
@@ -35,4 +36,4 @@ async def build_read_models():
 
 
 if __name__ == "__main__":
-    asyncio.run(build_read_models()) 
+    asyncio.run(build_read_models())

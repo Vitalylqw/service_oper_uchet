@@ -2,8 +2,10 @@
 """Direct database test to check read models."""
 
 import asyncio
+
 from src.infrastructure.database.connection import get_database_manager, get_database_session
 from src.infrastructure.database.repositories import DealRepositoryImplementation
+
 
 async def test_db_direct():
     print("🔍 Тестирование прямого доступа к базе данных...")
@@ -46,4 +48,4 @@ async def test_db_direct():
         traceback.print_exc()
 
 if __name__ == "__main__":
-    asyncio.run(test_db_direct()) 
+    asyncio.run(test_db_direct())

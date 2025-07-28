@@ -2,11 +2,13 @@
 """Fix read model builder for correct event format."""
 
 import asyncio
-from src.infrastructure.database.connection import get_database_session
-from src.infrastructure.database.event_store import EventStoreImplementation  
-from src.infrastructure.workers.read_model_builder import ReadModelBuilder
-from src.infrastructure.database.models import ReadModelDeal
+
 from sqlalchemy.dialects.sqlite import insert
+
+from src.infrastructure.database.connection import get_database_session
+from src.infrastructure.database.event_store import EventStoreImplementation
+from src.infrastructure.database.models import ReadModelDeal
+from src.infrastructure.workers.read_model_builder import ReadModelBuilder
 
 
 async def process_deal_created_event_fixed(session, event_data, full_event):
@@ -71,7 +73,7 @@ async def process_deal_created_event_fixed(session, event_data, full_event):
         # Use upsert to handle conflicts
         stmt = insert(ReadModelDeal).values(**read_deal_data)
         stmt = stmt.on_conflict_do_update(
-            index_elements=["id"], 
+            index_elements=["id"],
             set_={key: stmt.excluded[key] for key in read_deal_data.keys()}
         )
         
@@ -107,8 +109,8 @@ async def build_read_models_fixed():
                 event_data = json.loads(event_data_json)
                 
                 success = await process_deal_created_event_fixed(
-                    session, 
-                    event_data, 
+                    session,
+                    event_data,
                     {"event_id": event_id, "aggregate_id": aggregate_id}
                 )
                 
@@ -126,4 +128,4 @@ async def build_read_models_fixed():
 
 
 if __name__ == "__main__":
-    asyncio.run(build_read_models_fixed()) 
+    asyncio.run(build_read_models_fixed())

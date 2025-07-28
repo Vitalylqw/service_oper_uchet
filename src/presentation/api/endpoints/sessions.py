@@ -78,12 +78,13 @@ async def get_sync_stats(current_user=Depends(require_viewer)) -> SyncStatsRespo
     logger.info(f"User {current_user.username} requested sync statistics")
 
     # Get real statistics from database
-    from src.infrastructure.database.connection import DatabaseConfig, DatabaseManager
     from sqlalchemy import text
-    
+
+    from src.infrastructure.database.connection import DatabaseConfig, DatabaseManager
+
     db_config = DatabaseConfig()
     db_manager = DatabaseManager(db_config)
-    
+
     try:
         async with db_manager.get_async_session() as session:
             # Basic session stats
@@ -98,26 +99,26 @@ async def get_sync_stats(current_user=Depends(require_viewer)) -> SyncStatsRespo
             total_sessions = stats_row[0] if stats_row else 0
             successful_sessions = stats_row[1] if stats_row else 0
             failed_sessions = stats_row[2] if stats_row else 0
-            
+
             # Calculate success rate
             success_rate = (successful_sessions / total_sessions * 100) if total_sessions > 0 else 0
-            
+
             # Average duration (placeholder - sync_sessions table doesn't have duration)
             avg_duration_seconds = 285.0  # Default value
-            
+
             # Total deals synchronized
             total_deals_query = await session.execute(
                 text("SELECT COUNT(*) FROM read_deals WHERE is_active = true")
             )
             total_deals_synchronized = total_deals_query.scalar() or 0
-            
+
             # Last sync time
             last_sync_query = await session.execute(
                 text("SELECT MAX(created_at) FROM sync_sessions WHERE status = 'completed'")
             )
             last_sync_result = last_sync_query.scalar()
             last_sync_at = last_sync_result if last_sync_result else None
-            
+
             # Sync frequency by days (last 7 days)
             freq_query = await session.execute(
                 text("SELECT DATE(created_at) as sync_date, COUNT(*) as sessions " +
@@ -130,7 +131,7 @@ async def get_sync_stats(current_user=Depends(require_viewer)) -> SyncStatsRespo
                 {"date": row[0], "sessions": row[1]}
                 for row in freq_query.fetchall()
             ]
-            
+
     except Exception as e:
         logger.error(f"Error fetching sync statistics: {e}")
         # Fallback values

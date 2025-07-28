@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Debug API deals endpoint in detail."""
 
-import requests
 import json
+
+import requests
 
 
 def debug_api_deals():
@@ -66,7 +67,7 @@ def debug_api_deals():
             print(f"Request failed: {e}")
     
     # Test individual deal by ID if we can find one
-    print(f"\n🔍 Testing individual deal access...")
+    print("\n🔍 Testing individual deal access...")
     try:
         # First get any deal ID from database check
         response = requests.get(f"{base_url}/api/v1/deals", headers=headers, params={"limit": 1})
@@ -86,4 +87,4 @@ def debug_api_deals():
 
 
 if __name__ == "__main__":
-    debug_api_deals() 
+    debug_api_deals()

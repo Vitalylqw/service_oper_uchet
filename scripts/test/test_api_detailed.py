@@ -2,8 +2,10 @@
 """Detailed API test with error handling."""
 
 import asyncio
-import httpx
 import json
+
+import httpx
+
 
 async def test_detailed():
     base_url = "http://localhost:8000"
@@ -32,7 +34,7 @@ async def test_detailed():
                 if login_response.status_code == 200:
                     token_data = login_response.json()
                     token = token_data.get("access_token")
-                    print(f"   ✅ Token получен")
+                    print("   ✅ Token получен")
                     
                     # 3. Test protected endpoint
                     print("\n3️⃣ Тест защищенного эндпоинта...")
@@ -44,7 +46,7 @@ async def test_detailed():
                         
                         if deals_response.status_code == 200:
                             deals_data = deals_response.json()
-                            print(f"   ✅ Успешный ответ!")
+                            print("   ✅ Успешный ответ!")
                             print(f"   Количество сделок: {deals_data.get('total', 0)}")
                             
                             # Check data type
@@ -82,4 +84,4 @@ async def test_detailed():
         print(f"❌ Общая ошибка: {e}")
 
 if __name__ == "__main__":
-    asyncio.run(test_detailed()) 
+    asyncio.run(test_detailed())

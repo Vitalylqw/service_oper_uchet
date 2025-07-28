@@ -12,9 +12,10 @@ import uuid
 from datetime import datetime
 from typing import Any
 
+from loguru import logger
+
 from domain.interfaces import EventStore, SyncSessionRepository
 from domain.models import SyncSession, SyncType
-from loguru import logger
 
 from ..change_detector import ChangeDetectorService
 from ..excel_parser import ExcelParserService
@@ -193,8 +194,8 @@ class SyncOrchestratorService:
 
             # Compute file metadata to satisfy NOT NULL DB constraints
             try:
-                from pathlib import Path as _Path
                 import hashlib as _hashlib
+                from pathlib import Path as _Path
 
                 _p = _Path(file_path)
                 if _p.exists() and _p.is_file():

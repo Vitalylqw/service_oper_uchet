@@ -11,12 +11,13 @@ import uuid
 from decimal import Decimal
 from typing import Any
 
-from domain.interfaces import EventStore
-from domain.models import Deal, DealItem
 from loguru import logger
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from domain.interfaces import EventStore
+from domain.models import Deal, DealItem
 
 from ..database.models import (
     ReadModelAudit,

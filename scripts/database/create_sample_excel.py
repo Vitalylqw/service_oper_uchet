@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Create sample Excel file with test data."""
 
-import pandas as pd
+from datetime import date, datetime
 from pathlib import Path
-from datetime import datetime, date
+
+import pandas as pd
 
 
 def create_sample_excel():
@@ -167,4 +168,4 @@ def create_sample_excel():
 
 
 if __name__ == "__main__":
-    create_sample_excel() 
+    create_sample_excel()

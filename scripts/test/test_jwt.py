@@ -9,8 +9,10 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from datetime import timedelta
+
 from src.presentation.api.auth.security import create_access_token, create_refresh_token
 from src.presentation.api.config import config
+
 
 def test_jwt():
     """Test JWT token creation and validation."""
@@ -40,4 +42,4 @@ def test_jwt():
         return False
 
 if __name__ == "__main__":
-    test_jwt() 
+    test_jwt()

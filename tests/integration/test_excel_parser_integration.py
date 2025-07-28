@@ -7,8 +7,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from domain.exceptions import SyncFileError
 
+from domain.exceptions import SyncFileError
 from src.application.excel_parser import ExcelParserService, ParseResult
 from src.domain.models import SyncSession
 from src.domain.models.sync_session import SyncType

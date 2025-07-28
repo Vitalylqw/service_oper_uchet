@@ -2,9 +2,11 @@
 """Debug authentication issues."""
 
 import asyncio
-import httpx
 import json
+
+import httpx
 from loguru import logger
+
 
 async def debug_auth():
     """Debug authentication step by step."""
@@ -51,4 +53,4 @@ async def debug_auth():
             logger.error(f"❌ Login request failed: {e}")
 
 if __name__ == "__main__":
-    asyncio.run(debug_auth()) 
+    asyncio.run(debug_auth())

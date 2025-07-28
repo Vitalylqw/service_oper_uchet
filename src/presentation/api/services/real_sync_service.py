@@ -10,10 +10,10 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from application.sync_orchestrator import SyncOrchestratorService
-from application.sync_orchestrator.models import SyncConfiguration
 from loguru import logger
 
+from application.sync_orchestrator import SyncOrchestratorService
+from application.sync_orchestrator.models import SyncConfiguration
 from infrastructure.database.repositories import SyncSessionRepositoryImplementation
 
 

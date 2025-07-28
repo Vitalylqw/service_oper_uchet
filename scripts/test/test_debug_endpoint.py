@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-import requests
-import time
 import json
 import sys
+import time
+
+import requests
 
 print("🔍 DEBUG: Testing /api/v1/sessions/stats endpoint with detailed logging...")
 print("=" * 60)
@@ -109,4 +110,4 @@ except KeyboardInterrupt:
 except Exception as e:
     print(f"\n❌ Unexpected error: {e}")
     import traceback
-    traceback.print_exc() 
+    traceback.print_exc()
