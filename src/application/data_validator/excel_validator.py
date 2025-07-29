@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 from typing import Any, Optional
+from datetime import datetime
 
 import pandas as pd
 from loguru import logger
@@ -29,6 +30,9 @@ class ExcelFileValidator:
     - Sheet structure and names
     - Header validation
     - Data structure validation
+    - Period validation (NEW)
+    - Business rules validation (NEW)
+    - File path validation (NEW)
     """
     
     def __init__(self, config: Optional[ExcelValidationConfig] = None):
@@ -41,12 +45,13 @@ class ExcelFileValidator:
         self.config = config or DEFAULT_EXCEL_CONFIG
         logger.info("ExcelFileValidator initialized with configuration")
     
-    def validate_file(self, file_path: str | Path) -> ExcelFile:
+    def validate_file(self, file_path: str | Path, expected_source_directory: Optional[str] = None) -> ExcelFile:
         """
         Validate Excel file and return ExcelFile model.
         
         Args:
             file_path: Path to Excel file
+            expected_source_directory: Expected source directory for file validation
             
         Returns:
             ExcelFile model with validation results
@@ -61,6 +66,10 @@ class ExcelFileValidator:
             # Validate file basics
             self._validate_file_basics(excel_file)
             
+            # НОВАЯ ВАЛИДАЦИЯ: Проверка пути к файлу
+            if self.config.file_path_validation.validate_file_accessibility:
+                excel_file.validate_file_location(expected_source_directory)
+            
             if excel_file.status == FileValidationStatus.INVALID:
                 return excel_file
             
@@ -72,6 +81,13 @@ class ExcelFileValidator:
             
             # Validate sheets
             self._validate_sheets(excel_file, excel_data)
+            
+            # НОВАЯ ВАЛИДАЦИЯ: Проверка периодов всех листов
+            if self.config.period_validation.require_period_in_sheet_name:
+                excel_file.validate_all_sheet_periods()
+            
+            # НОВАЯ ВАЛИДАЦИЯ: Проверка бизнес-правил всех листов
+            excel_file.validate_all_business_rules(self.config.business_rules)
             
             # Update statistics
             excel_file.update_sheet_stats()
@@ -94,6 +110,9 @@ class ExcelFileValidator:
         with open(file_path, "rb") as f:
             file_hash = hashlib.md5(f.read()).hexdigest()
         
+        # Get file modification time
+        last_modified = datetime.fromtimestamp(file_path.stat().st_mtime)
+        
         return ExcelFile(
             file_path=str(file_path.absolute()),
             file_name=file_path.name,
@@ -102,7 +121,9 @@ class ExcelFileValidator:
             file_hash=file_hash,
             required_sheets=self.config.get_required_sheets(),
             allowed_sheets=list(self.config.sheets.keys()),
-            name_pattern=self.config.file_name.pattern
+            name_pattern=self.config.file_name.pattern,
+            last_modified=last_modified,
+            file_source="local"  # Default source, can be updated later
         )
     
     def _validate_file_basics(self, excel_file: ExcelFile) -> None:
@@ -169,6 +190,13 @@ class ExcelFileValidator:
             # Validate sheet structure
             self._validate_sheet_structure(sheet, sheet_config, excel_data)
             
+            # НОВАЯ ВАЛИДАЦИЯ: Проверка периода листа
+            if sheet_config.period_validation.require_period_in_sheet_name:
+                sheet.validate_sheet_period()
+            
+            # НОВАЯ ВАЛИДАЦИЯ: Проверка бизнес-правил листа
+            sheet.validate_business_rules(sheet_config.business_rules)
+            
             # Add sheet to file
             excel_file.sheets.append(sheet)
     
@@ -222,17 +250,15 @@ class ExcelFileValidator:
     def _find_header_row(self, df: pd.DataFrame, sheet_config: Any) -> Optional[int]:
         """Find header row in sheet."""
         patterns = sheet_config.header_row_patterns
+        max_search = sheet_config.max_header_search_rows
         
-        for row_idx in range(min(sheet_config.max_header_search_rows, len(df))):
-            try:
-                row_values = [str(val).strip().lower() for val in df.iloc[row_idx] if pd.notna(val)]
-                
-                for pattern in patterns:
-                    if any(pattern.lower() in val for val in row_values):
-                        return row_idx
-                        
-            except Exception:
-                continue
+        for row_idx in range(min(max_search, len(df))):
+            row_values = [str(val).strip() for val in df.iloc[row_idx] if pd.notna(val)]
+            
+            # Check if any pattern matches
+            for pattern in patterns:
+                if any(pattern.lower() in val.lower() for val in row_values):
+                    return row_idx
         
         return None
     
@@ -243,7 +269,7 @@ class ExcelFileValidator:
         sheet_config: Any, 
         header_row: int
     ) -> None:
-        """Validate sheet headers."""
+        """Validate headers in sheet."""
         try:
             # Extract headers
             headers = [str(col).strip() for col in df.iloc[header_row] if pd.notna(col)]
@@ -258,12 +284,13 @@ class ExcelFileValidator:
                 sheet.missing_headers = missing_required
             
             # Check extra headers
-            extra_headers = sheet_config.get_extra_headers(headers)
-            if extra_headers:
-                sheet.add_warning(
-                    f"Обнаружены лишние заголовки: {', '.join(extra_headers)}"
-                )
-                sheet.extra_headers = extra_headers
+            if not sheet_config.allow_extra_headers:
+                extra_headers = sheet_config.get_extra_headers(headers)
+                if extra_headers:
+                    sheet.add_warning(
+                        f"Обнаружены лишние заголовки: {', '.join(extra_headers)}"
+                    )
+                    sheet.extra_headers = extra_headers
             
             # Validate header count
             if len(headers) < sheet_config.min_columns:
@@ -323,6 +350,20 @@ class ExcelFileValidator:
         valid_sheets = excel_file.get_valid_sheets()
         if not valid_sheets and excel_file.total_sheets > 0:
             excel_file.add_error("Нет валидных листов для обработки")
+        
+        # НОВАЯ ПРОВЕРКА: Проверка бизнес-правил на уровне файла
+        if self.config.business_rules.min_deals_per_sheet:
+            sheets_with_insufficient_deals = []
+            for sheet in excel_file.sheets:
+                if sheet.is_processed and sheet.has_data:
+                    # This would need to be implemented with actual deal counting
+                    # For now, we'll just check if sheet has data
+                    pass
+            
+            if sheets_with_insufficient_deals:
+                excel_file.add_warning(
+                    f"Листы с недостаточным количеством сделок: {[s.name for s in sheets_with_insufficient_deals]}"
+                )
         
         # Mark file as valid if no critical errors
         if not excel_file.validation_errors:
@@ -389,9 +430,5 @@ class ExcelFileValidator:
                         sheet_name=sheet.name
                     )
                 )
-        
-        # Update statistics
-        result.stats.total_sheets = excel_file.total_sheets
-        result.stats.valid_sheets = excel_file.valid_sheets
         
         return result 

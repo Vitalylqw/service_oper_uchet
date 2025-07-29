@@ -231,10 +231,16 @@ class EventStoreImplementation(EventStore):
             limit: Maximum number of events to return
 
         Returns:
-            List of latest events ordered by creation time (newest first)
+            List of latest events ordered by aggregate_id and sequence_number for proper Event Sourcing
         """
         try:
-            query = select(EventStoreModel).order_by(desc(EventStoreModel.created_at)).limit(limit)
+            # HYBRID APPROACH: Order by aggregate_id first, then sequence_number
+            # This ensures events for the same aggregate are processed together in correct order
+            query = (
+                select(EventStoreModel)
+                .order_by(EventStoreModel.aggregate_id, EventStoreModel.sequence_number)
+                .limit(limit)
+            )
 
             result = await self.session.execute(query)
             event_models = result.scalars().all()
@@ -256,7 +262,7 @@ class EventStoreImplementation(EventStore):
                 }
                 events.append(event_dict)
 
-            logger.debug(f"Retrieved {len(events)} latest events")
+            logger.debug(f"Retrieved {len(events)} latest events (ordered by aggregate_id, sequence_number)")
             return events
 
         except Exception as e:

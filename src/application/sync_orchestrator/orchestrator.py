@@ -270,7 +270,7 @@ class SyncOrchestratorService:
                 if self.read_model_builder:
                     logger.info("Updating read models from events...")
                     # Process all created events to update read models
-                    processed_count = await self.read_model_builder.process_latest_events(limit=1000)
+                    processed_count = await self.read_model_builder.process_latest_events(limit=1000, auto_commit=False)
                     logger.info(f"✅ Read models updated for {processed_count} events")
                 else:
                     logger.warning("Read model builder not configured, skipping read model updates")

@@ -13,6 +13,54 @@ import re
 from pydantic import BaseModel, Field
 
 
+class BusinessRulesConfig(BaseModel):
+    """Конфигурация бизнес-правил."""
+    
+    require_client_data: bool = Field(default=True, description="Требовать данные о клиентах")
+    require_invoice_data: bool = Field(default=True, description="Требовать данные о счетах")
+    require_financial_data: bool = Field(default=True, description="Требовать финансовые данные")
+    require_product_data: bool = Field(default=True, description="Требовать данные о товарах")
+    validate_financial_consistency: bool = Field(default=True, description="Проверять финансовую согласованность")
+    max_deals_per_sheet: Optional[int] = Field(None, description="Максимум сделок на лист")
+    min_deals_per_sheet: int = Field(default=1, description="Минимум сделок на лист")
+
+
+class PeriodValidationConfig(BaseModel):
+    """Конфигурация валидации периодов."""
+    
+    require_period_in_sheet_name: bool = Field(default=True, description="Требовать период в названии листа")
+    allowed_months: List[str] = Field(
+        default_factory=lambda: [
+            "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+            "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
+        ], 
+        description="Разрешенные месяцы"
+    )
+    allowed_years: List[str] = Field(
+        default_factory=lambda: [str(year) for year in range(2020, 2031)], 
+        description="Разрешенные годы"
+    )
+    period_format_pattern: str = Field(
+        default=r"^[А-Яа-я]+ \d{4}$", 
+        description="Паттерн формата периода"
+    )
+    strict_period_validation: bool = Field(default=False, description="Строгая валидация периодов")
+    allow_future_periods: bool = Field(default=False, description="Разрешить будущие периоды")
+
+
+class FilePathValidationConfig(BaseModel):
+    """Конфигурация валидации путей к файлам."""
+    
+    require_valid_source_directory: bool = Field(default=True, description="Требовать валидную исходную директорию")
+    allowed_source_directories: List[str] = Field(
+        default_factory=list, 
+        description="Разрешенные исходные директории"
+    )
+    validate_file_accessibility: bool = Field(default=True, description="Проверять доступность файла")
+    validate_file_permissions: bool = Field(default=True, description="Проверять права доступа к файлу")
+    allow_network_paths: bool = Field(default=True, description="Разрешить сетевые пути")
+
+
 class SheetConfig(BaseModel):
     """Configuration for Excel sheet validation."""
     
@@ -61,67 +109,56 @@ class SheetConfig(BaseModel):
     allow_extra_headers: bool = Field(default=True, description="Allow extra headers")
     strict_header_match: bool = Field(default=False, description="Strict header matching")
     
-    @property
-    def name_pattern(self) -> Pattern[str]:
-        """Get compiled name pattern."""
-        return re.compile(self.name, re.IGNORECASE)
+    # НОВЫЕ ПОЛЯ: Бизнес-правила для листа
+    business_rules: BusinessRulesConfig = Field(
+        default_factory=BusinessRulesConfig,
+        description="Бизнес-правила для листа"
+    )
+    
+    # НОВЫЕ ПОЛЯ: Валидация периода для листа
+    period_validation: PeriodValidationConfig = Field(
+        default_factory=PeriodValidationConfig,
+        description="Валидация периода для листа"
+    )
     
     def matches_name(self, sheet_name: str) -> bool:
         """Check if sheet name matches pattern."""
-        return bool(self.name_pattern.match(sheet_name))
+        try:
+            return bool(re.match(self.name, sheet_name, re.IGNORECASE))
+        except re.error:
+            return sheet_name.lower() == self.name.lower()
     
     def get_missing_required_headers(self, actual_headers: List[str]) -> List[str]:
         """Get missing required headers."""
         actual_lower = [h.lower().strip() for h in actual_headers]
-        return [
-            required for required in self.required_headers
-            if not any(required.lower() in actual for actual in actual_lower)
-        ]
+        return [h for h in self.required_headers if h.lower().strip() not in actual_lower]
     
     def get_extra_headers(self, actual_headers: List[str]) -> List[str]:
         """Get extra headers not in expected list."""
-        if self.allow_extra_headers:
-            return []
-        
-        expected_all = self.expected_headers + self.optional_headers
-        expected_lower = [h.lower().strip() for h in expected_all]
-        return [
-            actual for actual in actual_headers
-            if not any(actual.lower() in expected for expected in expected_lower)
-        ]
+        expected_lower = [h.lower().strip() for h in self.expected_headers]
+        return [h for h in actual_headers if h.lower().strip() not in expected_lower]
 
 
 class FileNameConfig(BaseModel):
     """Configuration for file name validation."""
     
-    pattern: str = Field(..., description="Regex pattern for file name validation")
+    pattern: str = Field(
+        default=r"^[a-zA-Z0-9_\-\s]+\.(xlsx|xls)$",
+        description="Regex pattern for file name validation"
+    )
     required_extensions: List[str] = Field(
-        default=[".xlsx", ".xls"], 
+        default_factory=lambda: [".xlsx", ".xls"],
         description="Required file extensions"
     )
-    max_file_size_mb: int = Field(
-        default=50, 
-        description="Maximum file size in MB"
-    )
-    min_file_size_kb: int = Field(
-        default=1, 
-        description="Minimum file size in KB"
-    )
-    
-    # Name validation rules
-    case_sensitive: bool = Field(default=False, description="Case sensitive matching")
-    allow_spaces: bool = Field(default=True, description="Allow spaces in names")
-    allow_special_chars: bool = Field(default=False, description="Allow special characters")
-    
-    @property
-    def compiled_pattern(self) -> Pattern[str]:
-        """Get compiled regex pattern."""
-        flags = 0 if self.case_sensitive else re.IGNORECASE
-        return re.compile(self.pattern, flags)
+    max_file_size_mb: int = Field(default=50, description="Maximum file size in MB")
+    min_file_size_kb: int = Field(default=1, description="Minimum file size in KB")
     
     def validate_name(self, file_name: str) -> bool:
         """Validate file name against pattern."""
-        return bool(self.compiled_pattern.match(file_name))
+        try:
+            return bool(re.match(self.pattern, file_name))
+        except re.error:
+            return False
     
     def validate_extension(self, extension: str) -> bool:
         """Validate file extension."""
@@ -129,13 +166,9 @@ class FileNameConfig(BaseModel):
     
     def validate_size(self, size_bytes: int) -> bool:
         """Validate file size."""
-        size_kb = size_bytes / 1024
-        size_mb = size_kb / 1024
-        
-        return (
-            size_kb >= self.min_file_size_kb and 
-            size_mb <= self.max_file_size_mb
-        )
+        min_size = self.min_file_size_kb * 1024
+        max_size = self.max_file_size_mb * 1024 * 1024
+        return min_size <= size_bytes <= max_size
 
 
 class ExcelValidationConfig(BaseModel):
@@ -175,6 +208,24 @@ class ExcelValidationConfig(BaseModel):
             min_columns=3
         ),
         description="Default configuration for sheets"
+    )
+    
+    # НОВЫЕ ПОЛЯ: Бизнес-конфигурация
+    business_rules: BusinessRulesConfig = Field(
+        default_factory=BusinessRulesConfig,
+        description="Конфигурация бизнес-правил"
+    )
+    
+    # НОВЫЕ ПОЛЯ: Валидация периодов
+    period_validation: PeriodValidationConfig = Field(
+        default_factory=PeriodValidationConfig,
+        description="Конфигурация валидации периодов"
+    )
+    
+    # НОВЫЕ ПОЛЯ: Валидация путей
+    file_path_validation: FilePathValidationConfig = Field(
+        default_factory=FilePathValidationConfig,
+        description="Конфигурация валидации путей"
     )
     
     # Validation rules
@@ -259,7 +310,20 @@ DEFAULT_EXCEL_CONFIG = ExcelValidationConfig(
             min_columns=3,
             allow_empty=False,
             allow_extra_headers=True,
-            strict_header_match=False
+            strict_header_match=False,
+            business_rules=BusinessRulesConfig(
+                require_client_data=True,
+                require_invoice_data=True,
+                require_financial_data=True,
+                require_product_data=True,
+                validate_financial_consistency=True,
+                min_deals_per_sheet=1
+            ),
+            period_validation=PeriodValidationConfig(
+                require_period_in_sheet_name=True,
+                strict_period_validation=False,
+                allow_future_periods=False
+            )
         ),
         
         # Конфигурация для служебных листов (пропускаем)
@@ -270,7 +334,17 @@ DEFAULT_EXCEL_CONFIG = ExcelValidationConfig(
             expected_headers=[],
             required_headers=[],
             allow_empty=True,
-            allow_extra_headers=True
+            allow_extra_headers=True,
+            business_rules=BusinessRulesConfig(
+                require_client_data=False,
+                require_invoice_data=False,
+                require_financial_data=False,
+                require_product_data=False,
+                validate_financial_consistency=False
+            ),
+            period_validation=PeriodValidationConfig(
+                require_period_in_sheet_name=False
+            )
         ),
         
         # Конфигурация для листов с итогами (пропускаем)
@@ -281,9 +355,38 @@ DEFAULT_EXCEL_CONFIG = ExcelValidationConfig(
             expected_headers=[],
             required_headers=[],
             allow_empty=True,
-            allow_extra_headers=True
+            allow_extra_headers=True,
+            business_rules=BusinessRulesConfig(
+                require_client_data=False,
+                require_invoice_data=False,
+                require_financial_data=False,
+                require_product_data=False,
+                validate_financial_consistency=False
+            ),
+            period_validation=PeriodValidationConfig(
+                require_period_in_sheet_name=False
+            )
         )
     },
+    business_rules=BusinessRulesConfig(
+        require_client_data=True,
+        require_invoice_data=True,
+        require_financial_data=True,
+        require_product_data=True,
+        validate_financial_consistency=True,
+        min_deals_per_sheet=1
+    ),
+    period_validation=PeriodValidationConfig(
+        require_period_in_sheet_name=True,
+        strict_period_validation=False,
+        allow_future_periods=False
+    ),
+    file_path_validation=FilePathValidationConfig(
+        require_valid_source_directory=True,
+        validate_file_accessibility=True,
+        validate_file_permissions=True,
+        allow_network_paths=True
+    ),
     strict_mode=False,
     allow_unknown_sheets=True,
     skip_empty_sheets=True,
@@ -317,9 +420,41 @@ STRICT_EXCEL_CONFIG = ExcelValidationConfig(
             min_columns=5,
             allow_empty=False,
             allow_extra_headers=False,
-            strict_header_match=True
+            strict_header_match=True,
+            business_rules=BusinessRulesConfig(
+                require_client_data=True,
+                require_invoice_data=True,
+                require_financial_data=True,
+                require_product_data=True,
+                validate_financial_consistency=True,
+                min_deals_per_sheet=2
+            ),
+            period_validation=PeriodValidationConfig(
+                require_period_in_sheet_name=True,
+                strict_period_validation=True,
+                allow_future_periods=False
+            )
         )
     },
+    business_rules=BusinessRulesConfig(
+        require_client_data=True,
+        require_invoice_data=True,
+        require_financial_data=True,
+        require_product_data=True,
+        validate_financial_consistency=True,
+        min_deals_per_sheet=2
+    ),
+    period_validation=PeriodValidationConfig(
+        require_period_in_sheet_name=True,
+        strict_period_validation=True,
+        allow_future_periods=False
+    ),
+    file_path_validation=FilePathValidationConfig(
+        require_valid_source_directory=True,
+        validate_file_accessibility=True,
+        validate_file_permissions=True,
+        allow_network_paths=False
+    ),
     strict_mode=True,
     allow_unknown_sheets=False,
     skip_empty_sheets=True,

@@ -1,14 +1,14 @@
 {
   "timing": {
-    "started_at": "2025-07-28T22:49:50.933265",
-    "finished_at": "2025-07-28T22:50:27.297677",
-    "duration_seconds": 36.39036202430725,
-    "parsing_duration": 6.349730730056763,
+    "started_at": "2025-07-29T02:44:39.260638",
+    "finished_at": "2025-07-29T02:45:19.059085",
+    "duration_seconds": 39.82354283332825,
+    "parsing_duration": 8.491437435150146,
     "change_detection_duration": 0.0,
-    "database_update_duration": 29.99384069442749
+    "database_update_duration": 31.301424026489258
   },
   "file": {
-    "path": "data/excel/Data_source_excel.xlsx",
+    "path": "data/real_data_for_testing/Data_source_excel.xlsx",
     "size_bytes": 2588167,
     "hash": "20006f2ee51f34692c53f1bcba0853c0"
   },

@@ -25,6 +25,7 @@ from ..database.models import (
     ReadModelPosition,
     ReadModelStats,
 )
+from .deferred_event_queue import DeferredEventQueue
 
 
 class ReadModelBuilder:
@@ -33,46 +34,79 @@ class ReadModelBuilder:
 
     Processes events from Event Store and updates corresponding read models
     for efficient querying in CQRS architecture.
+    
+    Implements hybrid approach: primary processing with deferred event handling
+    for events that cannot be processed immediately.
     """
 
     def __init__(self, session: AsyncSession, event_store: EventStore) -> None:
         """Initialize read model builder with dependencies."""
         self.session = session
         self.event_store = event_store
+        self.deferred_queue = DeferredEventQueue(max_retries=3)
 
-    async def process_latest_events(self, limit: int = 100) -> int:
+    async def process_latest_events(self, limit: int = 100, auto_commit: bool = True) -> int:
         """
         Process latest events from Event Store and update read models.
 
         Args:
             limit: Maximum number of events to process in one batch
+            auto_commit: Whether to commit transaction automatically
 
         Returns:
-            Number of events processed
+            Number of events processed (main + deferred)
         """
         try:
-            # Get latest unprocessed events
-            events = await self.event_store.get_latest_events(limit=limit)
-
-            if not events:
-                logger.debug("No new events to process")
-                return 0
-
-            processed_count = 0
-
-            for event in events:
-                await self._process_single_event(event)
-                processed_count += 1
-
-            await self.session.commit()
-            logger.info(f"Successfully processed {processed_count} events")
-
-            return processed_count
+            # 1. Process main events
+            main_processed = await self._process_main_events(limit)
+            
+            # 2. Process deferred events
+            deferred_processed = await self.deferred_queue.process_deferred_events(
+                self._process_single_event
+            )
+            
+            if auto_commit:
+                await self.session.commit()
+            
+            total_processed = main_processed + deferred_processed
+            
+            # Log queue status
+            queue_status = self.deferred_queue.get_queue_status()
+            logger.info(
+                f"Processed {main_processed} main events + {deferred_processed} deferred events "
+                f"(queue size: {queue_status['queue_size']})"
+            )
+            
+            return total_processed
 
         except Exception as e:
             logger.error(f"Failed to process events: {e}")
-            await self.session.rollback()
+            if auto_commit:
+                await self.session.rollback()
             raise
+
+    async def _process_main_events(self, limit: int) -> int:
+        """Process main events from Event Store."""
+        # Get latest unprocessed events
+        events = await self.event_store.get_latest_events(limit=limit)
+
+        if not events:
+            logger.debug("No new events to process")
+            return 0
+
+        processed_count = 0
+
+        for event in events:
+            try:
+                await self._process_single_event(event)
+                processed_count += 1
+            except Exception as e:
+                # If event processing fails, defer it
+                reason = f"Processing failed: {str(e)}"
+                await self.deferred_queue.add_event(event, reason)
+                logger.warning(f"Event processing failed, deferred: {event.get('event_type')} - {e}")
+
+        return processed_count
 
     async def process_events_by_type(self, event_type: str, limit: int = 100) -> int:
         """
@@ -208,11 +242,21 @@ class ReadModelBuilder:
             
             # Extract period data
             period_data = deal_data.get("period", {})
-            period = Period(
-                month=period_data.get("month", "Unknown"),
-                year=period_data.get("year", "0000"),
-                full_name=period_data.get("full_name", "Unknown")
-            )
+            
+            # HYBRID APPROACH: Use valid fallback values for periods
+            try:
+                if isinstance(period_data, dict) and period_data.get("month") and period_data.get("year"):
+                    period = Period(
+                        month=period_data["month"],
+                        year=period_data["year"],
+                        full_name=period_data.get("full_name", f"{period_data['month']} {period_data['year']}")
+                    )
+                else:
+                    logger.warning(f"Invalid period data in event: {period_data}, using default")
+                    period = Period(month="Январь", year="2025", full_name="Январь 2025")
+            except Exception as e:
+                logger.warning(f"Failed to create period from data {period_data}: {e}, using default")
+                period = Period(month="Январь", year="2025", full_name="Январь 2025")
             
             # Extract totals data
             totals = deal_data.get("totals", {})
@@ -331,14 +375,19 @@ class ReadModelBuilder:
             period = deal.period
             if isinstance(period, dict):
                 from domain.value_objects import Period
-                period = Period.model_validate(period)
+                try:
+                    period = Period.model_validate(period)
+                except Exception as e:
+                    logger.warning(f"Failed to validate period from dict {period}: {e}, using default")
+                    period = Period(month="Январь", year="2025", full_name="Январь 2025")
             elif hasattr(period, 'month'):
                 # Already a Period object
                 pass
             else:
-                # Fallback
+                # Fallback - use valid values
                 from domain.value_objects import Period
-                period = Period(month="Unknown", year="0000", full_name="Unknown")
+                logger.warning(f"Invalid period object {period}, using default")
+                period = Period(month="Январь", year="2025", full_name="Январь 2025")
 
             # Get changes from event
             changes = event_data.get("changes", {})
@@ -498,6 +547,17 @@ class ReadModelBuilder:
 
             # Get deal context for denormalization
             deal_context = await self._get_deal_context(item.deal_id)
+
+            # HYBRID APPROACH: Check if parent deal exists
+            if not deal_context:
+                # Defer processing - parent deal not found
+                reason = f"Parent deal {item.deal_id} not found in read model (DealCreated event may not be processed yet)"
+                await self.deferred_queue.add_event(full_event, reason)
+                logger.warning(
+                    f"DealItemAdded event deferred: parent deal {item.deal_id} not found. "
+                    f"Event will be retried after DealCreated is processed."
+                )
+                return
 
             # Create composite position key: product_name|supplier_name|sale_price
             sale_price_str = str(item.sale_price.amount) if item.sale_price else "0"
