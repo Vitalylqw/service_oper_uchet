@@ -16,7 +16,7 @@ from loguru import logger
 
 from domain.exceptions import SyncFileError
 from domain.models import Deal, DealItem, SyncSession
-from domain.value_objects import Money, Period, Status
+from domain.value_objects import Money, SignedMoney, Period, Status
 
 from .models import ParseResult, ParseStats
 
@@ -64,9 +64,12 @@ class ExcelParserService:
                 logger.info(f"Processing sheet: {sheet_name}")
                 try:
                     deals = await self._parse_sheet(df, sheet_name.strip())
-                    all_deals.extend(deals)
-                    self.stats.processed_sheets += 1
-                    logger.info(f"✅ Sheet '{sheet_name}': found {len(deals)} deals")
+                    if deals:  # Only count sheets that actually produced deals
+                        all_deals.extend(deals)
+                        self.stats.processed_sheets += 1
+                        logger.info(f"✅ Sheet '{sheet_name}': found {len(deals)} deals")
+                    else:
+                        logger.info(f"📋 Sheet '{sheet_name}': skipped (no valid data)")
                 except Exception as e:
                     self.stats.failed_sheets += 1
                     error_msg = f"Error processing sheet '{sheet_name}': {str(e)}"
@@ -135,17 +138,24 @@ class ExcelParserService:
     async def _parse_sheet(self, df: pd.DataFrame, sheet_name: str) -> list[Deal]:
         """Parse individual Excel sheet."""
         if df.empty:
-            self.stats.warnings.append(f"Sheet '{sheet_name}' is empty")
+            logger.info(f"📋 Sheet '{sheet_name}' is empty - skipping")
+            return []
+
+        # Validate sheet name and extract period FIRST
+        try:
+            period = Period.from_sheet_name(sheet_name)
+        except Exception as e:
+            logger.info(f"📋 Sheet '{sheet_name}' has invalid period format - skipping: {str(e)}")
             return []
 
         # Find header row
         header_row = self._find_header_row(df)
         if header_row is None:
-            self.stats.warnings.append(f"No header row found in sheet '{sheet_name}', using row 1")
-            header_row = 1
+            logger.info(f"📋 Sheet '{sheet_name}' has no valid header row - skipping")
+            return []
 
         if len(df) <= header_row:
-            self.stats.errors.append(f"Sheet '{sheet_name}' has insufficient rows")
+            logger.info(f"📋 Sheet '{sheet_name}' has insufficient rows - skipping")
             return []
 
         logger.info(f"Sheet '{sheet_name}': header row at {header_row}")
@@ -155,14 +165,7 @@ class ExcelParserService:
             df.columns = df.iloc[header_row]
             data_df = df.iloc[header_row + 1 :].reset_index(drop=True)
         except Exception as e:
-            self.stats.errors.append(f"Error setting headers for sheet '{sheet_name}': {str(e)}")
-            return []
-
-        # Extract period from sheet name
-        try:
-            period = Period.from_sheet_name(sheet_name)
-        except Exception as e:
-            self.stats.errors.append(f"Cannot parse period from sheet '{sheet_name}': {str(e)}")
+            logger.info(f"📋 Sheet '{sheet_name}' has invalid headers - skipping: {str(e)}")
             return []
 
         # Parse deals
@@ -334,7 +337,7 @@ class ExcelParserService:
             if len(columns) > 6:
                 margin_val = safe_get(6)
                 if margin_val is not None:
-                    deal.total_margin = Money(amount=Decimal(str(margin_val)))
+                    deal.total_margin = SignedMoney(amount=Decimal(str(margin_val)))
 
             if len(columns) > 7:
                 deal.seller = self._safe_string(safe_get(7))
@@ -404,7 +407,7 @@ class ExcelParserService:
             if len(columns) > 6:
                 margin_val = safe_get(6)
                 if margin_val is not None:
-                    item.margin = Money(amount=Decimal(str(margin_val)))
+                    item.margin = SignedMoney(amount=Decimal(str(margin_val)))
 
             # Cost
             if len(columns) > 8:

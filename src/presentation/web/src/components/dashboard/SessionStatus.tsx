@@ -64,6 +64,10 @@ export default function SessionStatus({ sessions, stats, loading }: SessionStatu
 
   return (
     <div className="session-status">
+      <div className="section-header">
+        <h3>Синхронизация</h3>
+        <a href="/sessions" className="view-all-link">Все сессии</a>
+      </div>
       {stats && (
         <div className="session-stats">
           <div className="stat-item">
@@ -107,12 +111,12 @@ export default function SessionStatus({ sessions, stats, loading }: SessionStatu
                 </div>
               </div>
               <div className="session-details">
-                <div className="session-time">
-                  Начата: {formatDate(session.started_at)}
-                  {session.completed_at && (
-                    <span> • Завершена: {formatDate(session.completed_at)}</span>
-                  )}
-                </div>
+                              <div className="session-time">
+                Начата: {formatDate(session.started_at)}
+                {session.finished_at && (
+                  <span> • Завершена: {formatDate(session.finished_at)}</span>
+                )}
+              </div>
                 <div className="session-counts">
                   <span>Обработано: {session.processed_count}</span>
                   <span>Изменено: {session.changed_count}</span>

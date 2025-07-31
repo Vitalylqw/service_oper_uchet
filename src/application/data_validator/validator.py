@@ -12,8 +12,10 @@ import pandas as pd
 from loguru import logger
 
 from application.excel_parser import ParseResult
-from domain.models import Deal, DealItem
+from domain.models import Deal, DealItem, ExcelFile, FileValidationStatus
 
+from .config import ExcelValidationConfig, DEFAULT_EXCEL_CONFIG
+from .excel_validator import ExcelFileValidator
 from .models import ErrorSeverity, ValidationError, ValidationResult
 
 
@@ -28,10 +30,17 @@ class DataValidator:
     - Data completeness validation
     """
 
-    def __init__(self):
-        """Initialize validator."""
+    def __init__(self, config: ExcelValidationConfig = None):
+        """
+        Initialize validator.
+        
+        Args:
+            config: Validation configuration, uses default if not provided
+        """
+        self.config = config or DEFAULT_EXCEL_CONFIG
+        self.excel_validator = ExcelFileValidator(config)
         self._expected_headers = self._get_expected_headers()
-        logger.info("DataValidator initialized")
+        logger.info("DataValidator initialized with configuration")
 
     def validate_excel_file(self, file_path: str | Path) -> ValidationResult:
         """
@@ -44,57 +53,21 @@ class DataValidator:
             ValidationResult with structure validation results
         """
         file_path = Path(file_path)
-        result = ValidationResult(is_valid=True, file_path=str(file_path))
-
-        logger.info(f"Starting Excel structure validation for: {file_path}")
+        logger.info(f"Starting comprehensive Excel validation for: {file_path}")
 
         try:
-            # Проверяем существование файла
-            if not file_path.exists():
-                result.add_error(
-                    ValidationError(
-                        severity=ErrorSeverity.CRITICAL,
-                        code="FILE_NOT_FOUND",
-                        message=f"Файл не найден: {file_path}",
-                    )
-                )
-                return result
-
-            # Проверяем расширение файла
-            if file_path.suffix.lower() not in {".xlsx", ".xls"}:
-                result.add_error(
-                    ValidationError(
-                        severity=ErrorSeverity.CRITICAL,
-                        code="INVALID_FILE_FORMAT",
-                        message=f"Неподдерживаемый формат файла: {file_path.suffix}",
-                    )
-                )
-                return result
-
-            # Загружаем Excel файл
-            try:
-                excel_file = pd.ExcelFile(file_path)
-                sheet_names = excel_file.sheet_names
-                result.stats.total_sheets = len(sheet_names)
-            except Exception as e:
-                result.add_error(
-                    ValidationError(
-                        severity=ErrorSeverity.CRITICAL,
-                        code="FILE_READ_ERROR",
-                        message=f"Ошибка чтения Excel файла: {str(e)}",
-                    )
-                )
-                return result
-
-            # Валидируем каждый лист
-            for sheet_name in sheet_names:
-                self._validate_sheet_structure(excel_file, sheet_name, result)
-
-            logger.info(f"Excel structure validation completed: {result.summary}")
+            # Use new Excel validator for comprehensive validation
+            excel_file = self.excel_validator.validate_file(file_path)
+            
+            # Convert to ValidationResult
+            result = self.excel_validator.get_validation_result(excel_file)
+            
+            logger.info(f"Excel validation completed: {result.summary}")
             return result
 
         except Exception as e:
             logger.error(f"Unexpected error during Excel validation: {e}")
+            result = ValidationResult(is_valid=False, file_path=str(file_path))
             result.add_error(
                 ValidationError(
                     severity=ErrorSeverity.CRITICAL,
@@ -103,6 +76,40 @@ class DataValidator:
                 )
             )
             return result
+    
+    def validate_excel_file_detailed(self, file_path: str | Path) -> ExcelFile:
+        """
+        Validate Excel file and return detailed ExcelFile model.
+
+        Args:
+            file_path: Path to Excel file
+
+        Returns:
+            ExcelFile model with detailed validation results
+        """
+        file_path = Path(file_path)
+        logger.info(f"Starting detailed Excel validation for: {file_path}")
+
+        try:
+            # Use new Excel validator for comprehensive validation
+            excel_file = self.excel_validator.validate_file(file_path)
+            
+            logger.info(f"Detailed Excel validation completed: {excel_file.validation_summary}")
+            return excel_file
+
+        except Exception as e:
+            logger.error(f"Unexpected error during detailed Excel validation: {e}")
+            # Create error ExcelFile
+            excel_file = ExcelFile(
+                file_path=str(file_path),
+                file_name=file_path.name,
+                file_extension=file_path.suffix.lower(),
+                file_size=0,
+                file_hash="",
+            )
+            excel_file.add_error(f"Неожиданная ошибка валидации: {str(e)}")
+            excel_file.status = FileValidationStatus.ERROR
+            return excel_file
 
     def validate_parsed_data(self, parse_result: ParseResult) -> ValidationResult:
         """

@@ -6,6 +6,7 @@ Contains concrete implementations of domain repository interfaces.
 
 from __future__ import annotations
 
+import json
 import uuid
 from typing import Any
 
@@ -140,17 +141,17 @@ class DealRepositoryImplementation(DealRepository):
                     # Convert boolean filter to string value used in database
                     shipped_filter = str(filters["is_shipped"]).lower()
                     if shipped_filter == "true":
-                        query = query.where(ReadModelDeal.is_shipped == "completed")
+                        query = query.where(ReadModelDeal.is_shipped.in_( ["shipped", "completed"]))
                     elif shipped_filter == "false":
-                        query = query.where(ReadModelDeal.is_shipped == "pending")
+                        query = query.where(ReadModelDeal.is_shipped.in_(["pending", "partial"]))
 
                 if filters.get("is_paid") is not None:
                     # Convert boolean filter to string value used in database
                     paid_filter = str(filters["is_paid"]).lower()
                     if paid_filter == "true":
-                        query = query.where(ReadModelDeal.is_paid == "completed")
+                        query = query.where(ReadModelDeal.is_paid.in_( ["paid", "completed"]))
                     elif paid_filter == "false":
-                        query = query.where(ReadModelDeal.is_paid == "pending")
+                        query = query.where(ReadModelDeal.is_paid.in_(["pending", "partial"]))
 
             # Count total for pagination
             count_query = select(func.count()).select_from(query.subquery())
@@ -507,14 +508,46 @@ class SyncSessionRepositoryImplementation(SyncSessionRepository):
 
         # Load stats if available
         if model.stats_data:
-            # Convert stats from JSON to domain object
-            # This would require proper deserialization
-            pass
+            try:
+                import json
+                stats_dict = json.loads(model.stats_data)
+                
+                # Update stats with data from JSON
+                sync_session.stats.total_deals = stats_dict.get('total_deals', 0)
+                sync_session.stats.processed_deals = stats_dict.get('processed_deals', 0)
+                sync_session.stats.failed_deals = stats_dict.get('failed_deals', 0)
+                sync_session.stats.total_items = stats_dict.get('total_items', 0)
+                sync_session.stats.processed_items = stats_dict.get('processed_items', 0)
+                sync_session.stats.failed_items = stats_dict.get('failed_items', 0)
+                sync_session.stats.new_records = stats_dict.get('new_records', 0)
+                sync_session.stats.updated_records = stats_dict.get('updated_records', 0)
+                sync_session.stats.deleted_records = stats_dict.get('deleted_records', 0)
+                sync_session.stats.errors = stats_dict.get('errors', [])
+                sync_session.stats.warnings = stats_dict.get('warnings', [])
+                
+            except (json.JSONDecodeError, Exception) as e:
+                logger.warning(f"Failed to parse stats_data for session {model.id}: {e}")
+                # Keep default empty stats
 
         return sync_session
 
     def _domain_to_model(self, session: SyncSession) -> SyncSessionModel:
         """Convert domain object to database model."""
+        # Convert stats to JSON
+        stats_dict = {
+            "total_deals": session.stats.total_deals,
+            "processed_deals": session.stats.processed_deals,
+            "failed_deals": session.stats.failed_deals,
+            "total_items": session.stats.total_items,
+            "processed_items": session.stats.processed_items,
+            "failed_items": session.stats.failed_items,
+            "new_records": session.stats.new_records,
+            "updated_records": session.stats.updated_records,
+            "deleted_records": session.stats.deleted_records,
+            "errors": session.stats.errors,
+            "warnings": session.stats.warnings,
+        }
+        
         model = SyncSessionModel(
             id=session.id,
             sync_type=session.sync_type.value,
@@ -525,7 +558,7 @@ class SyncSessionRepositoryImplementation(SyncSessionRepository):
             started_at=session.started_at,
             finished_at=session.finished_at,
             error_message="; ".join(session.stats.errors) if session.stats.errors else None,
-            stats_data={},  # Convert stats to JSON if needed
+            stats_data=json.dumps(stats_dict),
         )
 
         return model
@@ -540,7 +573,22 @@ class SyncSessionRepositoryImplementation(SyncSessionRepository):
         model.started_at = session.started_at
         model.finished_at = session.finished_at
         model.error_message = "; ".join(session.stats.errors) if session.stats.errors else None
-        # Update stats_data if needed
+        # Update stats_data with latest statistics
+        stats_dict = {
+            "total_deals": session.stats.total_deals,
+            "processed_deals": session.stats.processed_deals,
+            "failed_deals": session.stats.failed_deals,
+            "total_items": session.stats.total_items,
+            "processed_items": session.stats.processed_items,
+            "failed_items": session.stats.failed_items,
+            "new_records": session.stats.new_records,
+            "updated_records": session.stats.updated_records,
+            "deleted_records": session.stats.deleted_records,
+            "errors": session.stats.errors,
+            "warnings": session.stats.warnings,
+        }
+
+        model.stats_data = json.dumps(stats_dict)
 
 
 class ReadModelRepositoryImplementation(ReadModelRepository):
@@ -582,22 +630,83 @@ class ReadModelRepositoryImplementation(ReadModelRepository):
     async def get_deal_stats(
         self, period_month: str | None = None, period_year: str | None = None
     ) -> dict[str, Any]:
-        """Get deal statistics from read model."""
+        """Aggregate basic statistics for deals from the read model."""
+
         try:
-            query = select(func.count(ReadModelDeal.id).label("total_deals"))
+            from sqlalchemy import case, cast, Numeric
+
+            # Base condition – only active deals
+            conditions = [ReadModelDeal.is_active.is_(True)]
 
             if period_month:
-                query = query.where(ReadModelDeal.period_month == period_month)
+                conditions.append(ReadModelDeal.period_month == period_month)
             if period_year:
-                query = query.where(ReadModelDeal.period_year == period_year)
+                conditions.append(ReadModelDeal.period_year == period_year)
 
-            query = query.where(ReadModelDeal.is_active)
+            # Helper for filtering
+            def _where(base_query):
+                for cond in conditions:
+                    base_query = base_query.where(cond)
+                return base_query
+
+            # Aggregate query
+            query = select(
+                func.count(ReadModelDeal.id).label("total_deals"),
+                func.coalesce(func.sum(ReadModelDeal.total_revenue_amount), 0).label("total_revenue"),
+                func.coalesce(func.sum(ReadModelDeal.total_margin_amount), 0).label("total_margin"),
+                func.coalesce(
+                    func.sum(
+                        case((func.lower(ReadModelDeal.is_shipped).in_(["shipped", "completed"]), 1), else_=0)
+                    ),
+                    0,
+                ).label("shipped_deals"),
+                func.coalesce(
+                    func.sum(
+                        case((func.lower(ReadModelDeal.is_paid).in_(["paid", "completed"]), 1), else_=0)
+                    ),
+                    0,
+                ).label("paid_deals"),
+                func.coalesce(
+                    func.sum(
+                        case((func.lower(ReadModelDeal.is_paid).in_(["pending", "partial"]), 1), else_=0)
+                    ),
+                    0,
+                ).label("unpaid_deals"),
+                func.coalesce(
+                    func.sum(
+                        case((func.lower(ReadModelDeal.is_shipped).in_( ["pending", "partial"]), 1), else_=0)
+                    ),
+                    0,
+                ).label("unshipped_deals"),
+            )
+
+            query = _where(query)
 
             result = await self.session.execute(query)
-            stats = result.one()
+            stats_row = result.one()
+
+            total_deals = stats_row.total_deals or 0
+            total_revenue = stats_row.total_revenue or 0
+
+            avg_revenue = (
+                float(total_revenue) / total_deals if total_deals > 0 else 0.0
+            )
+
+            avg_profitability = (
+                (float(stats_row.total_margin or 0) / float(total_revenue) * 100)
+                if total_revenue > 0 else 0.0
+            )
 
             return {
-                "total_deals": stats.total_deals,
+                "total_deals": total_deals,
+                "total_revenue": float(total_revenue),
+                "total_margin": float(stats_row.total_margin or 0),
+                "shipped_deals": stats_row.shipped_deals or 0,
+                "paid_deals": stats_row.paid_deals or 0,
+                "avg_revenue": float(avg_revenue),
+                "avg_profitability": float(avg_profitability),
+                "unpaid_deals": stats_row.unpaid_deals or 0,
+                "unshipped_deals": stats_row.unshipped_deals or 0,
                 "period_month": period_month,
                 "period_year": period_year,
             }

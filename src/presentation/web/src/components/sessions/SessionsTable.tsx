@@ -141,7 +141,7 @@ export default function SessionsTable({
                 </td>
                 <td>
                   <div className="duration-cell">
-                    {getDuration(session.started_at, session.completed_at)}
+                    {getDuration(session.started_at, session.finished_at)}
                   </div>
                 </td>
                 <td>

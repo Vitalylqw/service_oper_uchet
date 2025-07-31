@@ -57,6 +57,10 @@ export default function RecentDeals({ deals, loading }: RecentDealsProps) {
 
   return (
     <div className="recent-deals">
+      <div className="section-header">
+        <h3>Последние сделки</h3>
+        <a href="/deals" className="view-all-link">Все сделки</a>
+      </div>
       <div className="deals-list">
         {deals.map((deal) => (
           <div key={deal.id} className="deal-item">

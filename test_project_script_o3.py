@@ -217,7 +217,8 @@ def create_test_excels(source_excel: Path, output_dir: Path) -> dict[str, Path]:
     output_dir.mkdir(exist_ok=True)
     # Determine the sheet names and load once
     xls = pd.ExcelFile(source_excel)
-    first_sheet = xls.sheet_names[0]
+    first_idx = 0 if xls.sheet_names[0] != 'Настройки' else 1
+    first_sheet = xls.sheet_names[first_idx]
     df = pd.read_excel(source_excel, sheet_name=first_sheet, header=None)
     # Find header row by looking for the string 'Клиент'
     header_row_index = None
@@ -275,7 +276,7 @@ def create_test_excels(source_excel: Path, output_dir: Path) -> dict[str, Path]:
             # Write modified first sheet
             df_mod.to_excel(writer, sheet_name=first_sheet, index=False, header=False)
             # Copy the remaining sheets unchanged
-            for other_sheet in xls.sheet_names[1:]:
+            for other_sheet in xls.sheet_names[first_idx+1:]:
                 other_df = pd.read_excel(source_excel, sheet_name=other_sheet, header=None)
                 other_df.to_excel(writer, sheet_name=other_sheet, index=False, header=False)
         output_paths[name] = out_path

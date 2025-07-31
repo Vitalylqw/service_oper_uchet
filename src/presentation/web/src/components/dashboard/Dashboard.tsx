@@ -44,6 +44,9 @@ export default function Dashboard() {
     )
   }
 
+  const unpaidDeals = dealStats?.unpaid_deals ?? 0
+  const unshippedDeals = dealStats?.unshipped_deals ?? 0
+
   return (
     <div className="dashboard">
       <div className="dashboard-header">
@@ -58,21 +61,37 @@ export default function Dashboard() {
             title="Всего сделок"
             value={dealStats?.total_deals || 0}
             icon="📊"
+            format="number"
+          />
+          <StatsCard
+            title="Не оплаченные сделки"
+            value={unpaidDeals}
+            icon="💳"
+            format="number"
+          />
+          <StatsCard
+            title="Не отгруженные сделки"
+            value={unshippedDeals}
+            icon="🚚"
+            format="number"
           />
           <StatsCard
             title="Общая выручка"
-            value={`${dealStats?.total_amount || 0} ₽`}
+            value={dealStats?.total_revenue ?? 0}
             icon="💰"
+            format="currency"
           />
           <StatsCard
-            title="Активные сделки"
-            value={dealStats?.active_deals || 0}
-            icon="✅"
+            title="Итого маржа"
+            value={dealStats?.total_margin ?? 0}
+            icon="📈"
+            format="currency"
           />
           <StatsCard
-            title="Последние изменения"
-            value={dealStats?.recent_changes || 0}
-            icon="🔄"
+            title="Рентабельность"
+            value={dealStats?.avg_profitability ?? 0}
+            icon="💹"
+            format="percent"
           />
         </div>
 
@@ -96,4 +115,4 @@ export default function Dashboard() {
       </div>
     </div>
   )
-} 
+}

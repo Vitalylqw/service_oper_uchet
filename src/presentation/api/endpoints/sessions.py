@@ -19,6 +19,7 @@ from ..models.sessions import (
     SyncSessionFilters,
     SyncSessionResponse,
     SyncSessionSummary,
+    SyncSessionListItem,
     SyncStatsResponse,
 )
 from ..services import RealSyncService
@@ -26,13 +27,13 @@ from ..services import RealSyncService
 sessions_router = APIRouter()
 
 
-@sessions_router.get("/", response_model=PaginationResponse[SyncSessionSummary])
+@sessions_router.get("/", response_model=PaginationResponse[SyncSessionListItem])
 async def list_sync_sessions(
     pagination: PaginationParams = Depends(),
     filters: SyncSessionFilters = Depends(),
     current_user=Depends(require_viewer),
     sync_service: RealSyncService = Depends(get_sync_service),
-) -> PaginationResponse[SyncSessionSummary]:
+) -> PaginationResponse[SyncSessionListItem]:
     """
     List sync sessions with filtering and pagination.
 
@@ -42,7 +43,7 @@ async def list_sync_sessions(
         current_user: Current authenticated user
 
     Returns:
-        PaginationResponse[SyncSessionSummary]: Paginated list of sync sessions
+        PaginationResponse[SyncSessionListItem]: Paginated list of sync sessions
     """
     logger.info(f"User {current_user.username} requested sync sessions list")
 
@@ -52,11 +53,11 @@ async def list_sync_sessions(
         page=pagination.page, limit=pagination.limit, filters=filters_dict
     )
 
-    # Convert to SyncSessionSummary objects
-    session_summaries = [SyncSessionSummary(**item) for item in result["items"]]
+    # Convert to SyncSessionListItem objects
+    session_items = [SyncSessionListItem(**item) for item in result["items"]]
 
     return PaginationResponse(
-        items=session_summaries,
+        items=session_items,
         total=result["total"],
         page=result["page"],
         limit=result["limit"],
@@ -65,6 +66,7 @@ async def list_sync_sessions(
 
 
 @sessions_router.get("/stats", response_model=SyncStatsResponse)
+@sessions_router.get("/stats/summary", response_model=SyncStatsResponse)
 async def get_sync_stats(current_user=Depends(require_viewer)) -> SyncStatsResponse:
     """
     Get sync session statistics.

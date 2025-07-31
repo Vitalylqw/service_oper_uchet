@@ -29,6 +29,8 @@ class RealDealService:
         self.deal_repository = deal_repository
         logger.debug("RealDealService initialized")
 
+
+
     async def get_deals_paginated(self, page: int, limit: int, filters: dict) -> dict:
         """
         Get paginated deals with filters from real database.
@@ -201,8 +203,6 @@ class RealDealService:
                 "upd_date": getattr(deal, 'upd_date', None),
                 "is_shipped": self._status_to_bool(deal.is_shipped),
                 "is_paid": self._status_to_bool(deal.is_paid),
-                "period_month": getattr(deal.period, 'month', "") if deal.period else "",
-                "period_year": getattr(deal.period, 'year', "") if deal.period else "",
                 "created_at": getattr(deal, 'created_at', datetime.utcnow()),
                 "updated_at": getattr(deal, 'updated_at', datetime.utcnow()) or datetime.utcnow(),
             }
@@ -258,11 +258,11 @@ class RealDealService:
 
         if hasattr(status, 'value'):
             # Status enum
-            return status.value in ['completed', 'да', 'yes', True]
+            return status.value in ['completed', 'paid', 'shipped', 'да', 'yes', True]
 
         # String status
         if isinstance(status, str):
-            return status.lower() in ['completed', 'да', 'yes', 'true']
+            return status.lower() in ['completed', 'paid', 'shipped', 'да', 'yes', 'true']
 
         # Boolean status
         return bool(status)
@@ -278,8 +278,8 @@ class RealDealService:
             dict: Deal data in API-compatible format
         """
         # Convert string status values to boolean for API
-        is_shipped = read_model.is_shipped == "completed"
-        is_paid = read_model.is_paid == "completed"
+        is_shipped = read_model.is_shipped in ["shipped", "completed"]
+        is_paid = read_model.is_paid in ["paid", "completed"]
 
         return {
             "id": str(read_model.id),

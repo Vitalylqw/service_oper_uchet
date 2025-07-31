@@ -172,9 +172,9 @@ class RealHealthService:
 
             # Overall health determination
             all_healthy = (
-                db_status.get("status") == "healthy" and
-                fs_status.get("status") == "healthy" and
-                memory_status.get("status") == "healthy"
+                db_status.get("status") in ["healthy", "warning"] and
+                fs_status.get("status") in ["healthy", "warning"] and
+                memory_status.get("status") in ["healthy", "warning"]
             )
 
             service_status = {

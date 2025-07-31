@@ -11,6 +11,8 @@ export default function DealsPage() {
     limit: 20,
     client_name: '',
     saller: '',
+    period_month: '',
+    period_year: '',
     is_shipped: '',
     is_paid: '',
   })
