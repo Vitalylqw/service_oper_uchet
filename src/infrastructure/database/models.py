@@ -113,6 +113,9 @@ class EventStoreModel(Base):
         DateTime(timezone=True), default=func.now(), nullable=False
     )
 
+    # Processing status (null = не обработано)
+    processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+
     # Indexes for performance (PostgreSQL-specific indexes will be created conditionally)
     __table_args__ = (
         Index("ix_event_store_aggregate_id", "aggregate_id"),
@@ -173,6 +176,22 @@ class ReadModelDeal(Base):
 
     kickback_amount_value: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
     kickback_amount_currency: Mapped[str] = mapped_column(String(3), default="RUB")
+
+    # Source totals from Excel
+    source_revenue_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
+    source_margin_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
+    source_cost_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
+
+    # Calculated totals based on positions
+    calc_revenue_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
+    calc_margin_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
+    calc_cost_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
+
+    # Mismatch values between source and calculated
+    revenue_mismatch: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
+    margin_mismatch: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
+    cost_mismatch: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
+    has_totals_error: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Aggregated fields
     items_count: Mapped[int] = mapped_column(Integer, default=0)

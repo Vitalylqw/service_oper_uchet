@@ -274,33 +274,40 @@ class RealSyncService:
             # Get recent sessions for statistics
             recent_sessions = await self.sync_session_repository.get_latest_sessions(limit=50)
 
-            # Calculate statistics
+            # Calculate statistics based on status
             total_sessions = len(recent_sessions)
-            successful_sessions = len([s for s in recent_sessions if s.result == "success"])
-            failed_sessions = total_sessions - successful_sessions
 
-            # Calculate average processing time
-            completed_sessions = [s for s in recent_sessions if s.duration_seconds]
+            successful_sessions = len(
+                [s for s in recent_sessions if getattr(s, "status", None) == "completed"]
+            )
+
+            failed_sessions = len(
+                [s for s in recent_sessions if getattr(s, "status", None) == "failed"]
+            )
+
+            # Calculate average duration for completed sessions
+            completed_sessions = [s for s in recent_sessions if s.finished_at and s.started_at]
             avg_duration = 0.0
             if completed_sessions:
-                avg_duration = sum(s.duration_seconds for s in completed_sessions) / len(completed_sessions)
+                durations = [s.duration_seconds for s in completed_sessions if s.duration_seconds]
+                if durations:
+                    avg_duration = sum(durations) / len(durations)
+
+            # Determine the last sync date (any finished session, preferably successful)
+            last_sync_date = None
+            for s in sorted(recent_sessions, key=lambda x: x.finished_at or x.started_at, reverse=True):
+                if s.finished_at:
+                    last_sync_date = s.finished_at
+                    break
 
             stats = {
                 "total_sessions": total_sessions,
                 "successful_sessions": successful_sessions,
                 "failed_sessions": failed_sessions,
-                "success_rate": (successful_sessions / total_sessions * 100) if total_sessions > 0 else 0,
+                "success_rate": (successful_sessions / total_sessions * 100) if total_sessions else 0,
                 "average_duration_seconds": avg_duration,
-                "last_successful_sync": None,
-                "last_failed_sync": None,
+                "last_sync_date": last_sync_date,
             }
-
-            # Find last successful and failed syncs
-            for session in recent_sessions:
-                if session.result == "success" and stats["last_successful_sync"] is None:
-                    stats["last_successful_sync"] = session.finished_at
-                elif session.result == "failed" and stats["last_failed_sync"] is None:
-                    stats["last_failed_sync"] = session.finished_at
 
             logger.debug(f"Generated sync statistics: {stats}")
             return stats
@@ -313,8 +320,7 @@ class RealSyncService:
                 "failed_sessions": 0,
                 "success_rate": 0,
                 "average_duration_seconds": 0,
-                "last_successful_sync": None,
-                "last_failed_sync": None,
+                "last_sync_date": None,
             }
 
     async def _domain_session_to_api_format(self, session, detailed: bool = False) -> dict:
@@ -367,6 +373,15 @@ class RealSyncService:
             "errors_count": len(session.stats.errors),
             "warnings_count": len(session.stats.warnings),
         })
+
+        # Frontend-compatible fields mapping
+        api_session.update({
+            "processed_count": session.stats.total_deals,  # Map to total deals processed
+            "changed_count": session.stats.new_records + session.stats.updated_records + session.stats.deleted_records,  # Sum of all changes
+            "error_count": len(session.stats.errors),  # Map to errors count
+        })
+
+
 
         # Detailed timing information
         if detailed:

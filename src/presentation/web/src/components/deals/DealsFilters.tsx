@@ -4,12 +4,16 @@ interface DealsFiltersProps {
   filters: {
     client_name: string
     saller: string
+    period_month: string
+    period_year: string
     is_shipped: string
     is_paid: string
   }
   onFilterChange: (filters: Partial<{
     client_name: string
     saller: string
+    period_month: string
+    period_year: string
     is_shipped: string
     is_paid: string
   }>) => void
@@ -30,6 +34,8 @@ export default function DealsFilters({ filters, onFilterChange }: DealsFiltersPr
     const resetFilters = {
       client_name: '',
       saller: '',
+      period_month: '',
+      period_year: '',
       is_shipped: '',
       is_paid: '',
     }
@@ -70,6 +76,43 @@ export default function DealsFilters({ filters, onFilterChange }: DealsFiltersPr
             onChange={(e) => handleInputChange('saller', e.target.value)}
             placeholder="Имя продавца"
           />
+        </div>
+
+        <div className="filter-group">
+          <label htmlFor="period-year-filter">Год</label>
+          <select
+            id="period-year-filter"
+            value={localFilters.period_year}
+            onChange={(e) => handleInputChange('period_year', e.target.value)}
+          >
+            <option value="">Все годы</option>
+            <option value="2024">2024</option>
+            <option value="2025">2025</option>
+            <option value="2026">2026</option>
+          </select>
+        </div>
+
+        <div className="filter-group">
+          <label htmlFor="period-month-filter">Месяц</label>
+          <select
+            id="period-month-filter"
+            value={localFilters.period_month}
+            onChange={(e) => handleInputChange('period_month', e.target.value)}
+          >
+            <option value="">Все месяцы</option>
+            <option value="Январь">Январь</option>
+            <option value="Февраль">Февраль</option>
+            <option value="Март">Март</option>
+            <option value="Апрель">Апрель</option>
+            <option value="Май">Май</option>
+            <option value="Июнь">Июнь</option>
+            <option value="Июль">Июль</option>
+            <option value="Август">Август</option>
+            <option value="Сентябрь">Сентябрь</option>
+            <option value="Октябрь">Октябрь</option>
+            <option value="Ноябрь">Ноябрь</option>
+            <option value="Декабрь">Декабрь</option>
+          </select>
         </div>
 
         <div className="filter-group">

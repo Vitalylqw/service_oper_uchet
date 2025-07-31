@@ -238,6 +238,7 @@ class EventStoreImplementation(EventStore):
             # This ensures events for the same aggregate are processed together in correct order
             query = (
                 select(EventStoreModel)
+                .where(EventStoreModel.processed_at.is_(None))
                 .order_by(EventStoreModel.aggregate_id, EventStoreModel.sequence_number)
                 .limit(limit)
             )

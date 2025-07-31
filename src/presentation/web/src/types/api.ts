@@ -9,6 +9,9 @@ export interface Deal {
   margin: string
   is_shipped: boolean
   is_paid: boolean
+  period_month?: string | null
+  period_year?: string | null
+  period_full_name?: string | null
   items_count: number
   updated_at: string
 }
@@ -28,11 +31,15 @@ export interface SyncSession {
   session_type: 'full' | 'incremental'
   status: 'running' | 'completed' | 'failed'
   started_at: string
-  completed_at?: string
+  finished_at?: string  // API возвращает finished_at, а не completed_at
+  duration_seconds?: number
+  total_deals_processed: number
+  success: boolean
+  error_message?: string
   processed_count: number
   changed_count: number
   error_count: number
-  log_messages: string[]
+  log_messages?: string[]  // Опционально, так как API может не возвращать
 }
 
 export interface User {
@@ -69,9 +76,14 @@ export interface LoginResponse {
 
 export interface DealStats {
   total_deals: number
-  total_amount: number
-  active_deals: number
-  recent_changes: number
+  total_revenue: number      // общая выручка
+  total_margin: number       // итоговая маржа
+  shipped_deals?: number     // отгруженные
+  paid_deals?: number        // оплаченные
+  avg_revenue?: number       // средняя выручка
+  avg_profitability?: number   // средняя рентабельность, %
+  unpaid_deals?: number       // не оплачено
+  unshipped_deals?: number    // не отгружено
 }
 
 export interface SessionStats {

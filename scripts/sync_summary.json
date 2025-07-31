@@ -1,26 +1,26 @@
 {
   "timing": {
-    "started_at": "2025-07-29T02:44:39.260638",
-    "finished_at": "2025-07-29T02:45:19.059085",
-    "duration_seconds": 39.82354283332825,
-    "parsing_duration": 8.491437435150146,
+    "started_at": "2025-07-31T16:41:08.191265",
+    "finished_at": "2025-07-31T16:41:33.520036",
+    "duration_seconds": 25.350409269332886,
+    "parsing_duration": 1.0378696918487549,
     "change_detection_duration": 0.0,
-    "database_update_duration": 31.301424026489258
+    "database_update_duration": 24.279728651046753
   },
   "file": {
-    "path": "data/real_data_for_testing/Data_source_excel.xlsx",
-    "size_bytes": 2588167,
-    "hash": "20006f2ee51f34692c53f1bcba0853c0"
+    "path": "data\\real_data_for_testing\\Data_source_excel.xlsx",
+    "size_bytes": 267712,
+    "hash": "35be35ab5c0838bd362cd4f15908648b"
   },
   "data": {
-    "deals_processed": 3242,
-    "items_processed": 18032
+    "deals_processed": 301,
+    "items_processed": 1732
   },
   "changes": {
-    "insertions": 3242,
+    "insertions": 301,
     "updates": 0,
     "deletions": 0,
-    "total": 3242
+    "total": 301
   },
   "status": {
     "success": true,

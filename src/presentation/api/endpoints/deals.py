@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from loguru import logger
 
 from ..auth.security import require_viewer
-from ..dependencies import get_deal_service
+from ..dependencies import get_deal_service, get_stats_service
 from ..models.common import PaginationParams, PaginationResponse
 from ..models.deals import (
     DealFilters,
@@ -21,7 +21,7 @@ from ..models.deals import (
     DealStatsResponse,
     DealSummary,
 )
-from ..services import RealDealService
+from ..services import RealDealService, StatsService
 
 deals_router = APIRouter()
 
@@ -69,6 +69,7 @@ async def get_deals_stats(
     period_month: str | None = Query(None, description="Filter by month"),
     period_year: str | None = Query(None, description="Filter by year"),
     current_user=Depends(require_viewer),
+    stats_service: StatsService = Depends(get_stats_service),
 ) -> DealStatsResponse:
     """
     Get deal statistics and analytics.
@@ -83,24 +84,32 @@ async def get_deals_stats(
     """
     logger.info(f"User {current_user.username} requested deal statistics")
 
-    # Return mock stats for now to avoid database complexity
+    stats = await stats_service.get_deal_stats(period_month, period_year)
+
     return DealStatsResponse(
-        total_deals=30,
-        total_revenue=Decimal("500000.00"),
-        total_margin=Decimal("100000.00"),
-        shipped_deals=20,
-        paid_deals=25,
-        avg_revenue=Decimal("16666.67"),
-        top_clients=[
-            {"client_name": "ЛЕНТЕХСТРОЙ", "revenue": Decimal("145270.00")},
-            {"client_name": "БАЛТИНВЕСТСТРОЙ", "revenue": Decimal("34190.00")},
-            {"client_name": "Ригель(Арсенал)", "revenue": Decimal("40195.00")},
-        ],
-        revenue_by_month=[
-            {"month": "2025-05", "revenue": Decimal("200000.00")},
-            {"month": "2025-06", "revenue": Decimal("300000.00")},
-        ],
+        total_deals=stats["total_deals"],
+        total_revenue=Decimal(str(stats["total_revenue"])),
+        total_margin=Decimal(str(stats["total_margin"])),
+        shipped_deals=stats["shipped_deals"],
+        paid_deals=stats["paid_deals"],
+        unpaid_deals=stats["unpaid_deals"],
+        unshipped_deals=stats["unshipped_deals"],
+        avg_revenue=Decimal(str(stats["avg_revenue"])),
+        avg_profitability=Decimal(str(stats["avg_profitability"])), 
+        top_clients=[],  # TODO: implement
+        revenue_by_month=[],  # TODO: implement
     )
+
+
+@deals_router.get("/stats/summary", response_model=DealStatsResponse)
+async def get_deals_stats_summary(
+    period_month: str | None = Query(None, description="Filter by month"),
+    period_year: str | None = Query(None, description="Filter by year"),
+    current_user=Depends(require_viewer),
+    stats_service: StatsService = Depends(get_stats_service),
+) -> DealStatsResponse:
+    """Alias to keep backward compatibility with older clients/tests."""
+    return await get_deals_stats(period_month, period_year, current_user, stats_service)
 
 
 @deals_router.get("/debug-stats")

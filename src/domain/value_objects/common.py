@@ -21,6 +21,7 @@ class Status(str, Enum):
 
     PENDING = "pending"
     COMPLETED = "completed"
+    PARTIAL = "partial"
     FAILED = "failed"
     SHIPPED = "shipped"
     PAID = "paid"
@@ -44,7 +45,9 @@ class Status(str, Enum):
             "paid": cls.PAID,
             "выполнено": cls.COMPLETED,
             "готово": cls.COMPLETED,
-            "completed": cls.COMPLETED,  # Добавляем английский "completed"
+            "completed": cls.COMPLETED,
+            "partial": cls.PARTIAL,
+            "частично": cls.PARTIAL,
             "отменено": cls.CANCELLED,
             "cancelled": cls.CANCELLED,
         }

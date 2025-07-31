@@ -16,7 +16,7 @@ echo - analyst / password (Analyst)
 echo - viewer / password (Viewer)
 echo.
 echo ========================================
-python -m uvicorn src.presentation.api.main:app --reload --host 0.0.0.0 --port 8000
+python -m uvicorn src.presentation.api.main:app  --reload --host 0.0.0.0 --port 8000
 echo.
 echo Server stopped!
 pause 

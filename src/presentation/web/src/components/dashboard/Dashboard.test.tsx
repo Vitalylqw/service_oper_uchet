@@ -34,8 +34,14 @@ describe('Dashboard', () => {
     // Mock API responses
     vi.mocked(dealsApi.getDealStats).mockResolvedValue({
       total_deals: 100,
-      total_amount: 500000,
-      active_deals: 25,
+      total_revenue: 500000,
+      total_margin: 80000,
+      shipped_deals: 25,
+      unpaid_deals: 75,
+      unshipped_deals: 75,
+      unpaid_deals: 75,
+      paid_deals: 25,
+      avg_revenue: 5000,
       recent_changes: 5,
     })
 
@@ -113,8 +119,9 @@ describe('Dashboard', () => {
     await waitFor(() => {
       expect(screen.getByText('Всего сделок')).toBeInTheDocument()
       expect(screen.getByText('Общая выручка')).toBeInTheDocument()
-      expect(screen.getByText('Активные сделки')).toBeInTheDocument()
-      expect(screen.getByText('Последние изменения')).toBeInTheDocument()
+      expect(screen.getByText('Не оплаченные сделки')).toBeInTheDocument()
+      expect(screen.getByText('Не отгруженные сделки')).toBeInTheDocument()
+      expect(screen.getByText('Итого маржа')).toBeInTheDocument()
     })
   })
 

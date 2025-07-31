@@ -43,7 +43,36 @@ class ReadModelBuilder:
         """Initialize read model builder with dependencies."""
         self.session = session
         self.event_store = event_store
+        
+        # Helper for mapping Status enum to DB string values
+        from domain.value_objects.common import Status
+        self._status_map = {
+            Status.PENDING: "pending",
+            Status.PARTIAL: "partial",
+            Status.COMPLETED: "completed",
+            Status.PAID: "paid",
+            Status.SHIPPED: "shipped",
+            Status.CANCELLED: "cancelled",
+            Status.FAILED: "failed",
+        }
         self.deferred_queue = DeferredEventQueue(max_retries=3)
+
+    def _status_to_db(self, status):
+        """Convert Status enum or string/None to canonical DB string."""
+        if status is None:
+            return None
+        from domain.value_objects.common import Status
+        if isinstance(status, Status):
+            return self._status_map.get(status, "pending")
+        if isinstance(status, str):
+            lower = status.lower().strip()
+            if lower in self._status_map.values():
+                return lower
+            # fallback mapping for yes/da etc.
+            if lower in ["да", "yes", "true"]:
+                return "completed"
+            return "pending"
+        return "pending"
 
     async def process_latest_events(self, limit: int = 100, auto_commit: bool = True) -> int:
         """
@@ -191,6 +220,17 @@ class ReadModelBuilder:
         else:
             logger.warning(f"Unknown event type: {event_type}")
 
+        # Отмечаем событие как обработанное
+        try:
+            from datetime import datetime as _dt
+            from sqlalchemy import update as _update
+            from ..database.models import EventStoreModel as _ESM
+            await self.session.execute(
+                _update(_ESM).where(_ESM.event_id == event["event_id"]).values(processed_at=_dt.utcnow())
+            )
+        except Exception as _e:
+            logger.error(f"Failed to mark event {event['event_id']} as processed: {_e}")
+
     async def _handle_deal_event(
         self, event_type: str, event_data: dict[str, Any], full_event: dict[str, Any]
     ) -> None:
@@ -320,8 +360,8 @@ class ReadModelBuilder:
                 "period_year": period.year,
                 "period_full_name": str(period),
                 # Status
-                "is_shipped": str(deal.is_shipped) if deal.is_shipped else None,
-                "is_paid": str(deal.is_paid) if deal.is_paid else None,
+                "is_shipped": self._status_to_db(deal.is_shipped),
+                "is_paid": self._status_to_db(deal.is_paid),
                 # Documents
                 "upd_number": deal.upd_number,
                 "seller": deal.seller,
@@ -336,6 +376,18 @@ class ReadModelBuilder:
                 "kickback_amount_currency": deal.kickback_amount.currency
                 if deal.kickback_amount
                 else "RUB",
+                # Source totals from Excel
+                "source_revenue_amount": deal.total_revenue.amount if deal.total_revenue else None,
+                "source_margin_amount": deal.total_margin.amount if deal.total_margin else None,
+                "source_cost_amount": deal.total_cost.amount if deal.total_cost else None,
+                # Calculated totals (to be filled later)
+                "calc_revenue_amount": 0,
+                "calc_margin_amount": 0,
+                "calc_cost_amount": 0,
+                "revenue_mismatch": 0,
+                "margin_mismatch": 0,
+                "cost_mismatch": 0,
+                "has_totals_error": False,
                 # Aggregated fields
                 "items_count": 0,  # Will be updated when items are processed
                 "total_quantity": 0,  # Will be updated when items are processed
@@ -402,8 +454,8 @@ class ReadModelBuilder:
                 "period_month": period.month,
                 "period_year": period.year,
                 "period_full_name": str(period),
-                "is_shipped": str(deal.is_shipped) if deal.is_shipped else None,
-                "is_paid": str(deal.is_paid) if deal.is_paid else None,
+                "is_shipped": self._status_to_db(deal.is_shipped),
+                "is_paid": self._status_to_db(deal.is_paid),
                 "upd_number": deal.upd_number,
                 "seller": deal.seller,
                 "total_revenue_amount": deal.total_revenue.amount if deal.total_revenue else None,
@@ -817,6 +869,65 @@ class ReadModelBuilder:
         except Exception as e:
             logger.error(f"Failed to get deal context for {deal_id}: {e}")
             return {}
+
+    async def _recalculate_totals(self, deal_id: uuid.UUID) -> None:
+        """Recalculate aggregated totals and detect mismatches for a deal."""
+        from decimal import Decimal
+        from sqlalchemy import select, func, update, and_
+
+        # 1. Collect aggregates from positions
+        result = await self.session.execute(
+            select(
+                func.count(ReadModelPosition.id),
+                func.coalesce(func.sum(ReadModelPosition.quantity), 0),
+                func.coalesce(func.sum(ReadModelPosition.revenue_amount), 0),
+                func.coalesce(func.sum(ReadModelPosition.margin_amount), 0),
+                func.coalesce(func.sum(ReadModelPosition.cost_amount), 0),
+            ).where(
+                and_(
+                    ReadModelPosition.deal_id == deal_id,
+                    ReadModelPosition.is_active.is_(True),
+                )
+            )
+        )
+        items_cnt, qty, rev, mar, cost = result.one()
+
+        # 2. Get source totals
+        src_row = await self.session.execute(
+            select(
+                ReadModelDeal.source_revenue_amount,
+                ReadModelDeal.source_margin_amount,
+                ReadModelDeal.source_cost_amount,
+            ).where(ReadModelDeal.id == deal_id)
+        )
+        src_rev, src_mar, src_cost = src_row.one()
+
+        # 3. Compute deltas
+        def _delta(src: Decimal | None, calc: Decimal) -> Decimal:
+            return abs((src or Decimal("0")) - calc)
+
+        delta_rev = _delta(src_rev, rev)
+        delta_mar = _delta(src_mar, mar)
+        delta_cost = _delta(src_cost, cost)
+
+        has_error = any(d > Decimal("0.01") for d in (delta_rev, delta_mar, delta_cost))
+
+        # 4. Update deal row
+        await self.session.execute(
+            update(ReadModelDeal)
+            .where(ReadModelDeal.id == deal_id)
+            .values(
+                items_count=items_cnt,
+                total_quantity=qty,
+                calc_revenue_amount=rev,
+                calc_margin_amount=mar,
+                calc_cost_amount=cost,
+                revenue_mismatch=delta_rev,
+                margin_mismatch=delta_mar,
+                cost_mismatch=delta_cost,
+                has_totals_error=has_error,
+            )
+        )
 
     async def _create_audit_entry(
         self,

@@ -1,0 +1,33 @@
+{
+  "comparison_type": "parser_vs_database",
+  "generated_at": "2025-07-31T17:11:59.237953",
+  "summary_comparison": {
+    "total_deals": {
+      "parser": 301,
+      "database": 0,
+      "difference": 301
+    },
+    "total_items": {
+      "parser": 1732,
+      "database": 0,
+      "difference": 1732
+    },
+    "total_revenue": {
+      "parser": 9877543.33,
+      "database": 0.0,
+      "difference": 9877543.33
+    },
+    "total_margin": {
+      "parser": 2542666.03,
+      "database": 0.0,
+      "difference": 2542666.03
+    }
+  },
+  "financial_comparison": {
+    "margin_percentage": {
+      "parser": 25.741886874618245,
+      "database": 0.0,
+      "difference": 25.741886874618245
+    }
+  }
+}

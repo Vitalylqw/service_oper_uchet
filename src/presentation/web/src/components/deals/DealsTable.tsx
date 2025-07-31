@@ -77,6 +77,7 @@ export default function DealsTable({
              <tr>
                <th>Клиент</th>
                <th>Продавец</th>
+               <th>Период</th>
                <th>Счет</th>
                <th>Доход/Маржа</th>
                <th>Отгружено</th>
@@ -95,6 +96,11 @@ export default function DealsTable({
                  <td>
                    <div className="saller-cell">
                      <div className="saller-name">{deal.saller}</div>
+                   </div>
+                 </td>
+                 <td>
+                   <div className="period-cell">
+                     <div className="period-name">{deal.period_full_name || deal.period_month && deal.period_year ? `${deal.period_month} ${deal.period_year}` : 'Не указан'}</div>
                    </div>
                  </td>
                  <td>

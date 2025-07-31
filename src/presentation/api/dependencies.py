@@ -17,10 +17,11 @@ from src.infrastructure.database.connection import get_database_manager, get_dat
 from src.infrastructure.database.event_store import EventStoreImplementation
 from src.infrastructure.database.repositories import (
     DealRepositoryImplementation,
+    ReadModelRepositoryImplementation,
     SyncSessionRepositoryImplementation,
 )
 
-from .services import RealDealService, RealHealthService, RealSyncService
+from .services import RealDealService, RealHealthService, RealSyncService, StatsService
 
 # Mock implementations kept for backward compatibility and testing
 
@@ -268,6 +269,14 @@ async def get_real_deal_service(
     """Get real deal service dependency with database connection."""
     deal_repository = DealRepositoryImplementation(db)
     return RealDealService(deal_repository)
+
+
+async def get_stats_service(
+    db: AsyncSession = Depends(get_database_session),
+) -> StatsService:
+    """Get stats service dependency with read model repository."""
+    read_model_repository = ReadModelRepositoryImplementation(db)
+    return StatsService(read_model_repository)
 
 
 async def get_real_sync_service(

@@ -145,6 +145,8 @@ class TestDealEndpoints:
             "total_margin",
             "shipped_deals",
             "paid_deals",
+            "unpaid_deals",
+            "unshipped_deals",
             "avg_revenue",
             "top_clients",
             "revenue_by_month",
