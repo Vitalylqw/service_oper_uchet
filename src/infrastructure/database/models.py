@@ -174,17 +174,12 @@ class ReadModelDeal(Base):
     total_cost_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
     kickback_amount_value: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
 
-    # Source totals from Excel
-    source_revenue_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
-    source_margin_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
-    source_cost_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
-
     # Calculated totals based on positions
     calc_revenue_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
     calc_margin_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
     calc_cost_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
 
-    # Mismatch values between source and calculated
+    # Mismatch values between total and calculated
     revenue_mismatch: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
     margin_mismatch: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
     cost_mismatch: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)

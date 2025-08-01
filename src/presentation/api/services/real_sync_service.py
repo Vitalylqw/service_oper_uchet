@@ -14,7 +14,7 @@ from loguru import logger
 
 from application.sync_orchestrator import SyncOrchestratorService
 from application.sync_orchestrator.models import SyncConfiguration
-from infrastructure.database.repositories import SyncSessionRepositoryImplementation
+from src.infrastructure.database.repositories import SyncSessionRepositoryImplementation
 
 
 class RealSyncService:

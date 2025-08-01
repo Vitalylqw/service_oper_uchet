@@ -8,12 +8,12 @@ for deal operations with real database integration.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from loguru import logger
 
-from infrastructure.database.repositories import DealRepositoryImplementation
+from src.infrastructure.database.repositories import DealRepositoryImplementation
 
 
 class RealDealService:
@@ -203,8 +203,8 @@ class RealDealService:
                 "upd_date": getattr(deal, 'upd_date', None),
                 "is_shipped": self._status_to_bool(deal.is_shipped),
                 "is_paid": self._status_to_bool(deal.is_paid),
-                "created_at": getattr(deal, 'created_at', datetime.utcnow()),
-                "updated_at": getattr(deal, 'updated_at', datetime.utcnow()) or datetime.utcnow(),
+                "created_at": getattr(deal, 'created_at', datetime.now(timezone.utc)),
+                "updated_at": getattr(deal, 'updated_at', datetime.now(timezone.utc)) or datetime.now(timezone.utc),
             }
 
             # Financial information

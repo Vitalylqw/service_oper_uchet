@@ -358,10 +358,6 @@ class ReadModelBuilder:
                 "total_margin_amount": deal.total_margin.amount if deal.total_margin else None,
                 "total_cost_amount": deal.total_cost.amount if deal.total_cost else None,
                 "kickback_amount_value": deal.kickback_amount.amount if deal.kickback_amount else None,
-                # Source totals from Excel
-                "source_revenue_amount": deal.total_revenue.amount if deal.total_revenue else None,
-                "source_margin_amount": deal.total_margin.amount if deal.total_margin else None,
-                "source_cost_amount": deal.total_cost.amount if deal.total_cost else None,
                 # Calculated totals (to be filled later)
                 "calc_revenue_amount": 0,
                 "calc_margin_amount": 0,
@@ -871,12 +867,12 @@ class ReadModelBuilder:
         )
         items_cnt, qty, rev, mar, cost = result.one()
 
-        # 2. Get source totals
+        # 2. Get total amounts from Excel
         src_row = await self.session.execute(
             select(
-                ReadModelDeal.source_revenue_amount,
-                ReadModelDeal.source_margin_amount,
-                ReadModelDeal.source_cost_amount,
+                ReadModelDeal.total_revenue_amount,
+                ReadModelDeal.total_margin_amount,
+                ReadModelDeal.total_cost_amount,
             ).where(ReadModelDeal.id == deal_id)
         )
         src_rev, src_mar, src_cost = src_row.one()

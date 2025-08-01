@@ -20,7 +20,7 @@ from domain.models import SyncSession, SyncType
 from ..change_detector import ChangeDetectorService
 from ..excel_parser import ExcelParserService
 from .models import SyncConfiguration, SyncResult, SyncSummary
-from infrastructure.workers.read_model_builder import ReadModelBuilder
+from src.infrastructure.workers.read_model_builder import ReadModelBuilder
 
 
 class SyncOrchestratorService:

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from loguru import logger
 
-from infrastructure.database.repositories import ReadModelRepositoryImplementation
+from src.infrastructure.database.repositories import ReadModelRepositoryImplementation
 
 
 class StatsService:

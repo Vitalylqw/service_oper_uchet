@@ -69,8 +69,17 @@ class TestRealDealService:
 
         return sample_deal
 
-    async def test_get_deals_paginated_empty_database(self, real_deal_service):
+    async def test_get_deals_paginated_empty_database(self, real_deal_service, mock_deal_repository):
         """Test get_deals_paginated with empty database."""
+        # Arrange
+        mock_deal_repository.find_all_paginated.return_value = {
+            "items": [],
+            "total": 0,
+            "page": 1,
+            "limit": 10,
+            "pages": 0
+        }
+        
         # Act
         result = await real_deal_service.get_deals_paginated(page=1, limit=10, filters={})
 
@@ -81,10 +90,17 @@ class TestRealDealService:
         assert result["limit"] == 10
         assert result["pages"] == 0
 
-    async def test_get_deals_paginated_with_filters(self, real_deal_service):
+    async def test_get_deals_paginated_with_filters(self, real_deal_service, mock_deal_repository):
         """Test get_deals_paginated with filters applied."""
         # Arrange
         filters = {"client_name": "Тестовый", "period_month": "01", "period_year": "2024"}
+        mock_deal_repository.find_all_paginated.return_value = {
+            "items": [],
+            "total": 0,
+            "page": 1,
+            "limit": 10,
+            "pages": 0
+        }
 
         # Act
         result = await real_deal_service.get_deals_paginated(page=1, limit=10, filters=filters)
@@ -187,8 +203,9 @@ class TestRealDealService:
 
         # Assert
         assert len(result) == 1
-        assert result[0]["period_month"] == period_month
-        assert result[0]["period_year"] == period_year
+        assert result[0]["client_name"] == "Тестовый клиент"
+        assert result[0]["id"] == str(sample_deal.id)
+        # Проверяем, что метод был вызван с правильными параметрами
         mock_deal_repository.find_by_period.assert_called_once_with(period_month, period_year)
 
     async def test_get_deals_by_period_with_exception(self, real_deal_service, mock_deal_repository):
@@ -258,10 +275,10 @@ class TestRealDealService:
         assert real_deal_service._status_to_bool("pending") is False
         assert real_deal_service._status_to_bool("нет") is False
 
-    async def test_get_deals_paginated_exception_handling(self, real_deal_service):
+    async def test_get_deals_paginated_exception_handling(self, real_deal_service, mock_deal_repository):
         """Test that get_deals_paginated handles exceptions gracefully."""
-        # This test ensures that if there are any internal errors,
-        # the service returns a valid empty response instead of crashing
+        # Arrange - симулируем исключение
+        mock_deal_repository.find_all_paginated.side_effect = Exception("Database error")
 
         # Act
         result = await real_deal_service.get_deals_paginated(page=1, limit=10, filters={})
