@@ -1,0 +1,28 @@
+{
+  "report_type": "database",
+  "generated_at": "2025-08-01T01:41:12.733706",
+  "source_file": "database",
+  "summary": {
+    "total_deals": 0,
+    "total_items": 0,
+    "total_revenue": 0.0,
+    "total_margin": 0.0,
+    "average_revenue_per_deal": 0.0,
+    "average_margin_per_deal": 0.0
+  },
+  "financial_metrics": {
+    "total_revenue": 0.0,
+    "total_margin": 0.0,
+    "margin_percentage": 0.0,
+    "average_item_price": 0.0
+  },
+  "period_statistics": {},
+  "client_statistics": {},
+  "recent_deals": [],
+  "sync_session": {},
+  "database_stats": {
+    "total_sync_sessions": 0,
+    "total_events": 0,
+    "api_status": "unhealthy"
+  }
+}

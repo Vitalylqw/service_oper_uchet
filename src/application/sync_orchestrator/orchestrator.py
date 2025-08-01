@@ -312,28 +312,16 @@ class SyncOrchestratorService:
                     "upd_number": deal.upd_number,
                     "seller": deal.seller,
                     "totals": {
-                        "revenue": {
-                            "amount": str(deal.total_revenue.amount),
-                            "currency": deal.total_revenue.currency,
-                        }
+                        "revenue": str(deal.total_revenue.amount)
                         if deal.total_revenue
                         else None,
-                        "margin": {
-                            "amount": str(deal.total_margin.amount),
-                            "currency": deal.total_margin.currency,
-                        }
+                        "margin": str(deal.total_margin.amount)
                         if deal.total_margin
                         else None,
-                        "cost": {
-                            "amount": str(deal.total_cost.amount),
-                            "currency": deal.total_cost.currency,
-                        }
+                        "cost": str(deal.total_cost.amount)
                         if deal.total_cost
                         else None,
-                        "kickback": {
-                            "amount": str(deal.kickback_amount.amount),
-                            "currency": deal.kickback_amount.currency,
-                        }
+                        "kickback": str(deal.kickback_amount.amount)
                         if deal.kickback_amount
                         else None,
                     },
@@ -359,34 +347,19 @@ class SyncOrchestratorService:
                         "pickup_date": item.pickup_date,
                         "quantity": str(item.quantity) if item.quantity else None,
                         "prices": {
-                            "purchase": {
-                                "amount": str(item.purchase_price.amount),
-                                "currency": item.purchase_price.currency,
-                            }
+                            "purchase": str(item.purchase_price.amount)
                             if item.purchase_price
                             else None,
-                            "sale": {
-                                "amount": str(item.sale_price.amount),
-                                "currency": item.sale_price.currency,
-                            }
+                            "sale": str(item.sale_price.amount)
                             if item.sale_price
                             else None,
-                            "revenue": {
-                                "amount": str(item.revenue.amount),
-                                "currency": item.revenue.currency,
-                            }
+                            "revenue": str(item.revenue.amount)
                             if item.revenue
                             else None,
-                            "margin": {
-                                "amount": str(item.margin.amount),
-                                "currency": item.margin.currency,
-                            }
+                            "margin": str(item.margin.amount)
                             if item.margin
                             else None,
-                            "cost": {
-                                "amount": str(item.cost.amount),
-                                "currency": item.cost.currency,
-                            }
+                            "cost": str(item.cost.amount)
                             if item.cost
                             else None,
                         },

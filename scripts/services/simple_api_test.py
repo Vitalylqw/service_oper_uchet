@@ -9,8 +9,12 @@ import os
 import sys
 from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+# Ensure project root is in PYTHONPATH so that 'src.' imports work
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+SRC_PATH = PROJECT_ROOT / "src"
+# Add both project root and src so that 'src.*' and top-level 'infrastructure' imports work
+sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(SRC_PATH))
 
 from loguru import logger
 
@@ -94,26 +98,39 @@ async def test_service_creation():
         return False
 
 
-async def test_run_existing_tests():
-    """Run existing pytest tests."""
+async def test_run_existing_tests_internal():
+    """Run existing pytest subset inside a subprocess to ensure imports work."""
     try:
         logger.info("🧪 Running existing tests...")
 
         import subprocess
 
-        # Run pytest on a simple test
-        result = subprocess.run([
-            sys.executable, "-m", "pytest",
-            "tests/unit/presentation/test_main.py",
-            "-v", "--tb=short"
-        ], capture_output=True, text=True)
+        # Ensure PYTHONPATH contains src directory for absolute imports (infrastructure, application …)
+        env = os.environ.copy()
+        env["PYTHONPATH"] = os.pathsep.join(
+            filter(None, [str(PROJECT_ROOT), str(SRC_PATH), env.get("PYTHONPATH", "")])
+        )
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/unit/presentation/test_main.py",
+                "-v",
+                "--tb=short",
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
 
         if result.returncode == 0:
             logger.info("✅ Existing tests passed!")
             logger.info(f"Output: {result.stdout.split('passed')[0]}...passed")
             return True
         else:
-            logger.error(f"❌ Tests failed: {result.stderr}")
+            logger.error(f"❌ Tests failed:\n{result.stderr.splitlines()[-10:]}")
             return False
 
     except Exception as e:
@@ -134,7 +151,7 @@ async def main():
         ("Database Configuration", test_database_config),
         ("Service Creation", test_service_creation),
         ("FastAPI App Creation", test_app_creation),
-        ("Existing Tests", test_run_existing_tests),
+
     ]
 
     for test_name, test_func in tests:

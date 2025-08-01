@@ -1,6 +1,6 @@
 {
   "report_type": "parser",
-  "generated_at": "2025-07-31T17:11:58.821482",
+  "generated_at": "2025-08-01T01:41:12.333114",
   "source_file": "d:\\work_d\\Projects\\service_oper_uchet\\data\\real_data_for_testing\\Data_source_excel.xlsx",
   "summary": {
     "total_deals": 301,
@@ -394,7 +394,7 @@
   },
   "recent_deals": [
     {
-      "id": "80fcb7d2-a376-4e0b-ac48-f6b28bfd503a",
+      "id": "54067e6a-c1bc-4758-8cec-2e6ff3d54814",
       "client_name": "Покупатель",
       "invoice_number": "5",
       "revenue": 1500.0,
@@ -403,7 +403,7 @@
       "period": "2025-Июль"
     },
     {
-      "id": "9ca81369-ec7d-403e-8acf-e2e0471e206f",
+      "id": "3fd5a241-b02d-4ce0-ac40-7b66af91761d",
       "client_name": "ЛЕГЕНДА КОНСТРАКШН",
       "invoice_number": "6433",
       "revenue": 43696.0,
@@ -412,7 +412,7 @@
       "period": "2025-Июль"
     },
     {
-      "id": "01da880c-3811-4f42-9444-2c1653c191ec",
+      "id": "2b003966-49ae-40e5-a614-9a7cc4768c42",
       "client_name": "ЛЕНТЕХСТРОЙ",
       "invoice_number": "6451",
       "revenue": 205380.0,
@@ -421,7 +421,7 @@
       "period": "2025-Июль"
     },
     {
-      "id": "e3766469-c6fc-468f-8ddd-446c403a9a9e",
+      "id": "e707d7c2-8d41-4044-a081-6d4f653ce176",
       "client_name": "СИЛЬВЕР МОНТАЖ",
       "invoice_number": "6292",
       "revenue": 8340.0,
@@ -430,7 +430,7 @@
       "period": "2025-Июль"
     },
     {
-      "id": "bc9d15dc-2db0-46ab-8af1-2fdafc748f55",
+      "id": "6f09f6f8-c06a-481e-aae5-bb548ad6544c",
       "client_name": "С-Индустрия(Черняева)",
       "invoice_number": "6447",
       "revenue": 167480.0,
@@ -439,7 +439,7 @@
       "period": "2025-Июль"
     },
     {
-      "id": "2965f8b3-d922-4828-86d5-d0fd4e9df960",
+      "id": "efb2dfd5-0af9-4f63-bf1c-0d41796c5dda",
       "client_name": "ВИКТОРИЯ(Пономарева)",
       "invoice_number": "6388",
       "revenue": 24481.0,
@@ -448,7 +448,7 @@
       "period": "2025-Июль"
     },
     {
-      "id": "667968db-5659-4372-b1b8-0bc036de7412",
+      "id": "f2b382c2-4d15-4649-85e8-3881d2212461",
       "client_name": "АЛГОРИТМ",
       "invoice_number": "6445",
       "revenue": 14700.0,
@@ -457,7 +457,7 @@
       "period": "2025-Июль"
     },
     {
-      "id": "9926472f-bc10-4d99-b7f0-9c6f0f987fd6",
+      "id": "3deffeee-432b-46aa-b4aa-131e0137271e",
       "client_name": "АЗИМУТ-СТРОЙКОМПЛЕКС(ЛЕНТЕХСТРОЙ)",
       "invoice_number": "6489",
       "revenue": 40464.0,
@@ -466,7 +466,7 @@
       "period": "2025-Июль"
     },
     {
-      "id": "3e301bfb-f11f-4956-9420-01109e52cab4",
+      "id": "93dc5ed7-c01e-4191-b954-136b9c107f12",
       "client_name": "ТЕХНО-СПБ",
       "invoice_number": "6495",
       "revenue": 1270.0,
@@ -475,7 +475,7 @@
       "period": "2025-Июль"
     },
     {
-      "id": "c35dc7d0-e569-43d2-8b29-d0473fce1828",
+      "id": "2be4657c-ed6b-4a8d-a63a-a96b4941ee02",
       "client_name": "ЕВРОИНВЕСТ ПЕТРОГРАДСКАЯ СЗ",
       "invoice_number": "6480",
       "revenue": 19725.0,
@@ -485,7 +485,7 @@
     }
   ],
   "sync_session": {
-    "id": "6de869d2-d041-44c2-a469-9c42f82f9e93",
+    "id": "a7ca3301-d2e2-408c-b55d-d08df46654c0",
     "sync_type": "manual",
     "status": "pending",
     "started_at": null,

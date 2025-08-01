@@ -15,9 +15,8 @@ class TestMoney:
 
     def test_money_creation(self):
         """Test Money creation with valid data."""
-        money = Money(amount=Decimal("100.50"), currency="RUB")
+        money = Money(amount=Decimal("100.50"))
         assert money.amount == Decimal("100.50")
-        assert money.currency == "RUB"
 
     def test_money_rounding(self):
         """Test Money rounding to 2 decimal places."""
@@ -30,7 +29,6 @@ class TestMoney:
         money2 = Money(amount=Decimal("50.25"))
         result = money1 + money2
         assert result.amount == Decimal("150.75")
-        assert result.currency == "RUB"
 
     def test_money_subtraction(self):
         """Test Money subtraction."""
@@ -45,28 +43,27 @@ class TestMoney:
         result = money * 1.5
         assert result.amount == Decimal("150.00")
 
-    def test_money_different_currencies_error(self):
-        """Test error when adding different currencies."""
-        money1 = Money(amount=Decimal("100"), currency="RUB")
-        money2 = Money(amount=Decimal("100"), currency="USD")
-
-        with pytest.raises(ValueError, match="Cannot add different currencies"):
-            money1 + money2
+    def test_money_addition_success(self):
+        """Test Money addition works correctly."""
+        money1 = Money(amount=Decimal("100"))
+        money2 = Money(amount=Decimal("100"))
+        result = money1 + money2
+        assert result.amount == Decimal("200")
 
     def test_money_negative_amount_error(self):
         """Test error with negative amount."""
         with pytest.raises(ValueError, match="Amount cannot be negative"):
             Money(amount=Decimal("-100"))
 
-    def test_money_invalid_currency_error(self):
-        """Test error with invalid currency."""
-        with pytest.raises(ValueError, match="Currency code must be 3 characters"):
-            Money(amount=Decimal("100"), currency="R")
+    def test_money_negative_amount_error(self):
+        """Test error with negative amount."""
+        with pytest.raises(ValueError, match="Amount cannot be negative"):
+            Money(amount=Decimal("-100"))
 
     def test_money_string_representation(self):
         """Test Money string representation."""
-        money = Money(amount=Decimal("100.50"), currency="RUB")
-        assert str(money) == "100.50 RUB"
+        money = Money(amount=Decimal("100.50"))
+        assert str(money) == "100.50"
 
     def test_money_equality(self):
         """Test Money equality."""

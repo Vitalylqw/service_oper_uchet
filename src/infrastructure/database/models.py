@@ -96,7 +96,11 @@ class EventStoreModel(Base):
     __tablename__ = "event_store"
 
     # Primary fields
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer().with_variant(BigInteger(), "postgresql"),
+        primary_key=True,
+        autoincrement=True,
+    )
     event_id: Mapped[uuid.UUID] = mapped_column(GUID(), default=uuid.uuid4, unique=True)
     aggregate_id: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False)
     aggregate_type: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -166,16 +170,9 @@ class ReadModelDeal(Base):
 
     # Financial fields (stored as NUMERIC for precision)
     total_revenue_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
-    total_revenue_currency: Mapped[str] = mapped_column(String(3), default="RUB")
-
     total_margin_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
-    total_margin_currency: Mapped[str] = mapped_column(String(3), default="RUB")
-
     total_cost_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
-    total_cost_currency: Mapped[str] = mapped_column(String(3), default="RUB")
-
     kickback_amount_value: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
-    kickback_amount_currency: Mapped[str] = mapped_column(String(3), default="RUB")
 
     # Source totals from Excel
     source_revenue_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
@@ -247,19 +244,10 @@ class ReadModelPosition(Base):
     quantity: Mapped[Decimal] = mapped_column(Numeric(15, 3), nullable=True)
 
     purchase_price_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
-    purchase_price_currency: Mapped[str] = mapped_column(String(3), default="RUB")
-
     sale_price_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
-    sale_price_currency: Mapped[str] = mapped_column(String(3), default="RUB")
-
     revenue_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
-    revenue_currency: Mapped[str] = mapped_column(String(3), default="RUB")
-
     margin_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
-    margin_currency: Mapped[str] = mapped_column(String(3), default="RUB")
-
     cost_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
-    cost_currency: Mapped[str] = mapped_column(String(3), default="RUB")
 
     # Deal context (denormalized for fast queries)
     client_name: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -300,7 +288,11 @@ class ReadModelAudit(Base):
     __tablename__ = "read_audit"
 
     # Primary key
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer().with_variant(BigInteger(), "postgresql"),
+        primary_key=True,
+        autoincrement=True,
+    )
 
     # What changed
     entity_type: Mapped[str] = mapped_column(String(50), nullable=False)  # deal, position
@@ -340,7 +332,11 @@ class ReadModelStats(Base):
     __tablename__ = "read_stats"
 
     # Primary key
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer().with_variant(BigInteger(), "postgresql"),
+        primary_key=True,
+        autoincrement=True,
+    )
 
     # Stat identity
     stat_type: Mapped[str] = mapped_column(String(50), nullable=False)  # daily, monthly, yearly

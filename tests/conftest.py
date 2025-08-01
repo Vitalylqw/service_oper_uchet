@@ -48,7 +48,7 @@ def sample_period() -> Period:
 @pytest.fixture
 def sample_money() -> Money:
     """Sample money for tests."""
-    return Money(amount=Decimal("1000.50"), currency="RUB")
+    return Money(amount=Decimal("1000.50"))
 
 
 @pytest.fixture

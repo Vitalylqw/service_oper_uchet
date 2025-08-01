@@ -249,22 +249,22 @@ class DealRepositoryImplementation(DealRepository):
         # Set money fields
         if model.total_revenue_amount:
             deal.total_revenue = Money(
-                amount=model.total_revenue_amount, currency=model.total_revenue_currency
+                amount=model.total_revenue_amount
             )
 
         if model.total_margin_amount:
             deal.total_margin = Money(
-                amount=model.total_margin_amount, currency=model.total_margin_currency
+                amount=model.total_margin_amount
             )
 
         if model.total_cost_amount:
             deal.total_cost = Money(
-                amount=model.total_cost_amount, currency=model.total_cost_currency
+                amount=model.total_cost_amount
             )
 
         if model.kickback_amount_value:
             deal.kickback_amount = Money(
-                amount=model.kickback_amount_value, currency=model.kickback_amount_currency
+                amount=model.kickback_amount_value
             )
 
         # Load items from positions table
@@ -301,38 +301,35 @@ class DealRepositoryImplementation(DealRepository):
                     from domain.value_objects import Money
 
                     item.purchase_price = Money(
-                        amount=position_model.purchase_price_amount,
-                        currency=position_model.purchase_price_currency,
+                        amount=position_model.purchase_price_amount
                     )
 
                 if position_model.sale_price_amount:
                     from domain.value_objects import Money
 
                     item.sale_price = Money(
-                        amount=position_model.sale_price_amount,
-                        currency=position_model.sale_price_currency,
+                        amount=position_model.sale_price_amount
                     )
 
                 if position_model.revenue_amount:
                     from domain.value_objects import Money
 
                     item.revenue = Money(
-                        amount=position_model.revenue_amount,
-                        currency=position_model.revenue_currency,
+                        amount=position_model.revenue_amount
                     )
 
                 if position_model.margin_amount:
                     from domain.value_objects import Money
 
                     item.margin = Money(
-                        amount=position_model.margin_amount, currency=position_model.margin_currency
+                        amount=position_model.margin_amount
                     )
 
                 if position_model.cost_amount:
                     from domain.value_objects import Money
 
                     item.cost = Money(
-                        amount=position_model.cost_amount, currency=position_model.cost_currency
+                        amount=position_model.cost_amount
                     )
 
                 deal.items.append(item)

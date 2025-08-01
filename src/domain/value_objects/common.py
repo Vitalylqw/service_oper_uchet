@@ -28,7 +28,7 @@ class Status(str, Enum):
     CANCELLED = "cancelled"
 
     @classmethod
-    def from_string(cls, value: str) -> Status | None:
+    def from_string(cls, value: str) -> "Status | None":
         """Create status from string representation."""
         if not value:
             return None
@@ -55,191 +55,126 @@ class Status(str, Enum):
         return mapping.get(value_lower, cls.PENDING)
 
 
+# ---------------------------------------------------------------------------
+#  Money types (RUB-only, no currency field)
+# ---------------------------------------------------------------------------
+
+
 class Money(BaseModel):
-    """Денежная сумма с валютой (только положительные значения)."""
+    """Positive money amount in Russian roubles."""
 
-    amount: Decimal = Field(..., description="Сумма")
-    currency: str = Field(default="RUB", description="Валюта")
+    amount: Decimal = Field(..., description="Amount in RUB (positive)")
 
+    # Validators -----------------------------------------------------------------
     @field_validator("amount")
     @classmethod
-    def validate_amount(cls, v: Decimal) -> Decimal:
-        """Validate amount precision."""
+    def _round(cls, v: Decimal) -> Decimal:  # noqa: D401 – simple helper
+        """Round to two decimals, ensure non-negative."""
         if v < 0:
             raise ValueError("Amount cannot be negative")
-        return v.quantize(Decimal("0.01"))  # Округляем до копеек
+        return v.quantize(Decimal("0.01"))
 
-    @field_validator("currency")
-    @classmethod
-    def validate_currency(cls, v: str) -> str:
-        """Validate currency code."""
-        if len(v) != 3:
-            raise ValueError("Currency code must be 3 characters")
-        return v.upper()
+    # Dunder methods -------------------------------------------------------------
+    def __str__(self) -> str:  # pragma: no cover – trivial
+        return f"{self.amount}"
 
-    def __str__(self) -> str:
-        """String representation."""
-        return f"{self.amount} {self.currency}"
+    def __add__(self, other: "Money") -> "Money":
+        return Money(amount=self.amount + other.amount)
 
-    def __add__(self, other: Money) -> Money:
-        """Add two money amounts."""
-        if self.currency != other.currency:
-            raise ValueError("Cannot add different currencies")
-        return Money(amount=self.amount + other.amount, currency=self.currency)
+    def __sub__(self, other: "Money") -> "Money":
+        return Money(amount=self.amount - other.amount)
 
-    def __sub__(self, other: Money) -> Money:
-        """Subtract two money amounts."""
-        if self.currency != other.currency:
-            raise ValueError("Cannot subtract different currencies")
-        return Money(amount=self.amount - other.amount, currency=self.currency)
+    def __mul__(self, multiplier: int | float | Decimal) -> "Money":
+        return Money(amount=self.amount * Decimal(str(multiplier)))
 
-    def __mul__(self, multiplier: Decimal | float | int) -> Money:
-        """Multiply money by a number."""
-        return Money(amount=self.amount * Decimal(str(multiplier)), currency=self.currency)
+    def __eq__(self, other: object) -> bool:  # noqa: D401 – custom equality
+        return isinstance(other, Money) and self.amount == other.amount
 
-    def __eq__(self, other: object) -> bool:
-        """Check equality."""
-        if not isinstance(other, Money):
-            return False
-        return self.amount == other.amount and self.currency == other.currency
-
-    model_config = ConfigDict(
-        frozen=True,
-        arbitrary_types_allowed=True,
-        validate_assignment=True
-    )
+    model_config = ConfigDict(frozen=True, validate_assignment=True)
 
 
 class SignedMoney(BaseModel):
-    """Денежная сумма с валютой (может быть отрицательной)."""
+    """Money that can be positive or negative (RUB)."""
 
-    amount: Decimal = Field(..., description="Сумма")
-    currency: str = Field(default="RUB", description="Валюта")
+    amount: Decimal = Field(..., description="Signed amount in RUB")
 
     @field_validator("amount")
     @classmethod
-    def validate_amount(cls, v: Decimal) -> Decimal:
-        """Validate amount precision."""
-        return v.quantize(Decimal("0.01"))  # Округляем до копеек
+    def _round(cls, v: Decimal) -> Decimal:
+        return v.quantize(Decimal("0.01"))
 
-    @field_validator("currency")
-    @classmethod
-    def validate_currency(cls, v: str) -> str:
-        """Validate currency code."""
-        if len(v) != 3:
-            raise ValueError("Currency code must be 3 characters")
-        return v.upper()
+    # Dunder / helpers -----------------------------------------------------------
+    def __str__(self) -> str:  # pragma: no cover
+        return f"{self.amount}"
 
-    def __str__(self) -> str:
-        """String representation."""
-        return f"{self.amount} {self.currency}"
+    def __add__(self, other: "SignedMoney") -> "SignedMoney":
+        return SignedMoney(amount=self.amount + other.amount)
 
-    def __add__(self, other: SignedMoney) -> SignedMoney:
-        """Add two signed money amounts."""
-        if self.currency != other.currency:
-            raise ValueError("Cannot add different currencies")
-        return SignedMoney(amount=self.amount + other.amount, currency=self.currency)
+    def __sub__(self, other: "SignedMoney") -> "SignedMoney":
+        return SignedMoney(amount=self.amount - other.amount)
 
-    def __sub__(self, other: SignedMoney) -> SignedMoney:
-        """Subtract two signed money amounts."""
-        if self.currency != other.currency:
-            raise ValueError("Cannot subtract different currencies")
-        return SignedMoney(amount=self.amount - other.amount, currency=self.currency)
+    def __mul__(self, multiplier: int | float | Decimal) -> "SignedMoney":
+        return SignedMoney(amount=self.amount * Decimal(str(multiplier)))
 
-    def __mul__(self, multiplier: Decimal | float | int) -> SignedMoney:
-        """Multiply signed money by a number."""
-        return SignedMoney(amount=self.amount * Decimal(str(multiplier)), currency=self.currency)
+    def __eq__(self, other: object) -> bool:  # noqa: D401
+        return isinstance(other, SignedMoney) and self.amount == other.amount
 
-    def __eq__(self, other: object) -> bool:
-        """Check equality."""
-        if not isinstance(other, SignedMoney):
-            return False
-        return self.amount == other.amount and self.currency == other.currency
-
+    # Convenience flags ----------------------------------------------------------
     @property
-    def is_positive(self) -> bool:
-        """Check if amount is positive."""
+    def is_positive(self) -> bool:  # noqa: D401
         return self.amount > 0
 
     @property
-    def is_negative(self) -> bool:
-        """Check if amount is negative."""
+    def is_negative(self) -> bool:  # noqa: D401
         return self.amount < 0
 
     @property
-    def is_zero(self) -> bool:
-        """Check if amount is zero."""
+    def is_zero(self) -> bool:  # noqa: D401
         return self.amount == 0
 
     def abs(self) -> Money:
-        """Get absolute value as Money."""
-        return Money(amount=abs(self.amount), currency=self.currency)
+        return Money(amount=abs(self.amount))
 
-    model_config = ConfigDict(
-        frozen=True,
-        arbitrary_types_allowed=True,
-        validate_assignment=True
-    )
+    model_config = ConfigDict(frozen=True, validate_assignment=True)
 
 
 class DebtMoney(BaseModel):
-    """Денежная сумма для долгов и кредитов (всегда отрицательная)."""
+    """Debt amount (always negative, RUB)."""
 
-    amount: Decimal = Field(..., description="Сумма долга (отрицательная)")
-    currency: str = Field(default="RUB", description="Валюта")
+    amount: Decimal = Field(..., description="Negative amount in RUB")
 
     @field_validator("amount")
     @classmethod
-    def validate_amount(cls, v: Decimal) -> Decimal:
-        """Validate amount precision."""
+    def _round(cls, v: Decimal) -> Decimal:
         if v >= 0:
             raise ValueError("Debt amount must be negative")
-        return v.quantize(Decimal("0.01"))  # Округляем до копеек
+        return v.quantize(Decimal("0.01"))
 
-    @field_validator("currency")
-    @classmethod
-    def validate_currency(cls, v: str) -> str:
-        """Validate currency code."""
-        if len(v) != 3:
-            raise ValueError("Currency code must be 3 characters")
-        return v.upper()
+    def __str__(self) -> str:  # pragma: no cover
+        return f"{self.amount}"
 
-    def __str__(self) -> str:
-        """String representation."""
-        return f"{self.amount} {self.currency}"
+    def __add__(self, other: "DebtMoney") -> "DebtMoney":
+        return DebtMoney(amount=self.amount + other.amount)
 
-    def __add__(self, other: DebtMoney) -> DebtMoney:
-        """Add two debt amounts."""
-        if self.currency != other.currency:
-            raise ValueError("Cannot add different currencies")
-        return DebtMoney(amount=self.amount + other.amount, currency=self.currency)
+    def __sub__(self, other: "DebtMoney") -> "DebtMoney":
+        return DebtMoney(amount=self.amount - other.amount)
 
-    def __sub__(self, other: DebtMoney) -> DebtMoney:
-        """Subtract two debt amounts."""
-        if self.currency != other.currency:
-            raise ValueError("Cannot subtract different currencies")
-        return DebtMoney(amount=self.amount - other.amount, currency=self.currency)
+    def __mul__(self, multiplier: int | float | Decimal) -> "DebtMoney":
+        return DebtMoney(amount=self.amount * Decimal(str(multiplier)))
 
-    def __mul__(self, multiplier: Decimal | float | int) -> DebtMoney:
-        """Multiply debt by a number."""
-        return DebtMoney(amount=self.amount * Decimal(str(multiplier)), currency=self.currency)
-
-    def __eq__(self, other: object) -> bool:
-        """Check equality."""
-        if not isinstance(other, DebtMoney):
-            return False
-        return self.amount == other.amount and self.currency == other.currency
+    def __eq__(self, other: object) -> bool:  # noqa: D401
+        return isinstance(other, DebtMoney) and self.amount == other.amount
 
     @property
     def absolute_value(self) -> Money:
-        """Get absolute value as Money."""
-        return Money(amount=abs(self.amount), currency=self.currency)
+        return Money(amount=abs(self.amount))
 
-    model_config = ConfigDict(
-        frozen=True,
-        arbitrary_types_allowed=True,
-        validate_assignment=True
-    )
+    model_config = ConfigDict(frozen=True, validate_assignment=True)
+
+
+# ---------------------------------------------------------------------------
+#  Period & HashKey  (unchanged)
+# ---------------------------------------------------------------------------
 
 
 class Period(BaseModel):
@@ -268,12 +203,10 @@ class Period(BaseModel):
             "декабрь",
         }
 
-        # Нормализация месяца - приводим к нижнему регистру для проверки
         month_lower = v.lower().strip()
         if month_lower not in valid_months:
             raise ValueError(f"Invalid month name: {v}")
 
-        # Возвращаем месяц с заглавной буквы
         months_map = {
             "январь": "Январь",
             "февраль": "Февраль",
@@ -293,7 +226,7 @@ class Period(BaseModel):
     @field_validator("year")
     @classmethod
     def validate_year(cls, v: str) -> str:
-        """Validate year."""
+        """Validate year (YYYY, 2020-2030)."""
         if not re.match(r"^\d{4}$", v.strip()):
             raise ValueError("Year must be 4 digits")
         year_int = int(v)
@@ -301,17 +234,15 @@ class Period(BaseModel):
             raise ValueError("Year must be between 2020 and 2030")
         return v.strip()
 
-    def __str__(self) -> str:
-        """String representation."""
+    def __str__(self) -> str:  # pragma: no cover
         return self.full_name
 
     @classmethod
-    def from_sheet_name(cls, sheet_name: str) -> Period:
-        """Create period from Excel sheet name."""
+    def from_sheet_name(cls, sheet_name: str) -> "Period":
+        """Create period from Excel sheet name (ru month + YYYY)."""
         if not sheet_name:
             raise ValueError("Sheet name cannot be empty")
 
-        # Словарь месяцев
         months_map = {
             "январь": "Январь",
             "февраль": "Февраль",
@@ -328,31 +259,17 @@ class Period(BaseModel):
         }
 
         sheet_lower = sheet_name.lower().strip()
-
-        # Ищем месяц в названии
-        found_month = ""
-        for month_key, month_value in months_map.items():
-            if month_key in sheet_lower:
-                found_month = month_value
-                break
-
+        found_month = next((val for key, val in months_map.items() if key in sheet_lower), "")
         if not found_month:
             raise ValueError(f"Cannot extract month from sheet name: {sheet_name}")
 
-        # Ищем год в названии (4 цифры)
         year_match = re.search(r"\b(\d{4})\b", sheet_name)
         if not year_match:
             raise ValueError(f"Cannot extract year from sheet name: {sheet_name}")
 
-        found_year = year_match.group(1)
+        return cls(month=found_month, year=year_match.group(1), full_name=sheet_name.strip())
 
-        return cls(month=found_month, year=found_year, full_name=sheet_name.strip())
-
-    model_config = ConfigDict(
-        frozen=True,
-        arbitrary_types_allowed=True,
-        validate_assignment=True
-    )
+    model_config = ConfigDict(frozen=True, validate_assignment=True)
 
 
 class HashKey(BaseModel):
@@ -364,44 +281,30 @@ class HashKey(BaseModel):
     @field_validator("value")
     @classmethod
     def validate_value(cls, v: str) -> str:
-        """Validate hash value format."""
         if not v:
             raise ValueError("Hash value cannot be empty")
         if not re.match(r"^[a-f0-9]+$", v.lower()):
             raise ValueError("Hash value must be hexadecimal")
         return v.lower()
 
-    def __str__(self) -> str:
-        """String representation."""
+    def __str__(self) -> str:  # pragma: no cover
         return self.value
 
-    def __eq__(self, other: object) -> bool:
-        """Check equality."""
-        if not isinstance(other, HashKey):
-            return False
-        return self.value == other.value
+    def __eq__(self, other: object) -> bool:  # noqa: D401
+        return isinstance(other, HashKey) and self.value == other.value
 
-    def __hash__(self) -> int:
-        """Hash for use in sets and dictionaries."""
+    def __hash__(self) -> int:  # noqa: D401
         return hash(self.value)
 
+    # Utility helpers -----------------------------------------------------------
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> HashKey:
-        """Create hash key from dictionary."""
-        # Сортируем ключи для консистентности
+    def from_dict(cls, data: dict[str, Any]) -> "HashKey":
         sorted_data = {k: v for k, v in sorted(data.items()) if v is not None}
         json_str = json.dumps(sorted_data, ensure_ascii=False, sort_keys=True)
-        hash_value = hashlib.md5(json_str.encode("utf-8")).hexdigest()
-        return cls(value=hash_value, algorithm="md5")
+        return cls(value=hashlib.md5(json_str.encode("utf-8")).hexdigest())
 
     @classmethod
-    def from_string(cls, text: str) -> HashKey:
-        """Create hash key from string."""
-        hash_value = hashlib.md5(text.encode("utf-8")).hexdigest()
-        return cls(value=hash_value, algorithm="md5")
+    def from_string(cls, text: str) -> "HashKey":
+        return cls(value=hashlib.md5(text.encode("utf-8")).hexdigest())
 
-    model_config = ConfigDict(
-        frozen=True,
-        arbitrary_types_allowed=True,
-        validate_assignment=True
-    )
+    model_config = ConfigDict(frozen=True, validate_assignment=True)

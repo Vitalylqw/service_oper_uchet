@@ -302,28 +302,16 @@ class ReadModelBuilder:
             totals = deal_data.get("totals", {})
             
             revenue_data = totals.get("revenue")
-            total_revenue = Money(
-                amount=Decimal(revenue_data["amount"]),
-                currency=revenue_data["currency"]
-            ) if revenue_data else None
+            total_revenue = Money(amount=Decimal(revenue_data)) if revenue_data else None
             
             margin_data = totals.get("margin")
-            total_margin = SignedMoney(
-                amount=Decimal(margin_data["amount"]),
-                currency=margin_data["currency"]
-            ) if margin_data else None
+            total_margin = SignedMoney(amount=Decimal(margin_data)) if margin_data else None
             
             cost_data = totals.get("cost")
-            total_cost = Money(
-                amount=Decimal(cost_data["amount"]),
-                currency=cost_data["currency"]
-            ) if cost_data else None
+            total_cost = Money(amount=Decimal(cost_data)) if cost_data else None
             
             kickback_data = totals.get("kickback")
-            kickback_amount = Money(
-                amount=Decimal(kickback_data["amount"]),
-                currency=kickback_data["currency"]
-            ) if kickback_data else None
+            kickback_amount = Money(amount=Decimal(kickback_data)) if kickback_data else None
 
             # Create Deal object
             deal = Deal(
@@ -367,15 +355,9 @@ class ReadModelBuilder:
                 "seller": deal.seller,
                 # Financial data
                 "total_revenue_amount": deal.total_revenue.amount if deal.total_revenue else None,
-                "total_revenue_currency": deal.total_revenue.currency if deal.total_revenue else "RUB",
                 "total_margin_amount": deal.total_margin.amount if deal.total_margin else None,
-                "total_margin_currency": deal.total_margin.currency if deal.total_margin else "RUB",
                 "total_cost_amount": deal.total_cost.amount if deal.total_cost else None,
-                "total_cost_currency": deal.total_cost.currency if deal.total_cost else "RUB",
                 "kickback_amount_value": deal.kickback_amount.amount if deal.kickback_amount else None,
-                "kickback_amount_currency": deal.kickback_amount.currency
-                if deal.kickback_amount
-                else "RUB",
                 # Source totals from Excel
                 "source_revenue_amount": deal.total_revenue.amount if deal.total_revenue else None,
                 "source_margin_amount": deal.total_margin.amount if deal.total_margin else None,
@@ -552,34 +534,19 @@ class ReadModelBuilder:
             
             # Create Money objects for pricing data
             purchase_data = prices.get("purchase")
-            purchase_price = Money(
-                amount=Decimal(purchase_data["amount"]),
-                currency=purchase_data["currency"]
-            ) if purchase_data else None
+            purchase_price = Money(amount=Decimal(purchase_data)) if purchase_data else None
             
             sale_data = prices.get("sale")
-            sale_price = Money(
-                amount=Decimal(sale_data["amount"]),
-                currency=sale_data["currency"]
-            ) if sale_data else None
+            sale_price = Money(amount=Decimal(sale_data)) if sale_data else None
             
             revenue_data = prices.get("revenue")
-            revenue = Money(
-                amount=Decimal(revenue_data["amount"]),
-                currency=revenue_data["currency"]
-            ) if revenue_data else None
+            revenue = Money(amount=Decimal(revenue_data)) if revenue_data else None
             
             margin_data = prices.get("margin")
-            margin = SignedMoney(
-                amount=Decimal(margin_data["amount"]),
-                currency=margin_data["currency"]
-            ) if margin_data else None
+            margin = SignedMoney(amount=Decimal(margin_data)) if margin_data else None
             
             cost_data = prices.get("cost")
-            cost = Money(
-                amount=Decimal(cost_data["amount"]),
-                currency=cost_data["currency"]
-            ) if cost_data else None
+            cost = Money(amount=Decimal(cost_data)) if cost_data else None
 
             # Create DealItem object
             item = DealItem(
@@ -629,26 +596,29 @@ class ReadModelBuilder:
                 # Quantities and pricing
                 "quantity": item.quantity,
                 "purchase_price_amount": item.purchase_price.amount if item.purchase_price else None,
-                "purchase_price_currency": item.purchase_price.currency
-                if item.purchase_price
-                else "RUB",
                 "sale_price_amount": item.sale_price.amount if item.sale_price else None,
-                "sale_price_currency": item.sale_price.currency if item.sale_price else "RUB",
                 "revenue_amount": item.revenue.amount if item.revenue else None,
-                "revenue_currency": item.revenue.currency if item.revenue else "RUB",
                 "margin_amount": item.margin.amount if item.margin else None,
-                "margin_currency": item.margin.currency if item.margin else "RUB",
                 "cost_amount": item.cost.amount if item.cost else None,
-                "cost_currency": item.cost.currency if item.cost else "RUB",
                 # Deal context (denormalized)
                 "client_name": deal_context.get("client_name", ""),
                 "period_month": deal_context.get("period_month", ""),
                 "period_year": deal_context.get("period_year", ""),
             }
 
-            # Use upsert to handle conflicts
+            # Use upsert to handle conflicts (deal_id + position_key are unique)
             stmt = insert(ReadModelPosition).values(**read_position_data)
-            stmt = stmt.on_conflict_do_update(index_elements=["id"], set_=stmt.excluded)
+
+            # Обновляем все поля, кроме первичного ключа id
+            update_columns = {
+                c.name: getattr(stmt.excluded, c.name)
+                for c in ReadModelPosition.__table__.columns
+                if c.name != "id"
+            }
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["deal_id", "position_key"],
+                set_=update_columns,
+            )
 
             await self.session.execute(stmt)
 
@@ -697,17 +667,10 @@ class ReadModelBuilder:
                 "purchase_price_amount": item.purchase_price.amount
                 if item.purchase_price
                 else None,
-                "purchase_price_currency": item.purchase_price.currency
-                if item.purchase_price
-                else "RUB",
                 "sale_price_amount": item.sale_price.amount if item.sale_price else None,
-                "sale_price_currency": item.sale_price.currency if item.sale_price else "RUB",
                 "revenue_amount": item.revenue.amount if item.revenue else None,
-                "revenue_currency": item.revenue.currency if item.revenue else "RUB",
                 "margin_amount": item.margin.amount if item.margin else None,
-                "margin_currency": item.margin.currency if item.margin else "RUB",
                 "cost_amount": item.cost.amount if item.cost else None,
-                "cost_currency": item.cost.currency if item.cost else "RUB",
                 # Update denormalized deal context
                 "client_name": deal_context.get("client_name", ""),
                 "period_month": deal_context.get("period_month", ""),
