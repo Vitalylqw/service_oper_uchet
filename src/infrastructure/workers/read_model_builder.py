@@ -632,6 +632,9 @@ class ReadModelBuilder:
                 sync_session_id=full_event.get("metadata", {}).get("sync_session_id"),
             )
 
+            # Recalculate totals for the deal after adding position
+            await self._recalculate_totals(item.deal_id)
+
             logger.debug(f"Created read model for position {item.item_key}")
 
         except Exception as e:
@@ -700,6 +703,9 @@ class ReadModelBuilder:
                     sync_session_id=full_event.get("metadata", {}).get("sync_session_id"),
                 )
 
+            # Recalculate totals for the deal after updating position
+            await self._recalculate_totals(item.deal_id)
+
             logger.debug(f"Updated read model for position {item.item_key}")
 
         except Exception as e:
@@ -713,6 +719,12 @@ class ReadModelBuilder:
         try:
             item_id = uuid.UUID(event_data.get("deal_item_id"))
             item_key = event_data.get("item_key", "")
+
+            # Get deal_id before deleting
+            result = await self.session.execute(
+                select(ReadModelPosition.deal_id).where(ReadModelPosition.id == item_id)
+            )
+            deal_id = result.scalar()
 
             # Soft delete - set is_active = False
             stmt = (
@@ -732,6 +744,10 @@ class ReadModelBuilder:
                 event_id=full_event["event_id"],
                 sync_session_id=full_event.get("metadata", {}).get("sync_session_id"),
             )
+
+            # Recalculate totals for the deal after deleting position
+            if deal_id:
+                await self._recalculate_totals(deal_id)
 
             logger.debug(f"Deleted read model for position {item_key}")
 
