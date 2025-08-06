@@ -20,7 +20,7 @@ from domain.models import SyncSession, SyncType
 from ..change_detector import ChangeDetectorService
 from ..excel_parser import ExcelParserService
 from .models import SyncConfiguration, SyncResult, SyncSummary
-from src.infrastructure.workers.read_model_builder import ReadModelBuilder
+from infrastructure.workers.read_model_builder import ReadModelBuilder
 
 
 class SyncOrchestratorService:
@@ -346,6 +346,7 @@ class SyncOrchestratorService:
                         "supplier_name": item.supplier_name,
                         "pickup_date": item.pickup_date,
                         "quantity": str(item.quantity) if item.quantity else None,
+                        "position_number": item.position_number,  # Add position_number to event data
                         "prices": {
                             "purchase": str(item.purchase_price.amount)
                             if item.purchase_price

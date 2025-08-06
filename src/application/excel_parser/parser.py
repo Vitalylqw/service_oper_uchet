@@ -191,6 +191,7 @@ class ExcelParserService:
         deals = []
         current_deal = None
         row_counter = 0
+        position_counter = 0  # Track position number within current deal
 
         try:
             # Get column names and handle NaN
@@ -222,7 +223,8 @@ class ExcelParserService:
                                 error_msg = f"Error calculating totals for deal '{current_deal.client_name}' (row {row_counter}): {str(e)}"
                                 self.stats.errors.append(error_msg)
 
-                        # Create new deal
+                        # Create new deal and reset position counter
+                        position_counter = 0  # Reset position counter for new deal
                         try:
                             current_deal = await self._create_deal_from_row(row, columns, period)
                             self.stats.total_deals += 1
@@ -238,7 +240,8 @@ class ExcelParserService:
                     elif current_deal is not None:
                         # Detail record - item
                         try:
-                            item = await self._create_item_from_row(row, columns)
+                            position_counter += 1  # Increment position number
+                            item = await self._create_item_from_row(row, columns, position_counter)
                             if item and item.product_name.strip():
                                 current_deal.add_item(item)
                                 self.stats.processed_items += 1
@@ -248,7 +251,11 @@ class ExcelParserService:
                             error_msg = f"Error creating item from row {row_counter} for deal '{current_deal.client_name}': {str(e)}"
                             self.stats.errors.append(error_msg)
                             # Add error item to maintain structure
-                            error_item = DealItem(product_name=f"ERROR_ROW_{row_counter}")
+                            position_counter += 1
+                            error_item = DealItem(
+                                product_name=f"ERROR_ROW_{row_counter}",
+                                position_number=position_counter
+                            )
                             current_deal.add_item(error_item)
 
                 except Exception as e:
@@ -359,7 +366,7 @@ class ExcelParserService:
 
         return deal
 
-    async def _create_item_from_row(self, row: pd.Series, columns: list[str]) -> DealItem | None:
+    async def _create_item_from_row(self, row: pd.Series, columns: list[str], position_number: int = 1) -> DealItem | None:
         """Create DealItem from detail record row."""
 
         def safe_get(col_idx: int, default=None):
@@ -376,7 +383,7 @@ class ExcelParserService:
         if not product_name:
             return None
 
-        item = DealItem(product_name=product_name)
+        item = DealItem(product_name=product_name, position_number=position_number)
 
         try:
             # Quantity

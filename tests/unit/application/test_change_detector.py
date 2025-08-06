@@ -213,7 +213,7 @@ class TestChangeDetectorService:
     async def test_detect_changes_item_updated(
         self, change_detector, mock_deal_repository, sample_deal_1, sample_period
     ):
-        """Test change detection when deal item is updated."""
+        """Test change detection when deal item fields are changed (creates new position)."""
         # Arrange
         excel_deal = sample_deal_1
 
@@ -229,16 +229,14 @@ class TestChangeDetectorService:
             setattr(db_deal, attr, getattr(excel_deal, attr))
         db_deal.total_revenue = excel_deal.total_revenue
 
-        # Modified item - change fields that don't affect item_key
+        # Modified item - any field change creates different hash_key (new position)
         db_item = DealItem(product_name="Товар 1")
         db_item.id = excel_deal.items[0].id
-        db_item.quantity = Decimal("15")  # Different quantity
-        db_item.sale_price = Money(amount=Decimal("12000.00"))  # Different price
-        db_item.supplier_name = excel_deal.items[
-            0
-        ].supplier_name  # Same supplier to keep item_key identical
-        db_item.purchase_price = Money(amount=Decimal("8000.00"))  # Different purchase price
-        db_item.pickup_date = "20.01.2024"  # Different pickup date
+        db_item.quantity = Decimal("15")  # Different quantity → different hash → new position
+        db_item.sale_price = Money(amount=Decimal("12000.00"))  # Different price → different hash → new position  
+        db_item.supplier_name = excel_deal.items[0].supplier_name  # Same supplier
+        db_item.purchase_price = Money(amount=Decimal("8000.00"))  # Different purchase price → different hash → new position
+        db_item.pickup_date = "20.01.2024"  # Different pickup date → different hash → new position
         db_deal.add_item(db_item)
 
         excel_deals = [excel_deal]
@@ -248,22 +246,28 @@ class TestChangeDetectorService:
         # Act
         result = await change_detector.detect_changes(excel_deals, sync_period_months=3)
 
-        # Assert
-        assert result.insertion_count == 0
-        assert result.update_count == 1  # Item was updated
-        assert result.deletion_count == 0
+        # Assert - with hash_key logic, different fields = different positions
+        assert result.insertion_count == 1  # New position created (Excel version)
+        assert result.update_count == 0     # No updates, only replacement
+        assert result.deletion_count == 1   # Old position deleted (DB version)
 
-        # Check item change details
-        item_changes = result.get_item_changes()
-        assert len(item_changes) == 1
-        change = item_changes[0]
-        assert change.change_type == ChangeType.UPDATE
-        assert change.entity_type == EntityType.DEAL_ITEM
-        assert change.has_field_changes
-        assert "quantity" in change.field_changes
-        assert "sale_price" in change.field_changes
-        assert "purchase_price" in change.field_changes
-        assert "pickup_date" in change.field_changes
+        # Check changes details
+        insertions = result.insertions
+        deletions = result.deletions
+        assert len(insertions) == 1
+        assert len(deletions) == 1
+        
+        # Insertion should be the Excel item (new version)
+        excel_item_hash = excel_deal.items[0].hash_key.value
+        insertion = insertions[0]
+        assert insertion.entity_type == EntityType.DEAL_ITEM
+        assert insertion.new_hash == excel_item_hash
+        
+        # Deletion should be the DB item (old version)  
+        db_item_hash = db_item.hash_key.value
+        deletion = deletions[0]
+        assert deletion.entity_type == EntityType.DEAL_ITEM
+        assert deletion.old_hash == db_item_hash
 
     async def test_build_entity_hash_cache(self, change_detector, sample_deal_1):
         """Test hash cache building."""
@@ -310,14 +314,16 @@ class TestChangeDetectorService:
         assert len(hash1) == 32  # MD5 hash length
 
     async def test_get_item_key(self, change_detector, sample_deal_1):
-        """Test item key generation."""
+        """Test item key generation using full hash with deal_key and position_number."""
         # Act
         item = sample_deal_1.items[0]
         key = change_detector._get_item_key(sample_deal_1, item)
 
         # Assert
-        expected_key = f"{sample_deal_1.deal_key}|{item.product_name}|{item.supplier_name}"
+        expected_key = item.get_full_hash_key(sample_deal_1.deal_key).value
         assert key == expected_key
+        assert len(key) == 32  # MD5 hash length
+        assert isinstance(key, str)
 
     async def test_compare_deal_fields_no_changes(self, change_detector, sample_deal_1):
         """Test deal field comparison with no changes."""

@@ -1,11 +1,11 @@
 {
   "timing": {
-    "started_at": "2025-07-31T16:41:08.191265",
-    "finished_at": "2025-07-31T16:41:33.520036",
-    "duration_seconds": 25.350409269332886,
-    "parsing_duration": 1.0378696918487549,
+    "started_at": "2025-08-06T02:50:29.179752",
+    "finished_at": "2025-08-06T02:50:47.520208",
+    "duration_seconds": 18.360989332199097,
+    "parsing_duration": 0.8390815258026123,
     "change_detection_duration": 0.0,
-    "database_update_duration": 24.279728651046753
+    "database_update_duration": 17.495543003082275
   },
   "file": {
     "path": "data\\real_data_for_testing\\Data_source_excel.xlsx",

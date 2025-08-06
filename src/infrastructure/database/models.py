@@ -23,6 +23,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, declarative_base, mapped_column
@@ -228,7 +229,7 @@ class ReadModelPosition(Base):
     deal_key: Mapped[str] = mapped_column(String(255), nullable=False)
 
     # Item info
-    position_key: Mapped[str] = mapped_column(String(500), nullable=False)
+    position_number: Mapped[int] = mapped_column(Integer, nullable=False)
     hash_key: Mapped[str] = mapped_column(String(32), nullable=False)
 
     product_name: Mapped[str] = mapped_column(String(1000), nullable=False)
@@ -260,6 +261,7 @@ class ReadModelPosition(Base):
     # Indexes for common queries
     __table_args__ = (
         Index("ix_read_positions_deal_id", "deal_id"),
+        Index("ix_read_positions_position_number", "position_number"),
         Index("ix_read_positions_product_name", "product_name"),
         Index("ix_read_positions_supplier", "supplier_name"),
         Index("ix_read_positions_client", "client_name"),
@@ -267,8 +269,16 @@ class ReadModelPosition(Base):
         Index("ix_read_positions_hash_key", "hash_key"),
         # Composite indexes
         Index("ix_read_positions_deal_product", "deal_id", "product_name"),
-        # Unique constraint for position key within deal
-        Index("ix_read_positions_deal_position_key", "deal_id", "position_key", unique=True),
+        Index("ix_read_positions_deal_position", "deal_id", "position_number"),
+        # Unique constraint for hash key within deal (legacy - will be replaced)
+        Index("ix_read_positions_deal_hash_key", "deal_id", "hash_key", unique=True),
+        # NEW: Unique constraints to prevent position duplication
+        # Prevents multiple active records with same hash_key
+        Index("ix_read_positions_hash_active", "hash_key", "is_active", unique=True,
+              postgresql_where=text("is_active = true"),
+              sqlite_where=text("is_active = 1")),
+        # Ensures version uniqueness for same position
+        Index("ix_read_positions_hash_version", "hash_key", "version", unique=True),
     )
 
 

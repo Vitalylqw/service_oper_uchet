@@ -190,20 +190,24 @@ class JSONReportGenerator:
     async def _get_deals_data(self, session) -> Dict[str, Any]:
         """Получает данные о сделках из БД"""
         try:
-            # Общая статистика
+            # ------------------------------------------------------------------
+            # MAIN AGGREGATED STATISTICS
+            # ------------------------------------------------------------------
             result = await session.execute(text("""
                 SELECT 
-                    COUNT(*) as total_deals,
-                    SUM(items_count) as total_items,
-                    SUM(total_revenue_amount) as total_revenue,
-                    SUM(total_margin_amount) as total_margin,
-                    AVG(total_revenue_amount) as avg_revenue,
-                    AVG(total_margin_amount) as avg_margin
+                    COUNT(*)              AS total_deals,
+                    SUM(items_count)      AS total_items,
+                    SUM(total_revenue_amount) AS total_revenue,
+                    SUM(total_margin_amount)  AS total_margin,
+                    AVG(total_revenue_amount) AS avg_revenue,
+                    AVG(total_margin_amount)  AS avg_margin
                 FROM read_deals
             """))
-            row = result.fetchone()
-            
-            if not row or row[0] == 0:
+
+            main_row = result.fetchone()
+
+            if not main_row or main_row[0] == 0:
+                # База пуста – вернём нулевую структуру
                 return {
                     "total_deals": 0,
                     "total_items": 0,
@@ -217,9 +221,14 @@ class JSONReportGenerator:
                     "client_statistics": {},
                     "recent_deals": []
                 }
-            
-            total_revenue = float(row[2] or 0)
-            total_margin = float(row[3] or 0)
+
+            # Явное преобразование типов
+            total_deals   = int(main_row[0])
+            total_items   = int(main_row[1] or 0)
+            total_revenue = float(main_row[2] or 0)
+            total_margin  = float(main_row[3] or 0)
+            avg_revenue   = float(main_row[4] or 0)
+            avg_margin    = float(main_row[5] or 0)
             
             # Статистика по периодам
             result = await session.execute(text("""
@@ -233,13 +242,13 @@ class JSONReportGenerator:
                 GROUP BY period_full_name
                 ORDER BY period_full_name
             """))
-            period_stats = {}
-            for row in result.fetchall():
-                period_stats[row[0]] = {
-                    "deals_count": row[1],
-                    "total_revenue": float(row[2] or 0),
-                    "total_margin": float(row[3] or 0),
-                    "items_count": row[4]
+            period_stats: dict[str, any] = {}
+            for period_row in result.fetchall():
+                period_stats[period_row[0]] = {
+                    "deals_count": int(period_row[1]),
+                    "total_revenue": float(period_row[2] or 0),
+                    "total_margin": float(period_row[3] or 0),
+                    "items_count": int(period_row[4])
                 }
             
             # Статистика по клиентам
@@ -254,13 +263,13 @@ class JSONReportGenerator:
                 GROUP BY client_name
                 ORDER BY total_revenue DESC
             """))
-            client_stats = {}
-            for row in result.fetchall():
-                client_stats[row[0]] = {
-                    "deals_count": row[1],
-                    "total_revenue": float(row[2] or 0),
-                    "total_margin": float(row[3] or 0),
-                    "items_count": row[4]
+            client_stats: dict[str, any] = {}
+            for client_row in result.fetchall():
+                client_stats[client_row[0]] = {
+                    "deals_count": int(client_row[1]),
+                    "total_revenue": float(client_row[2] or 0),
+                    "total_margin": float(client_row[3] or 0),
+                    "items_count": int(client_row[4])
                 }
             
             # Последние сделки
@@ -284,14 +293,14 @@ class JSONReportGenerator:
                 })
             
             return {
-                "total_deals": row[0],
-                "total_items": row[1] or 0,
+                "total_deals": total_deals,
+                "total_items": total_items,
                 "total_revenue": total_revenue,
                 "total_margin": total_margin,
-                "average_revenue_per_deal": float(row[4] or 0),
-                "average_margin_per_deal": float(row[5] or 0),
+                "average_revenue_per_deal": avg_revenue,
+                "average_margin_per_deal": avg_margin,
                 "margin_percentage": float(total_margin / total_revenue * 100) if total_revenue > 0 else 0,
-                "average_item_price": float(total_revenue / (row[1] or 1)) if row[1] and row[1] > 0 else 0,
+                "average_item_price": float(total_revenue / total_items) if total_items > 0 else 0,
                 "period_statistics": period_stats,
                 "client_statistics": client_stats,
                 "recent_deals": recent_deals

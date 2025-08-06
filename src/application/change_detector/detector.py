@@ -353,8 +353,8 @@ class ChangeDetectorService:
         return hash_key.value
 
     def _get_item_key(self, deal: Deal, item: DealItem) -> str:
-        """Generate unique key for deal item."""
-        return f"{deal.deal_key}|{item.product_name}|{item.supplier_name or ''}"
+        """Generate unique key for deal item using full hash with deal_key and position_number."""
+        return item.get_full_hash_key(deal.deal_key).value
 
     def _compare_deal_fields(self, old_deal: Deal, new_deal: Deal) -> dict[str, dict[str, Any]]:
         """Compare deal fields and return changes."""

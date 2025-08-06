@@ -1,28 +1,500 @@
 {
   "report_type": "database",
-  "generated_at": "2025-08-01T01:41:12.733706",
+  "generated_at": "2025-08-06T03:02:40.180450",
   "source_file": "database",
   "summary": {
-    "total_deals": 0,
-    "total_items": 0,
-    "total_revenue": 0.0,
-    "total_margin": 0.0,
-    "average_revenue_per_deal": 0.0,
-    "average_margin_per_deal": 0.0
+    "total_deals": 301,
+    "total_items": 1732,
+    "total_revenue": 9877543.33,
+    "total_margin": 2542666.0299999984,
+    "average_revenue_per_deal": 32815.758571428574,
+    "average_margin_per_deal": 8447.395448504978
   },
   "financial_metrics": {
-    "total_revenue": 0.0,
-    "total_margin": 0.0,
-    "margin_percentage": 0.0,
-    "average_item_price": 0.0
+    "total_revenue": 9877543.33,
+    "total_margin": 2542666.0299999984,
+    "margin_percentage": 25.74188687461823,
+    "average_item_price": 5702.969590069284
   },
-  "period_statistics": {},
-  "client_statistics": {},
-  "recent_deals": [],
-  "sync_session": {},
+  "period_statistics": {
+    "Июль 2025": {
+      "deals_count": 301,
+      "total_revenue": 9877543.33,
+      "total_margin": 2542666.0299999984,
+      "items_count": 1732
+    }
+  },
+  "client_statistics": {
+    "ПСК(ЦентрСнаб)": {
+      "deals_count": 54,
+      "total_revenue": 1506951.1300000001,
+      "total_margin": 276442.4700000001,
+      "items_count": 257
+    },
+    "БАЛТИНВЕСТСТРОЙ(ЛЕНТЕХСТРОЙ)": {
+      "deals_count": 12,
+      "total_revenue": 977302.0,
+      "total_margin": 357288.98000000004,
+      "items_count": 61
+    },
+    "Ригель(Арсенал)": {
+      "deals_count": 11,
+      "total_revenue": 968549.7,
+      "total_margin": 235580.68,
+      "items_count": 64
+    },
+    "ЛЕГЕНДА КОНСТРАКШН": {
+      "deals_count": 16,
+      "total_revenue": 812915.8,
+      "total_margin": 222520.77,
+      "items_count": 163
+    },
+    "СТРОЙСТАНДАРТ(МАВИС)": {
+      "deals_count": 7,
+      "total_revenue": 614614.27,
+      "total_margin": 318675.4600000001,
+      "items_count": 73
+    },
+    "ВИКТОРИЯ(Пономарева)": {
+      "deals_count": 8,
+      "total_revenue": 503205.0,
+      "total_margin": 108671.76999999999,
+      "items_count": 63
+    },
+    "МАВИС-МОНТАЖ(МАВИС)": {
+      "deals_count": 4,
+      "total_revenue": 411499.67,
+      "total_margin": 94882.3,
+      "items_count": 104
+    },
+    "С-Индустрия(Черняева)": {
+      "deals_count": 11,
+      "total_revenue": 378324.9,
+      "total_margin": 44097.11,
+      "items_count": 45
+    },
+    "ГАРАНТСТРОЙСЕРВИС": {
+      "deals_count": 4,
+      "total_revenue": 371114.0,
+      "total_margin": 60471.009999999995,
+      "items_count": 52
+    },
+    "ЛЕНТЕХСТРОЙ": {
+      "deals_count": 8,
+      "total_revenue": 326040.0,
+      "total_margin": 110526.38999999998,
+      "items_count": 21
+    },
+    "СИЛЬВЕР МОНТАЖ": {
+      "deals_count": 16,
+      "total_revenue": 325667.48,
+      "total_margin": 41757.979999999996,
+      "items_count": 40
+    },
+    "ЗКИФ": {
+      "deals_count": 6,
+      "total_revenue": 302735.1,
+      "total_margin": 36318.5,
+      "items_count": 49
+    },
+    "ВОЛМАКС СК": {
+      "deals_count": 9,
+      "total_revenue": 207350.66,
+      "total_margin": 47244.98,
+      "items_count": 50
+    },
+    "САНТЕХ-СТАНДАРТ": {
+      "deals_count": 13,
+      "total_revenue": 194027.0,
+      "total_margin": 79023.42,
+      "items_count": 56
+    },
+    "АРСЕНАЛ-4": {
+      "deals_count": 5,
+      "total_revenue": 190866.0,
+      "total_margin": 56416.86,
+      "items_count": 47
+    },
+    "МАВИС-Монолит(МАВИС)": {
+      "deals_count": 2,
+      "total_revenue": 159390.49,
+      "total_margin": 43774.46,
+      "items_count": 91
+    },
+    "АТРИ-СЕРВИССТРОЙ (ГарантСтройсервис)": {
+      "deals_count": 1,
+      "total_revenue": 144755.0,
+      "total_margin": 25733.45,
+      "items_count": 24
+    },
+    "АЗИМУТ-СТРОЙКОМПЛЕКС(ЛЕНТЕХСТРОЙ)": {
+      "deals_count": 3,
+      "total_revenue": 125149.0,
+      "total_margin": 32652.65,
+      "items_count": 9
+    },
+    "КАПРИКОРН-ЭМ(КОЗЕРОГ)": {
+      "deals_count": 4,
+      "total_revenue": 110232.4,
+      "total_margin": 25412.89,
+      "items_count": 43
+    },
+    "КОЗЕРОГ СФ": {
+      "deals_count": 3,
+      "total_revenue": 109887.5,
+      "total_margin": 26765.260000000002,
+      "items_count": 11
+    },
+    "ОТДЕЛСТРОЙ(МАВИС)": {
+      "deals_count": 3,
+      "total_revenue": 101870.0,
+      "total_margin": 18838.620000000003,
+      "items_count": 7
+    },
+    "ПРОФБЕТОН ИПК": {
+      "deals_count": 4,
+      "total_revenue": 89074.88,
+      "total_margin": 19109.12,
+      "items_count": 43
+    },
+    "ПЕРВАЯ КРОВЕЛЬНАЯ КОМПАНИЯ": {
+      "deals_count": 4,
+      "total_revenue": 79090.0,
+      "total_margin": 13133.400000000001,
+      "items_count": 8
+    },
+    "ТЕХНО-СПБ": {
+      "deals_count": 11,
+      "total_revenue": 76125.5,
+      "total_margin": 28023.95,
+      "items_count": 48
+    },
+    "АЛГОРИТМ": {
+      "deals_count": 7,
+      "total_revenue": 66927.0,
+      "total_margin": 8935.470000000001,
+      "items_count": 15
+    },
+    "СЕГМЕНТ2 (Техно-спб)": {
+      "deals_count": 6,
+      "total_revenue": 59144.5,
+      "total_margin": 19610.059999999998,
+      "items_count": 16
+    },
+    "АЙСБЕРГ(Якунина)": {
+      "deals_count": 1,
+      "total_revenue": 50552.0,
+      "total_margin": 8883.19,
+      "items_count": 21
+    },
+    "Авентин Инжиниринг": {
+      "deals_count": 9,
+      "total_revenue": 46160.0,
+      "total_margin": 17858.38,
+      "items_count": 18
+    },
+    "БУЛГАКОВСТРОЙ": {
+      "deals_count": 3,
+      "total_revenue": 43632.0,
+      "total_margin": 10743.08,
+      "items_count": 15
+    },
+    "АРСЕНАЛ-КАМЕНКА": {
+      "deals_count": 2,
+      "total_revenue": 43064.0,
+      "total_margin": 4380.0,
+      "items_count": 2
+    },
+    "ИГ Северо-Запад(Печкина)": {
+      "deals_count": 2,
+      "total_revenue": 36828.0,
+      "total_margin": 7267.36,
+      "items_count": 6
+    },
+    "БИС(РОСИНЖСТРОЙ)": {
+      "deals_count": 3,
+      "total_revenue": 34736.0,
+      "total_margin": 8343.47,
+      "items_count": 11
+    },
+    "ЭГМ(Энергогазмонтаж)": {
+      "deals_count": 5,
+      "total_revenue": 33118.75,
+      "total_margin": 17853.7,
+      "items_count": 17
+    },
+    "ДИАЛОГ(МИТИНОГРАД)": {
+      "deals_count": 2,
+      "total_revenue": 30335.0,
+      "total_margin": 10783.46,
+      "items_count": 5
+    },
+    "АРСЕНАЛ ГРУПП": {
+      "deals_count": 3,
+      "total_revenue": 28674.8,
+      "total_margin": 7042.28,
+      "items_count": 3
+    },
+    "СТИМУЛ(ЭГМ)": {
+      "deals_count": 2,
+      "total_revenue": 26495.0,
+      "total_margin": 15239.939999999999,
+      "items_count": 6
+    },
+    "Холдинг Гефест": {
+      "deals_count": 2,
+      "total_revenue": 26334.0,
+      "total_margin": 5054.0,
+      "items_count": 2
+    },
+    "Аквафит": {
+      "deals_count": 2,
+      "total_revenue": 24154.0,
+      "total_margin": 5866.76,
+      "items_count": 31
+    },
+    "ЕВРОИНВЕСТ ПЕТРОГРАДСКАЯ СЗ": {
+      "deals_count": 2,
+      "total_revenue": 23323.0,
+      "total_margin": 6948.91,
+      "items_count": 14
+    },
+    "ДОР ТЕХНОЛОГИИ": {
+      "deals_count": 1,
+      "total_revenue": 23053.4,
+      "total_margin": 4406.78,
+      "items_count": 28
+    },
+    "АРСЕНАЛ-6": {
+      "deals_count": 1,
+      "total_revenue": 21200.0,
+      "total_margin": 7906.19,
+      "items_count": 4
+    },
+    "ЕВРОИНВЕСТ КУДРОВО СЗ": {
+      "deals_count": 1,
+      "total_revenue": 20821.95,
+      "total_margin": 3871.22,
+      "items_count": 18
+    },
+    "ЛРС (Новоселье)": {
+      "deals_count": 3,
+      "total_revenue": 20628.5,
+      "total_margin": 5887.4,
+      "items_count": 7
+    },
+    "ЛРС (ЛЕНРУССТРОЙ)": {
+      "deals_count": 2,
+      "total_revenue": 19480.0,
+      "total_margin": 4016.0,
+      "items_count": 5
+    },
+    "НЕВСКИЙ ССЗ": {
+      "deals_count": 1,
+      "total_revenue": 13520.0,
+      "total_margin": 5192.36,
+      "items_count": 1
+    },
+    "ТЕХНАДЗОР СПБ(МИТИНОГРАД)": {
+      "deals_count": 2,
+      "total_revenue": 13139.0,
+      "total_margin": 3613.1800000000003,
+      "items_count": 9
+    },
+    "ИНЖПЕТРОСТРОЙ ГПК": {
+      "deals_count": 2,
+      "total_revenue": 11960.0,
+      "total_margin": 5737.2,
+      "items_count": 5
+    },
+    "МАВИС-ГРАД(МАВИС)": {
+      "deals_count": 1,
+      "total_revenue": 11137.7,
+      "total_margin": 2167.94,
+      "items_count": 6
+    },
+    "Хайгарден (Арсеналы)": {
+      "deals_count": 1,
+      "total_revenue": 9859.0,
+      "total_margin": 3501.86,
+      "items_count": 5
+    },
+    "ИНЖПЕТРОСТРОЙ АО": {
+      "deals_count": 2,
+      "total_revenue": 9374.0,
+      "total_margin": 2262.95,
+      "items_count": 13
+    },
+    "СТРОЙАРСЕНАЛ(МАВИС)": {
+      "deals_count": 1,
+      "total_revenue": 8982.0,
+      "total_margin": 1366.37,
+      "items_count": 3
+    },
+    "КЕЙС(МИТИНОГРАД)": {
+      "deals_count": 1,
+      "total_revenue": 6400.0,
+      "total_margin": 2840.0,
+      "items_count": 1
+    },
+    "ООО \"НЕВСКИЙ ССЗ\"": {
+      "deals_count": 1,
+      "total_revenue": 5050.0,
+      "total_margin": 1425.04,
+      "items_count": 1
+    },
+    "ЛЕСНОЙ ООО": {
+      "deals_count": 2,
+      "total_revenue": 5000.0,
+      "total_margin": 2828.0,
+      "items_count": 2
+    },
+    "СЭТЛ СТРОЙ": {
+      "deals_count": 1,
+      "total_revenue": 4849.0,
+      "total_margin": 1897.35,
+      "items_count": 5
+    },
+    "Покупатель": {
+      "deals_count": 2,
+      "total_revenue": 3000.0,
+      "total_margin": 1800.0,
+      "items_count": 2
+    },
+    "ОНИКС(Арсенал)": {
+      "deals_count": 2,
+      "total_revenue": 2770.0,
+      "total_margin": 2277.0,
+      "items_count": 2
+    },
+    "ИНЖСИСТЕМ СПБ": {
+      "deals_count": 1,
+      "total_revenue": 2200.0,
+      "total_margin": 626.0,
+      "items_count": 1
+    },
+    "ТОРУС СПБ ООО": {
+      "deals_count": 1,
+      "total_revenue": 2160.0,
+      "total_margin": 213.64,
+      "items_count": 1
+    },
+    "ЭНЕРГОАУДИТ(МИТИНОГРАД)": {
+      "deals_count": 1,
+      "total_revenue": 1600.0,
+      "total_margin": 411.36,
+      "items_count": 1
+    },
+    "ДОР ИНЖИНИРИНГ": {
+      "deals_count": 1,
+      "total_revenue": 1143.25,
+      "total_margin": 245.65,
+      "items_count": 1
+    }
+  },
+  "recent_deals": [
+    {
+      "id": "f794db0d-4e7a-4ff3-b952-a219b0fc183e",
+      "client_name": "АРСЕНАЛ ГРУПП",
+      "invoice_number": "363",
+      "revenue": 9880.0,
+      "margin": 1265.8,
+      "items_count": 1,
+      "period": "Июль 2025"
+    },
+    {
+      "id": "fb6b80a4-6d16-4c0d-9451-7f3fdad8e121",
+      "client_name": "БАЛТИНВЕСТСТРОЙ(ЛЕНТЕХСТРОЙ)",
+      "invoice_number": "6622",
+      "revenue": 44557.0,
+      "margin": 9675.83,
+      "items_count": 17,
+      "period": "Июль 2025"
+    },
+    {
+      "id": "f9367a4e-1589-4485-a7ac-e4277449861e",
+      "client_name": "ВИКТОРИЯ(Пономарева)",
+      "invoice_number": "6535",
+      "revenue": 10232.0,
+      "margin": 2606.0,
+      "items_count": 2,
+      "period": "Июль 2025"
+    },
+    {
+      "id": "fb1556bf-f37d-4baf-b7bc-f9827bcc6304",
+      "client_name": "Ригель(Арсенал)",
+      "invoice_number": "345",
+      "revenue": 5000.0,
+      "margin": 2238.16,
+      "items_count": 3,
+      "period": "Июль 2025"
+    },
+    {
+      "id": "fdfee6c3-e8d8-4a4d-93cb-7e40211d40da",
+      "client_name": "АЗИМУТ-СТРОЙКОМПЛЕКС(ЛЕНТЕХСТРОЙ)",
+      "invoice_number": "6544",
+      "revenue": 66660.0,
+      "margin": 15428.4,
+      "items_count": 4,
+      "period": "Июль 2025"
+    },
+    {
+      "id": "f59f219b-8e97-4992-84ab-d0e5e1e09024",
+      "client_name": "Ригель(Арсенал)",
+      "invoice_number": "350",
+      "revenue": 40500.0,
+      "margin": 3240.0,
+      "items_count": 1,
+      "period": "Июль 2025"
+    },
+    {
+      "id": "fcfde9e0-1986-4b85-af3d-7f632e98672c",
+      "client_name": "ЛЕНТЕХСТРОЙ",
+      "invoice_number": "6842",
+      "revenue": 900.0,
+      "margin": 382.68,
+      "items_count": 1,
+      "period": "Июль 2025"
+    },
+    {
+      "id": "f7bba75a-1a42-4b05-a7f6-fa5ddc1149e6",
+      "client_name": "ЛЕГЕНДА КОНСТРАКШН",
+      "invoice_number": "6868",
+      "revenue": 15224.8,
+      "margin": 3170.48,
+      "items_count": 10,
+      "period": "Июль 2025"
+    },
+    {
+      "id": "f470f6ca-b9df-4053-91b5-c34100a91517",
+      "client_name": "ВОЛМАКС СК",
+      "invoice_number": "6571",
+      "revenue": 15577.0,
+      "margin": 3396.56,
+      "items_count": 3,
+      "period": "Июль 2025"
+    },
+    {
+      "id": "fe37348d-71e2-428d-9b10-8da6907b0d62",
+      "client_name": "МАВИС-МОНТАЖ(МАВИС)",
+      "invoice_number": "6357",
+      "revenue": 136691.62,
+      "margin": 18878.7,
+      "items_count": 65,
+      "period": "Июль 2025"
+    }
+  ],
+  "sync_session": {
+    "id": "d8c44586-eb7b-4703-88a5-9a2219014596",
+    "sync_type": "full",
+    "status": "completed",
+    "created_at": "2025-08-06 00:00:36",
+    "source_file": "data\\real_data_for_testing\\Data_source_excel.xlsx",
+    "stats_data": "\"{\\\"total_deals\\\": 301, \\\"processed_deals\\\": 301, \\\"failed_deals\\\": 0, \\\"total_items\\\": 1732, \\\"processed_items\\\": 1732, \\\"failed_items\\\": 0, \\\"new_records\\\": 0, \\\"updated_records\\\": 0, \\\"deleted_records\\\": 0, \\\"errors\\\": [], \\\"warnings\\\": []}\""
+  },
   "database_stats": {
-    "total_sync_sessions": 0,
-    "total_events": 0,
-    "api_status": "unhealthy"
+    "total_sync_sessions": 2,
+    "total_events": 4066,
+    "api_status": "unavailable"
   }
 }
