@@ -1,0 +1,12 @@
+{
+    "sqltools.connections": [
+        {
+            "previewLimit": 50,
+            "driver": "SQLite",
+            "name": "oper",
+            "group": "1",
+            "database": "${workspaceFolder:service_oper_uchet}/data/service_oper_uchet.sqlite"
+        }
+    ],
+    "sqltools.useNodeRuntime": true
+}
