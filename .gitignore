@@ -3,6 +3,11 @@ __pycache__/
 *.py[cod]
 *$py.class
 venv/
+
+# Исключить кэш Python, но не сами модели
+src/**/__pycache__/
+!src/**/models/
+!src/**/models/**
 # C extensions
 *.so
 
