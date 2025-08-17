@@ -189,6 +189,7 @@ Temporary Items
 *.xlsx
 *.xls
 !Data_source_excel.xlsx  # Keep the source file
+!data/excel/Data_source_excel.xlsx  # Keep the source file in excel folder
 # parsed_deals.json - keep as example
 logs/
 data/temp/
