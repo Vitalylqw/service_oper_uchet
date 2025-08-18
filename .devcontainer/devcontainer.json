@@ -1,0 +1,9 @@
+{
+  "name": "service_oper_uchet-dev",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "workspaceFolder": "/workspaces/service_oper_uchet",
+  "runArgs": ["--network=devnet"],
+  "postCreateCommand": "python -m pip install -U pip && if [ -f requirements.txt ]; then pip install -r requirements.txt; fi",
+  "forwardPorts": [8000],
+  "containerEnv": { "PYTHONUNBUFFERED": "1" }
+}

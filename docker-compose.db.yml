@@ -1,0 +1,22 @@
+# docker-compose.db.yml
+services:
+  postgres:
+    image: postgres:16           # Почему: актуальная стабильная версия Postgres.
+    container_name: so_pg        # Почему: фиксированное имя удобно для подключения (DB_HOST=so_pg).
+    environment:
+      POSTGRES_DB: so_uchet      # Почему: имя создаваемой БД.
+      POSTGRES_USER: so_user     # Почему: пользователь БД (dev).
+      POSTGRES_PASSWORD: so_pass # Почему: пароль (для dev; в проде вынести в secrets).
+    volumes:
+      - so_pg_data:/var/lib/postgresql/data
+      # Почему: данные БД будут храниться в docker volume, переживут перезапуск/обновление контейнера.
+    networks:
+      - devnet                   # Почему: эта сеть общая с dev-container'ом.
+    restart: unless-stopped      # Почему: автоперезапуск, если контейнер упал/перегрузка.
+
+volumes:
+  so_pg_data:                    # Почему: объявляем volume для данных.
+
+networks:
+  devnet:
+    external: true               # Почему: сеть создана заранее (вне compose).
