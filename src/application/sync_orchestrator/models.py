@@ -237,10 +237,10 @@ class SyncConfiguration(BaseModel):
     Contains settings that control sync behavior.
     """
 
-    # Sync type and scope
-    sync_type: str = Field(..., description="Type of sync (full/incremental)")
-    incremental_period_months: int = Field(
-        default=3, description="Months to include in incremental sync"
+    # Sync type and scope  
+    sync_type: str = Field(..., description="Type of sync (full/partial)")
+    partial_periods: list[str] = Field(
+        default_factory=list, description="List of periods for partial sync (e.g. ['Январь 2025', 'Февраль 2025'])"
     )
 
     # Performance settings
@@ -270,9 +270,15 @@ class SyncConfiguration(BaseModel):
     log_level: str = Field(default="INFO", description="Logging level")
 
     def is_full_sync(self) -> bool:
-        """Check if this is a full sync."""
+        """Check if this is a full sync (all Excel sheets)."""
         return self.sync_type.lower() == "full"
 
-    def is_incremental_sync(self) -> bool:
-        """Check if this is an incremental sync."""
-        return self.sync_type.lower() == "incremental"
+    def is_partial_sync(self) -> bool:
+        """Check if this is a partial sync (specific periods/sheets)."""
+        return self.sync_type.lower() == "partial"
+        
+    def get_target_periods(self) -> list[str]:
+        """Get list of target periods for sync."""
+        if self.is_full_sync():
+            return []  # Empty list means all periods
+        return self.partial_periods

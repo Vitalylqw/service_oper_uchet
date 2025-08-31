@@ -59,7 +59,7 @@ class ChangeDetectorService:
         result.total_excel_items = sum(len(deal.items) for deal in excel_deals)
 
         try:
-            # Get database deals for comparison
+            # Get database deals for comparison (by periods present in Excel)
             db_deals = await self._get_database_deals(excel_deals, sync_period_months)
             result.total_db_deals = len(db_deals)
             result.total_db_items = sum(len(deal.items) for deal in db_deals)
@@ -149,7 +149,9 @@ class ChangeDetectorService:
         for deal in deals:
             # Hash deal
             deal_hash = self._calculate_deal_hash(deal)
-            cache.set_hash(deal.deal_key, deal_hash)
+            # Use hash_deal_key for fast comparison if available
+            cache_key = getattr(deal, '_hash_deal_key', deal.deal_key)
+            cache.set_hash(cache_key, deal_hash)
 
             # Hash items
             for item in deal.items:
@@ -167,10 +169,10 @@ class ChangeDetectorService:
         excel_hashes: HashComparisonCache,
         db_hashes: HashComparisonCache,
     ) -> list[EntityChange]:
-        """Detect changes to deals."""
+        """Detect changes to deals using deal_key within same period scope."""
         changes = []
 
-        # Build lookup maps
+        # Build lookup maps using business key
         db_deals_map = {deal.deal_key: deal for deal in db_deals}
         excel_deals_map = {deal.deal_key: deal for deal in excel_deals}
 
@@ -314,25 +316,41 @@ class ChangeDetectorService:
 
     def _calculate_deal_hash(self, deal: Deal) -> str:
         """Calculate hash for deal entity."""
-        # Build normalized dictionary for hashing
+        # Build normalized dictionary for hashing based on agreed fields
+        from decimal import Decimal
+        def _fmt_money(val: Decimal | None, scale: str) -> str | None:
+            if val is None:
+                return None
+            q = Decimal(scale)
+            return str(val.quantize(q))
+
+        total_items = len(getattr(deal, 'items', []) or [])
+        total_qty = None
+        try:
+            if getattr(deal, 'items', None):
+                qty_vals = [i.quantity for i in deal.items if getattr(i, 'quantity', None)]
+                if qty_vals:
+                    from decimal import Decimal as _D
+                    total_qty = sum(_D(str(v)) for v in qty_vals)
+        except Exception:
+            total_qty = None
+
         deal_dict = {
-            "client_name": deal.client_name,
-            "invoice_info": deal.invoice_info,
-            "invoice_number": deal.invoice_number,
-            "invoice_date": deal.invoice_date,
-            "period": f"{deal.period.year}-{deal.period.month}",
+            "invoice_info": (deal.invoice_info or "").strip().lower(),
+            "period_full_name": str(deal.period),
+            "upd_number": (deal.upd_number or "").strip().lower(),
             "is_shipped": deal.is_shipped.value if deal.is_shipped else None,
             "is_paid": deal.is_paid.value if deal.is_paid else None,
-            "upd_number": deal.upd_number,
-            "seller": deal.seller,
-            "total_revenue": str(deal.total_revenue.amount) if deal.total_revenue else None,
-            "total_margin": str(deal.total_margin.amount) if deal.total_margin else None,
-            "total_cost": str(deal.total_cost.amount) if deal.total_cost else None,
-            "kickback_amount": str(deal.kickback_amount.amount) if deal.kickback_amount else None,
+            "seller": (deal.seller or "").strip().lower(),
+            "total_revenue_amount": _fmt_money(deal.total_revenue.amount if deal.total_revenue else None, '0.01'),
+            "total_margin_amount": _fmt_money(deal.total_margin.amount if deal.total_margin else None, '0.01'),
+            "total_cost_amount": _fmt_money(deal.total_cost.amount if deal.total_cost else None, '0.01'),
+            "kickback_amount_value": _fmt_money(deal.kickback_amount.amount if deal.kickback_amount else None, '0.01'),
+            "items_count": total_items,
+            "total_quantity": _fmt_money(total_qty, '0.000'),
         }
 
-        hash_key = HashKey.from_dict(deal_dict)
-        return hash_key.value
+        return HashKey.from_dict(deal_dict).value
 
     def _calculate_item_hash(self, item: DealItem) -> str:
         """Calculate hash for deal item entity."""

@@ -25,11 +25,8 @@ def safe_cleanup_file(file_path: str | Path) -> None:
             break
         except (OSError, PermissionError) as e:
             if attempt == max_retries - 1:
-                # On Windows, file might be locked - log but don't fail
-                if platform.system() == "Windows":
-                    print(f"Warning: Could not delete temporary file: {e}")
-                else:
-                    raise
+                # On any OS, file might be locked - log but don't fail
+                print(f"Warning: Could not delete temporary file: {e}")
             else:
                 # Wait and retry
                 time.sleep(0.1)

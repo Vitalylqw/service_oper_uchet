@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, Any
-from uuid import UUID, uuid4
+from uuid import UUID, uuid4, uuid5
 
 from pydantic import BaseModel, Field, computed_field, field_validator, field_serializer, ConfigDict
 
@@ -19,8 +19,8 @@ from ..value_objects import Money, SignedMoney, Period, HashKey, Status
 class DealItem(BaseModel):
     """Позиция товара в сделке (подчиненная запись)."""
 
-    # Уникальные идентификаторы
-    id: UUID = Field(default_factory=uuid4, description="Уникальный ID позиции")
+    # Уникальные идентификаторы  
+    explicit_id: Optional[UUID] = Field(None, description="Поле для явного задания ID (переопределяет детерминированный)")
     deal_id: Optional[UUID] = Field(None, description="ID родительской сделки")
 
     # Основная информация
@@ -49,6 +49,37 @@ class DealItem(BaseModel):
 
     @computed_field
     @property
+    def id(self) -> UUID:
+        """Детерминированный ID на основе расширенного набора полей."""
+        if self.explicit_id is not None:
+            return self.explicit_id
+            
+        # Фиксированный namespace для всех позиций
+        namespace = UUID('650e8400-e29b-41d4-a716-446655440000')
+        # Используем тот же алгоритм что и для hash_key но для ID
+        id_data = {
+            "position_number": str(self.position_number) if self.position_number else "1",
+            "product_name": self.product_name,
+            "supplier_name": self.supplier_name or "",
+            "pickup_date": self.pickup_date or "",
+            "quantity": str(self.quantity) if self.quantity else "",
+            "purchase_price": str(self.purchase_price.amount) if self.purchase_price else "",
+            "sale_price": str(self.sale_price.amount) if self.sale_price else "",
+            "revenue": str(self.revenue.amount) if self.revenue else "",
+            "margin": str(self.margin.amount) if self.margin else "",
+            "cost": str(self.cost.amount) if self.cost else "",
+            "deal_id": str(self.deal_id) if self.deal_id else "",
+        }
+        # Создаем стабильную строку из всех полей
+        id_string = "|".join(f"{k}:{v}" for k, v in sorted(id_data.items()))
+        return uuid5(namespace, id_string)
+    
+    def set_id(self, value: UUID) -> None:
+        """Позволяет явно установить ID (для тестов и миграции)."""
+        self.explicit_id = value
+        
+    @computed_field
+    @property
     def item_key(self) -> str:
         """Уникальный ключ позиции для обнаружения изменений."""
         return f"{self.product_name}|{self.supplier_name or ''}"
@@ -56,36 +87,49 @@ class DealItem(BaseModel):
     @computed_field
     @property
     def hash_key(self) -> HashKey:
-        """Hash ключ для быстрого сравнения изменений (без deal_key и position_number)."""
+        """Hash ключ для быстрого сравнения изменений (расширенный набор полей)."""
         data = {
+            "position_number": str(self.position_number) if self.position_number else None,
             "product_name": self.product_name,
             "supplier_name": self.supplier_name,
-            "quantity": str(self.quantity) if self.quantity else None,
-            "purchase_price": str(self.purchase_price) if self.purchase_price else None,
-            "sale_price": str(self.sale_price) if self.sale_price else None,
             "pickup_date": self.pickup_date,
+            "quantity": str(self.quantity) if self.quantity else None,
+            "purchase_price": str(self.purchase_price.amount) if self.purchase_price else None,
+            "sale_price": str(self.sale_price.amount) if self.sale_price else None,
+            "revenue": str(self.revenue.amount) if self.revenue else None,
+            "margin": str(self.margin.amount) if self.margin else None,
+            "cost": str(self.cost.amount) if self.cost else None,
         }
         return HashKey.from_dict(data)
 
     def get_full_hash_key(self, deal_key: str) -> HashKey:
         """
-        Hash ключ для уникальности позиции включая deal_key и position_number.
+        Hash ключ для уникальности позиции включая deal_key и все финансовые поля.
+        
+        Теперь включает ВСЕ поля для полной уникальности:
+        - position_number, product_name, supplier_name, pickup_date
+        - quantity, purchase_price, sale_price 
+        - revenue, margin, cost (новые поля!)
+        - deal_key
         
         Args:
             deal_key: Ключ родительской сделки
             
         Returns:
-            HashKey с учетом deal_key и position_number
+            HashKey с учетом всех полей позиции
         """
         data = {
-            "deal_key": deal_key,
-            "position_number": str(self.position_number) if self.position_number else "0",
+            "position_number": str(self.position_number) if self.position_number else "1",
             "product_name": self.product_name,
-            "supplier_name": self.supplier_name,
-            "quantity": str(self.quantity) if self.quantity else None,
-            "purchase_price": str(self.purchase_price) if self.purchase_price else None,
-            "sale_price": str(self.sale_price) if self.sale_price else None,
-            "pickup_date": self.pickup_date,
+            "supplier_name": self.supplier_name or "",
+            "pickup_date": self.pickup_date or "",
+            "quantity": str(self.quantity) if self.quantity else "",
+            "purchase_price": str(self.purchase_price.amount) if self.purchase_price else "",
+            "sale_price": str(self.sale_price.amount) if self.sale_price else "",
+            "revenue": str(self.revenue.amount) if self.revenue else "",
+            "margin": str(self.margin.amount) if self.margin else "",
+            "cost": str(self.cost.amount) if self.cost else "",
+            "deal_key": deal_key,
         }
         return HashKey.from_dict(data)
 
@@ -111,7 +155,7 @@ class DealItem(BaseModel):
 
         self.updated_at = datetime.now()
 
-    @field_serializer('id', 'deal_id')
+    @field_serializer('explicit_id', 'deal_id')
     def serialize_uuid(self, value: UUID | None) -> str | None:
         """Serialize UUID fields to string."""
         return str(value) if value is not None else None
@@ -125,6 +169,20 @@ class DealItem(BaseModel):
     def serialize_decimal(self, value: Decimal | None) -> str | None:
         """Serialize Decimal fields to string."""
         return str(value) if value is not None else None
+        
+    @field_serializer('purchase_price', 'sale_price', 'revenue', 'cost')
+    def serialize_money(self, value: Money | None) -> dict | None:
+        """Serialize Money fields to dict."""
+        if value is None:
+            return None
+        return {"amount": str(value.amount)}
+        
+    @field_serializer('margin')
+    def serialize_signed_money(self, value: SignedMoney | None) -> dict | None:
+        """Serialize SignedMoney fields to dict."""
+        if value is None:
+            return None
+        return {"amount": str(value.amount)}
 
     model_config = ConfigDict(
         frozen=False,
@@ -136,8 +194,8 @@ class DealItem(BaseModel):
 class Deal(BaseModel):
     """Сделка с клиентом (мастер-запись)."""
 
-    # Уникальные идентификаторы
-    id: UUID = Field(default_factory=uuid4, description="Уникальный ID сделки")
+    # Уникальные идентификаторы  
+    explicit_id: Optional[UUID] = Field(None, description="Поле для явного задания ID (переопределяет детерминированный)")
 
     # Информация о клиенте и продавце
     client_name: str = Field(..., min_length=1, max_length=300, description="Название клиента")
@@ -171,9 +229,20 @@ class Deal(BaseModel):
 
     @computed_field
     @property
+    def id(self) -> UUID:
+        """Детерминированный ID на основе deal_key."""
+        if self.explicit_id is not None:
+            return self.explicit_id
+            
+        # Фиксированный namespace для всех сделок
+        namespace = UUID('550e8400-e29b-41d4-a716-446655440000')
+        return uuid5(namespace, self.deal_key)
+    
+    @computed_field
+    @property
     def deal_key(self) -> str:
         """Уникальный ключ сделки для обнаружения изменений."""
-        return f"{self.client_name}|{self.invoice_number or ''}|{self.invoice_date or ''}|{self.seller or ''}"
+        return f"{self.client_name}|{self.invoice_number or ''}|{self.invoice_date or ''}|{self.seller or ''}|{str(self.period)}"
 
     @computed_field
     @property
@@ -199,6 +268,10 @@ class Deal(BaseModel):
         """Validate and normalize client name."""
         return v.strip()
 
+    def set_id(self, value: UUID) -> None:
+        """Позволяет явно установить ID (для тестов и миграции)."""
+        self.explicit_id = value
+        
     def add_item(self, item: DealItem) -> None:
         """Добавляет позицию товара к сделке."""
         item.deal_id = self.id
@@ -233,15 +306,29 @@ class Deal(BaseModel):
 
         self.updated_at = datetime.now()
 
-    @field_serializer('id')
-    def serialize_uuid(self, value: UUID) -> str:
+    @field_serializer('explicit_id')
+    def serialize_uuid_deal(self, value: UUID | None) -> str | None:
         """Serialize UUID fields to string."""
-        return str(value)
+        return str(value) if value is not None else None
 
     @field_serializer('created_at', 'updated_at')
-    def serialize_datetime(self, value: datetime | None) -> str | None:
+    def serialize_datetime_deal(self, value: datetime | None) -> str | None:
         """Serialize datetime fields to ISO format."""
         return value.isoformat() if value is not None else None
+        
+    @field_serializer('total_revenue', 'total_cost', 'kickback_amount')
+    def serialize_money_deal(self, value: Money | None) -> dict | None:
+        """Serialize Money fields to dict."""
+        if value is None:
+            return None
+        return {"amount": str(value.amount)}
+        
+    @field_serializer('total_margin')
+    def serialize_signed_money_deal(self, value: SignedMoney | None) -> dict | None:
+        """Serialize SignedMoney fields to dict."""
+        if value is None:
+            return None
+        return {"amount": str(value.amount)}
 
     model_config = ConfigDict(
         frozen=False,

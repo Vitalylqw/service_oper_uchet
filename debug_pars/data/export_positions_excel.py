@@ -56,10 +56,8 @@ class PositionsExcelExporter:
                     ReadModelPosition.client_name,
                     ReadModelPosition.period_month,
                     ReadModelPosition.period_year,
-                    ReadModelPosition.is_active,
                     ReadModelPosition.created_at,
-                    ReadModelPosition.updated_at,
-                    ReadModelPosition.version
+                    ReadModelPosition.updated_at
                 ).order_by(ReadModelPosition.created_at.desc())
                 
                 result = await session.execute(query)
@@ -90,10 +88,8 @@ class PositionsExcelExporter:
                         'Client Name': pos.client_name,
                         'Period Month': pos.period_month,
                         'Period Year': pos.period_year,
-                        'Is Active': pos.is_active,
                         'Created At': pos.created_at,
-                        'Updated At': pos.updated_at,
-                        'Version': pos.version
+                        'Updated At': pos.updated_at
                     })
                 
                 df = pd.DataFrame(data)

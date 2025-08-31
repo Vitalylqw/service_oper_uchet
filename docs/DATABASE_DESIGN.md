@@ -36,7 +36,7 @@
 
 ## 📊 СХЕМА БАЗЫ ДАННЫХ
 
-### Основные таблицы
+### Основные таблицы (обновлено)
 
 ```sql
 -- Event Store (Event Sourcing)
@@ -50,28 +50,58 @@ CREATE TABLE event_store (
 );
 
 -- Read Models (CQRS)
-CREATE TABLE deal_read_model (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    deal_id VARCHAR(100) UNIQUE NOT NULL,
-    client_name VARCHAR(255) NOT NULL,
-    invoice_number VARCHAR(100) NOT NULL,
-    invoice_date DATE NOT NULL,
-    revenue DECIMAL(15,2) NOT NULL,
-    margin DECIMAL(15,2) NOT NULL,
-    seller VARCHAR(100) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- Read Models (CQRS)
+CREATE TABLE read_deals (
+    id UUID PRIMARY KEY,
+    deal_key VARCHAR(255) UNIQUE NOT NULL,
+    hash_key CHAR(32) NOT NULL,
+    client_name VARCHAR(500) NOT NULL,
+    invoice_info VARCHAR(500) NOT NULL,
+    invoice_number VARCHAR(100),
+    invoice_date VARCHAR(20),
+    period_month VARCHAR(20) NOT NULL,
+    period_year  VARCHAR(4)  NOT NULL,
+    period_full_name VARCHAR(100) NOT NULL,
+    is_shipped VARCHAR(20),
+    is_paid    VARCHAR(20),
+    upd_number VARCHAR(100),
+    seller     VARCHAR(300),
+    total_revenue_amount NUMERIC(15,2),
+    total_margin_amount  NUMERIC(15,2),
+    total_cost_amount    NUMERIC(15,2),
+    kickback_amount_value NUMERIC(15,2),
+    calc_revenue_amount NUMERIC(15,2) DEFAULT 0 NOT NULL,
+    calc_margin_amount  NUMERIC(15,2) DEFAULT 0 NOT NULL,
+    calc_cost_amount    NUMERIC(15,2) DEFAULT 0 NOT NULL,
+    has_totals_error    BOOLEAN DEFAULT FALSE NOT NULL,
+    items_count   INTEGER DEFAULT 0 NOT NULL,
+    total_quantity NUMERIC(15,3),
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
-CREATE TABLE deal_item_read_model (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    deal_id VARCHAR(100) NOT NULL,
-    product_name VARCHAR(255) NOT NULL,
-    quantity INTEGER NOT NULL,
-    unit_price DECIMAL(15,2) NOT NULL,
-    total_price DECIMAL(15,2) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (deal_id) REFERENCES deal_read_model(deal_id)
+CREATE TABLE read_positions (
+    id UUID PRIMARY KEY,
+    deal_id UUID NOT NULL REFERENCES read_deals(id) ON DELETE CASCADE,
+    deal_key VARCHAR(255) NOT NULL,
+    position_number INTEGER NOT NULL,
+    hash_key CHAR(32) NOT NULL,
+    product_name VARCHAR(1000) NOT NULL,
+    supplier_name VARCHAR(500),
+    pickup_date   VARCHAR(50),
+    quantity NUMERIC(15,3),
+    purchase_price_amount NUMERIC(15,2),
+    sale_price_amount     NUMERIC(15,2),
+    revenue_amount        NUMERIC(15,2),
+    margin_amount         NUMERIC(15,2),
+    cost_amount           NUMERIC(15,2),
+    client_name VARCHAR(500) NOT NULL,
+    period_month VARCHAR(20) NOT NULL,
+    period_year  VARCHAR(4)  NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE NOT NULL,
+    version   INTEGER DEFAULT 1 NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
 -- Sync Sessions
@@ -168,363 +198,4 @@ Event Store является **единственным источником и�
 
 ### Принцип работы
 
-Read Models - это **денормализованные представления** данных, оптимизированные для быстрого чтения и отображения в UI.
-
-### Структура read models
-
-#### deal_read_model
-```sql
--- Основная информация о сделках
-SELECT 
-    deal_id,
-    client_name,
-    invoice_number,
-    invoice_date,
-    revenue,
-    margin,
-    seller,
-    created_at,
-    updated_at
-FROM deal_read_model
-WHERE client_name LIKE '%ООО%'
-ORDER BY invoice_date DESC;
-```
-
-#### deal_item_read_model
-```sql
--- Детали товаров в сделках
-SELECT 
-    deal_id,
-    product_name,
-    quantity,
-    unit_price,
-    total_price
-FROM deal_item_read_model
-WHERE deal_id = 'DEAL-2025-001';
-```
-
-### Преимущества CQRS
-
-- ⚡ **Высокая производительность** - оптимизированные запросы
-- 📊 **Гибкость** - разные представления для разных задач
-- 🔧 **Масштабируемость** - независимое масштабирование read/write
-- 🎯 **Специализация** - оптимизация под конкретные use cases
-
----
-
-## 🔄 READ MODEL BUILDER
-
-### Принцип работы
-
-Read Model Builder - это **фоновый процесс**, который слушает события из Event Store и обновляет read models.
-
-```python
-class ReadModelBuilder:
-    async def handle_deal_created(self, event: DealCreated):
-        # Создание записи в deal_read_model
-        await self.create_deal_read_model(event.data)
-        
-        # Создание записей в deal_item_read_model
-        for item in event.data.items:
-            await self.create_deal_item_read_model(event.data.deal_id, item)
-    
-    async def handle_deal_updated(self, event: DealUpdated):
-        # Обновление записи в deal_read_model
-        await self.update_deal_read_model(event.data)
-```
-
-### Процесс обновления
-
-1. **Событие записано** в Event Store
-2. **Read Model Builder** получает уведомление
-3. **Обработка события** согласно бизнес-логике
-4. **Обновление read models** в транзакции
-5. **Подтверждение обработки**
-
----
-
-## 🔐 СИНХРОНИЗАЦИЯ И СЕССИИ
-
-### Структура sync_sessions
-
-```sql
--- Информация о сессиях синхронизации
-SELECT 
-    session_id,
-    status,
-    file_name,
-    file_size,
-    total_deals,
-    total_items,
-    created_at,
-    completed_at,
-    duration_seconds
-FROM sync_sessions
-WHERE status = 'completed'
-ORDER BY created_at DESC;
-```
-
-### Статусы сессий
-
-| Статус | Описание |
-|--------|----------|
-| `pending` | Ожидает обработки |
-| `running` | В процессе обработки |
-| `completed` | Успешно завершена |
-| `failed` | Завершена с ошибкой |
-| `cancelled` | Отменена пользователем |
-
-### Обработка ошибок
-
-```json
-{
-  "errors": [
-    {
-      "row": 15,
-      "column": "invoice_date",
-      "message": "Неверный формат даты",
-      "value": "2025-13-45"
-    }
-  ],
-  "warnings": [
-    {
-      "row": 20,
-      "column": "revenue",
-      "message": "Сумма не совпадает с позициями",
-      "expected": 150000.00,
-      "actual": 149950.00
-    }
-  ]
-}
-```
-
----
-
-## 👥 АУТЕНТИФИКАЦИЯ И АВТОРИЗАЦИЯ
-
-### Структура users
-
-```sql
--- Пользователи системы
-SELECT 
-    username,
-    role,
-    is_active,
-    created_at,
-    last_login
-FROM users
-WHERE is_active = TRUE;
-```
-
-### Роли и разрешения
-
-| Роль | Разрешения | Описание |
-|------|------------|----------|
-| `viewer` | `read:deals`, `read:sessions` | Только просмотр |
-| `analyst` | `read:deals`, `read:sessions`, `write:sync` | Просмотр + загрузка |
-| `admin` | Все разрешения | Полный доступ |
-
----
-
-## 📈 ИНДЕКСЫ И ОПТИМИЗАЦИЯ
-
-### Основные индексы
-
-```sql
--- Event Store
-CREATE INDEX idx_event_store_aggregate_id ON event_store(aggregate_id);
-CREATE INDEX idx_event_store_event_type ON event_store(event_type);
-CREATE INDEX idx_event_store_created_at ON event_store(created_at);
-
--- Read Models
-CREATE INDEX idx_deal_read_model_client_name ON deal_read_model(client_name);
-CREATE INDEX idx_deal_read_model_seller ON deal_read_model(seller);
-CREATE INDEX idx_deal_read_model_invoice_date ON deal_read_model(invoice_date);
-CREATE INDEX idx_deal_read_model_revenue ON deal_read_model(revenue);
-
--- Sync Sessions
-CREATE INDEX idx_sync_sessions_status ON sync_sessions(status);
-CREATE INDEX idx_sync_sessions_created_at ON sync_sessions(created_at);
-
--- Users
-CREATE INDEX idx_users_username ON users(username);
-CREATE INDEX idx_users_role ON users(role);
-```
-
-### Партиционирование (для больших объемов)
-
-```sql
--- Партиционирование по дате (PostgreSQL)
-CREATE TABLE deal_read_model_2025_01 PARTITION OF deal_read_model
-FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
-
-CREATE TABLE deal_read_model_2025_02 PARTITION OF deal_read_model
-FOR VALUES FROM ('2025-02-01') TO ('2025-03-01');
-```
-
----
-
-## 🔧 МИГРАЦИИ И ВЕРСИОНИРОВАНИЕ
-
-### Alembic миграции
-
-```python
-# Пример миграции
-"""Add invoice_date index
-
-Revision ID: 001
-Revises: 
-Create Date: 2025-01-27 10:30:00
-
-"""
-from alembic import op
-import sqlalchemy as sa
-
-def upgrade():
-    op.create_index('idx_deal_read_model_invoice_date', 
-                   'deal_read_model', ['invoice_date'])
-
-def downgrade():
-    op.drop_index('idx_deal_read_model_invoice_date', 
-                 'deal_read_model')
-```
-
-### Версионирование схемы
-
-- **Major version** - несовместимые изменения
-- **Minor version** - новые функции, обратная совместимость
-- **Patch version** - исправления ошибок
-
----
-
-## 🛡️ БЕЗОПАСНОСТЬ
-
-### Шифрование данных
-
-```sql
--- Хеширование паролей (bcrypt)
-UPDATE users 
-SET password_hash = crypt('new_password', gen_salt('bf'))
-WHERE username = 'admin';
-
--- Проверка пароля
-SELECT username 
-FROM users 
-WHERE username = 'admin' 
-  AND password_hash = crypt('password', password_hash);
-```
-
-### Аудит и логирование
-
-```sql
--- Аудит изменений
-CREATE TABLE audit_log (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    action VARCHAR(100),
-    table_name VARCHAR(100),
-    record_id VARCHAR(100),
-    old_values JSONB,
-    new_values JSONB,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
----
-
-## 📊 МОНИТОРИНГ И МЕТРИКИ
-
-### Ключевые метрики
-
-```sql
--- Размер базы данных
-SELECT 
-    pg_size_pretty(pg_database_size('service_oper_uchet')) as db_size;
-
--- Количество событий по типам
-SELECT 
-    event_type,
-    COUNT(*) as count
-FROM event_store
-GROUP BY event_type
-ORDER BY count DESC;
-
--- Производительность запросов
-SELECT 
-    query,
-    calls,
-    total_time,
-    mean_time
-FROM pg_stat_statements
-WHERE query LIKE '%deal_read_model%'
-ORDER BY total_time DESC;
-```
-
-### Health checks
-
-```sql
--- Проверка состояния БД
-SELECT 
-    'event_store' as table_name,
-    COUNT(*) as record_count,
-    MAX(created_at) as last_event
-FROM event_store
-UNION ALL
-SELECT 
-    'deal_read_model' as table_name,
-    COUNT(*) as record_count,
-    MAX(updated_at) as last_event
-FROM deal_read_model;
-```
-
----
-
-## 🔄 РЕЗЕРВНОЕ КОПИРОВАНИЕ
-
-### Стратегия бэкапов
-
-```bash
-# Полный бэкап (еженедельно)
-pg_dump service_oper_uchet > backup_full_$(date +%Y%m%d).sql
-
-# Инкрементальный бэкап (ежедневно)
-pg_dump --data-only --table=event_store service_oper_uchet > backup_events_$(date +%Y%m%d).sql
-
-# Восстановление
-psql service_oper_uchet < backup_full_20250127.sql
-```
-
-### Репликация
-
-```sql
--- Настройка реплики (PostgreSQL)
--- Primary
-ALTER SYSTEM SET wal_level = replica;
-ALTER SYSTEM SET max_wal_senders = 3;
-ALTER SYSTEM SET wal_keep_segments = 64;
-
--- Replica
-ALTER SYSTEM SET hot_standby = on;
-```
-
----
-
-## 📚 ДОПОЛНИТЕЛЬНЫЕ РЕСУРСЫ
-
-### Скрипты и утилиты
-
-- **[scripts/database/create_schema.py](../scripts/database/create_schema.py)** - создание схемы БД
-- **[scripts/database/init_database.py](../scripts/database/init_database.py)** - инициализация данных
-- **[src/infrastructure/database/](../src/infrastructure/database/)** - модели и репозитории
-
-### Документация
-
-- **[API Documentation](API_DOCUMENTATION.md)** - REST API
-- **[User Guide](USER_GUIDE.md)** - руководство пользователя
-- **[Project Documentation](PROJECT_DOCUMENTATION_MASTER.md)** - общая документация
-
----
-
-**Версия документации**: 1.0  
-**Дата обновления**: 27 января 2025  
-**Архитектура**: Event Sourcing + CQRS 
+Read Models - это **денормализованные представления** дан

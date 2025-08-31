@@ -1,22 +1,50 @@
 # docker-compose.db.yml
 services:
   postgres:
-    image: postgres:16           # Почему: актуальная стабильная версия Postgres.
-    container_name: so_pg        # Почему: фиксированное имя удобно для подключения (DB_HOST=so_pg).
+    image: postgres:16
+    container_name: so_pg
+    restart: unless-stopped
+
     environment:
-      POSTGRES_DB: so_uchet      # Почему: имя создаваемой БД.
-      POSTGRES_USER: so_user     # Почему: пользователь БД (dev).
-      POSTGRES_PASSWORD: so_pass # Почему: пароль (для dev; в проде вынести в secrets).
+      POSTGRES_DB: so_uchet          # создастся при первом старте
+      POSTGRES_USER: so_user         # суперпользователь (dev)
+      POSTGRES_PASSWORD: so_pass     # пароль (dev)
+      TZ: Europe/Moscow
+
+    # Настройки сервера (минимум нужного)
+    command: >
+      postgres
+      -c listen_addresses=*
+      -c max_connections=100
+      -c shared_buffers=256MB
+      -c log_min_duration_statement=1000
+
+    # Публикуем порт только на loopback ВМ (снаружи не торчит)
+    ports:
+      - "127.0.0.1:5432:5432"
+
     volumes:
+      # Данные кластера (переживут перезапуск/обновление образа)
       - so_pg_data:/var/lib/postgresql/data
-      # Почему: данные БД будут храниться в docker volume, переживут перезапуск/обновление контейнера.
+
+      # Необязательно: SQL/скрипты, которые выполнятся один раз при ИНИЦИАЛИЗАЦИИ кластера
+      # (создание расширений, ролей/схем и т.д.). Папку создайте у себя при необходимости.
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+
     networks:
-      - devnet                   # Почему: эта сеть общая с dev-container'ом.
-    restart: unless-stopped      # Почему: автоперезапуск, если контейнер упал/перегрузка.
+      - devnet
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U $${POSTGRES_USER} -d $${POSTGRES_DB} || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
 
 volumes:
-  so_pg_data:                    # Почему: объявляем volume для данных.
+  so_pg_data:
 
 networks:
   devnet:
-    external: true               # Почему: сеть создана заранее (вне compose).
+    external: true   # сеть должна существовать: docker network create devnet
+

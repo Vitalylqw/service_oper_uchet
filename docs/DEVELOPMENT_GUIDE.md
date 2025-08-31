@@ -391,6 +391,30 @@ git push origin feature/excel-validation
 
 ---
 
+## 🔄 СИНХРОНИЗАЦИЯ: ПАМЯТКА ДЛЯ РАЗРАБОТЧИКА
+
+- Подробный поток: `project_progress/SYNC_FLOW.md` (форматы событий, порядок, лимиты, версияция).
+- Быстрый запуск интеграционного теста синхронизации (PostgreSQL):
+
+```bash
+python testing/scripts/test_sync_integration.py --sync-type full --log-level INFO
+python testing/scripts/test_sync_integration.py --sync-type incremental --period-months 6 --log-level DEBUG
+```
+
+- Интерпретация ключевых логов:
+  - `Processed X main events + Y deferred events (queue size: N)` — если `N>0`, есть отложенные.
+  - Отложенные `DealItemAdded` при «родитель не найден» — штатно для out‑of‑order; см. раздел Deferred.
+
+- Проверка БД после прогона (примеры SQL):
+
+```sql
+SELECT COUNT(*) FROM read_deals;
+SELECT COUNT(*) FROM read_positions WHERE is_active = true;
+SELECT event_type, COUNT(*) FROM event_store GROUP BY event_type;
+```
+
+---
+
 ## 🏗️ АРХИТЕКТУРНЫЕ ПРИНЦИПЫ
 
 ### Domain Driven Design (DDD)

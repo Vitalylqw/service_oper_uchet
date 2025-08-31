@@ -334,7 +334,7 @@ class SchedulerService:
         # Create sync configuration based on job type
         config = SyncConfiguration(
             sync_type=job_type.value,
-            incremental_period_months=3 if job_type == SyncJobType.INCREMENTAL else 12,
+            partial_periods=[],  # Updated for new sync logic
             max_retry_attempts=1,  # Retry is handled at scheduler level
             continue_on_errors=True,
             rollback_on_failure=True,
