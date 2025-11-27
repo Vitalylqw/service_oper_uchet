@@ -452,26 +452,29 @@ class Deal:
 
 #### Value Objects
 
-```python
-from dataclasses import dataclass
-from decimal import Decimal
+Система использует несколько типов value objects для денежных сумм с разной точностью:
 
-@dataclass(frozen=True)
-class Money:
-    """Value object для денежных сумм."""
-    
-    amount: Decimal
-    currency: str = "RUB"
-    
-    def __post_init__(self):
-        if self.amount < 0:
-            raise ValueError("Amount cannot be negative")
-    
-    def __add__(self, other: 'Money') -> 'Money':
-        if self.currency != other.currency:
-            raise ValueError("Cannot add different currencies")
-        return Money(self.amount + other.amount, self.currency)
+```python
+from decimal import Decimal
+from domain.value_objects import Money, Money5, SignedMoney, SignedMoney5
+
+# Money - для большинства денежных полей (2 знака после запятой)
+revenue = Money(amount=Decimal("1500.50"))  # Округляется до 2 знаков
+
+# Money5 - для purchase_price в DealItem (5 знаков после запятой)
+purchase_price = Money5(amount=Decimal("123.45678"))  # Округляется до 5 знаков
+
+# SignedMoney - для полей, которые могут быть отрицательными (2 знака)
+margin = SignedMoney(amount=Decimal("-50.25"))  # Округляется до 2 знаков
+
+# SignedMoney5 - для margin в DealItem (5 знаков после запятой)
+margin_precise = SignedMoney5(amount=Decimal("-123.45678"))  # Округляется до 5 знаков
 ```
+
+**Использование в DealItem:**
+- `purchase_price`: `Money5` (5 знаков) - для точного хранения цены закупки
+- `margin`: `SignedMoney5` (5 знаков) - для точного хранения маржи
+- `sale_price`, `revenue`, `cost`: `Money` (2 знака) - стандартная точность
 
 ### Event Sourcing
 

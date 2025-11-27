@@ -120,7 +120,7 @@
 src/
 ├── domain/              # Бизнес-логика предметной области
 │   ├── models/          # Сущности (Deal, DealItem, SyncSession)
-│   ├── value_objects/   # Объекты-значения (Money, Period, Status)
+│   ├── value_objects/   # Объекты-значения (Money, Money5, SignedMoney, SignedMoney5, Period, Status)
 │   ├── exceptions/      # Доменные исключения
 │   └── interfaces/      # Интерфейсы репозиториев
 ├── application/         # Сценарии использования

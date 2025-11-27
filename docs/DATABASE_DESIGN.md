@@ -1,7 +1,7 @@
 # 🗄️ АРХИТЕКТУРА БАЗЫ ДАННЫХ SERVICE_OPER_UCHET
 
-> **Версия**: 1.0  
-> **Дата обновления**: 27 января 2025  
+> **Версия**: 1.1  
+> **Дата обновления**: 27 ноября 2025  
 > **Архитектура**: Event Sourcing + CQRS  
 > **Поддерживаемые БД**: PostgreSQL, SQLite
 
@@ -90,18 +90,17 @@ CREATE TABLE read_positions (
     supplier_name VARCHAR(500),
     pickup_date   VARCHAR(50),
     quantity NUMERIC(15,3),
-    purchase_price_amount NUMERIC(15,2),
+    purchase_price_amount NUMERIC(18,5),  -- Changed to 5 decimal places precision
     sale_price_amount     NUMERIC(15,2),
     revenue_amount        NUMERIC(15,2),
-    margin_amount         NUMERIC(15,2),
+    margin_amount         NUMERIC(18,5),  -- Changed to 5 decimal places precision
     cost_amount           NUMERIC(15,2),
     client_name VARCHAR(500) NOT NULL,
     period_month VARCHAR(20) NOT NULL,
     period_year  VARCHAR(4)  NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE NOT NULL,
-    version   INTEGER DEFAULT 1 NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    UNIQUE(deal_id, position_number)
 );
 
 -- Sync Sessions
@@ -193,6 +192,33 @@ Event Store является **единственным источником и�
 - 🔧 **Отладка** - детальная информация о проблемах
 
 ---
+
+## 💰 ТИПЫ ДАННЫХ И ТОЧНОСТЬ
+
+### Денежные поля с разной точностью
+
+Система использует разные типы точности для различных денежных полей:
+
+| Поле | Тип в БД | Точность | Value Object | Использование |
+|------|----------|----------|--------------|---------------|
+| `purchase_price_amount` | `NUMERIC(18,5)` | 5 знаков | `Money5` | Цена закупки в DealItem |
+| `margin_amount` | `NUMERIC(18,5)` | 5 знаков | `SignedMoney5` | Маржа в DealItem |
+| `sale_price_amount` | `NUMERIC(15,2)` | 2 знака | `Money` | Цена продажи |
+| `revenue_amount` | `NUMERIC(15,2)` | 2 знака | `Money` | Выручка |
+| `cost_amount` | `NUMERIC(15,2)` | 2 знака | `Money` | Стоимость закупки |
+| `total_revenue_amount` | `NUMERIC(15,2)` | 2 знака | `Money` | Общая выручка по сделке |
+| `total_margin_amount` | `NUMERIC(15,2)` | 2 знака | `SignedMoney` | Общая маржа по сделке |
+
+**Примечание:** Поля `purchase_price_amount` и `margin_amount` имеют повышенную точность (5 знаков) для более точных расчетов и сохранения исходной точности из Excel файлов.
+
+### Value Objects
+
+В доменном слое используются следующие value objects:
+
+- **Money** - положительные денежные суммы с точностью 2 знака
+- **Money5** - положительные денежные суммы с точностью 5 знаков (для `purchase_price`)
+- **SignedMoney** - денежные суммы (могут быть отрицательными) с точностью 2 знака
+- **SignedMoney5** - денежные суммы (могут быть отрицательными) с точностью 5 знаков (для `margin`)
 
 ## 📖 READ MODELS (CQRS)
 
