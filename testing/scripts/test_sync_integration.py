@@ -17,10 +17,26 @@ Usage:
 import asyncio
 import sys
 import argparse
+import os
 from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+# Ensure both 'src' (for top-level packages: application/domain/...) and project root (for 'src' pkg)
+project_root = Path(__file__).parent.parent.parent
+src_path = project_root / "src"
+if str(src_path) not in sys.path:
+    sys.path.insert(0, str(src_path))
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+# Workaround for relative import in 'application.excel_parser.models' expecting 'application.domain'
+try:  # Do not fail hard in scripts
+    import importlib
+    if 'domain' not in sys.modules:
+        importlib.import_module('domain')
+    if 'application.domain' not in sys.modules:
+        sys.modules['application.domain'] = sys.modules['domain']
+except Exception:
+    pass
 
 from loguru import logger
 
@@ -39,6 +55,59 @@ def setup_logging(log_level: str = "INFO"):
     )
 
 
+def setup_postgresql_environment():
+    """Setup PostgreSQL environment variables from config.env."""
+    config_file = Path(__file__).parent.parent.parent / "config.env"
+    
+    if config_file.exists():
+        logger.info(f"📁 Loading PostgreSQL configuration from: {config_file}")
+        
+        # Read config.env and set environment variables
+        with open(config_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    # Set both uppercase and lowercase versions for compatibility
+                    os.environ[key] = value
+                    os.environ[key.lower()] = value
+                    logger.debug(f"🔧 Set env var: {key}={value}")
+        
+        # Ensure PostgreSQL is selected
+        os.environ["DB_TYPE"] = "postgresql"
+        os.environ["db_type"] = "postgresql"
+        
+        # Set variables with DB_ prefix for pydantic-settings
+        # DatabaseConfig uses env_prefix="DB_" and field names like db_host, db_port
+        # So it looks for DB_DB_HOST, DB_DB_PORT, etc.
+        os.environ["DB_DB_TYPE"] = "postgresql"
+        os.environ["DB_DB_HOST"] = os.environ.get("DB_HOST", "so_pg")
+        os.environ["DB_DB_PORT"] = os.environ.get("DB_PORT", "5432")
+        os.environ["DB_DB_NAME"] = os.environ.get("DB_NAME", "so_uchet")
+        os.environ["DB_DB_USER"] = os.environ.get("DB_USER", "so_user")
+        os.environ["DB_DB_PASSWORD"] = os.environ.get("DB_PASSWORD", "so_pass")
+        os.environ["DB_DB_POOL_SIZE"] = os.environ.get("DB_POOL_SIZE", "10")
+        os.environ["DB_DB_POOL_MAX_OVERFLOW"] = os.environ.get("DB_POOL_MAX_OVERFLOW", "20")
+        os.environ["DB_DB_POOL_TIMEOUT"] = os.environ.get("DB_POOL_TIMEOUT", "30")
+        os.environ["DB_DB_POOL_RECYCLE"] = os.environ.get("DB_POOL_RECYCLE", "3600")
+        os.environ["DB_DB_CONNECT_TIMEOUT"] = os.environ.get("DB_CONNECT_TIMEOUT", "10")
+        os.environ["DB_DB_QUERY_TIMEOUT"] = os.environ.get("DB_QUERY_TIMEOUT", "60")
+        
+        logger.info("✅ PostgreSQL environment configured")
+        
+        # Log current environment variables for debugging
+        logger.debug(f"🔧 Environment variables set:")
+        logger.debug(f"  DB_TYPE: {os.environ.get('DB_TYPE', 'NOT_SET')}")
+        logger.debug(f"  db_type: {os.environ.get('db_type', 'NOT_SET')}")
+        logger.debug(f"  DB_DB_TYPE: {os.environ.get('DB_DB_TYPE', 'NOT_SET')}")
+        logger.debug(f"  DB_DB_HOST: {os.environ.get('DB_DB_HOST', 'NOT_SET')}")
+        logger.debug(f"  DB_DB_PORT: {os.environ.get('DB_DB_PORT', 'NOT_SET')}")
+        logger.debug(f"  DB_DB_NAME: {os.environ.get('DB_DB_NAME', 'NOT_SET')}")
+    else:
+        logger.warning(f"⚠️ Config file not found: {config_file}")
+        logger.info("🔧 Using default PostgreSQL settings")
+
+
 def get_interactive_choice():
     """Get user choice for sync type and parameters interactively."""
     print("\n" + "="*60)
@@ -47,8 +116,8 @@ def get_interactive_choice():
     
     # Choose sync type
     print("\n📋 Выберите тип синхронизации:")
-    print("1. Полная синхронизация (все данные)")
-    print("2. Инкрементальная синхронизация (за период)")
+    print("1. Полная синхронизация (весь Excel файл)")
+    print("2. Частичная синхронизация (выборочные периоды)")
     
     while True:
         try:
@@ -57,7 +126,7 @@ def get_interactive_choice():
                 sync_type = "full"
                 break
             elif choice == "2":
-                sync_type = "incremental"
+                sync_type = "partial"
                 break
             else:
                 print("❌ Неверный выбор. Введите 1 или 2.")
@@ -65,22 +134,23 @@ def get_interactive_choice():
             print("\n\n👋 Выход из программы.")
             sys.exit(0)
     
-    # Get period for incremental sync
-    period_months = 12
-    if sync_type == "incremental":
-        print(f"\n📅 Период для инкрементальной синхронизации (по умолчанию: {period_months} месяцев)")
+    # Get periods for partial sync
+    partial_periods = []
+    if sync_type == "partial":
+        print(f"\n📅 Выборочные периоды для частичной синхронизации")
+        print("Введите периоды через запятую (например: 'Январь 2025, Февраль 2025')")
         while True:
             try:
-                period_input = input(f"Введите количество месяцев (Enter для {period_months}): ").strip()
-                if period_input == "":
+                periods_input = input("Периоды (Enter для всех доступных): ").strip()
+                if periods_input == "":
+                    partial_periods = []  # Will sync all available periods
                     break
-                period_months = int(period_input)
-                if period_months > 0:
+                # Parse comma-separated periods
+                partial_periods = [p.strip() for p in periods_input.split(',') if p.strip()]
+                if partial_periods:
                     break
                 else:
-                    print("❌ Количество месяцев должно быть больше 0.")
-            except ValueError:
-                print("❌ Введите корректное число.")
+                    print("❌ Введите хотя бы один период.")
             except KeyboardInterrupt:
                 print("\n\n👋 Выход из программы.")
                 sys.exit(0)
@@ -109,8 +179,11 @@ def get_interactive_choice():
     print("\n" + "="*60)
     print("📋 ПОДТВЕРЖДЕНИЕ ВЫБОРА:")
     print(f"   Тип синхронизации: {sync_type}")
-    if sync_type == "incremental":
-        print(f"   Период: {period_months} месяцев")
+    if sync_type == "partial":
+        if partial_periods:
+            print(f"   Периоды: {', '.join(partial_periods)}")
+        else:
+            print(f"   Периоды: все доступные")
     print(f"   Уровень логирования: {log_level}")
     print("="*60)
     
@@ -118,7 +191,7 @@ def get_interactive_choice():
         try:
             confirm = input("\nЗапустить тест? (y/n): ").strip().lower()
             if confirm in ['y', 'yes', 'да', 'д']:
-                return sync_type, period_months, log_level
+                return sync_type, partial_periods, log_level
             elif confirm in ['n', 'no', 'нет', 'н']:
                 print("👋 Отменено.")
                 sys.exit(0)
@@ -129,7 +202,7 @@ def get_interactive_choice():
             sys.exit(0)
 
 
-async def test_sync(sync_type: str = "full", incremental_period_months: int = 12):
+async def test_sync(sync_type: str = "full", partial_periods: list[str] = None):
     """Test synchronization process with specified type."""
     try:
         from application.change_detector import ChangeDetectorService
@@ -146,8 +219,10 @@ async def test_sync(sync_type: str = "full", incremental_period_months: int = 12
 
         logger.info(f"🔄 Testing {sync_type} synchronization process...")
 
-        # Setup database
+        # Setup database with PostgreSQL configuration
         config = DatabaseConfig()
+        logger.info(f"🔧 Database config: type={config.db_type}, host={config.db_host}, port={config.db_port}, db={config.db_name}")
+        
         db_manager = DatabaseManager(config)
 
         async with db_manager.get_async_session() as session:
@@ -167,8 +242,8 @@ async def test_sync(sync_type: str = "full", incremental_period_months: int = 12
                 read_model_builder=read_model_builder,
             )
 
-            # Excel file path
-            excel_file = Path("data/real_data_for_testing/Data_source_excel.xlsx")
+            # Excel file path - use absolute path from project root
+            excel_file = Path(__file__).parent.parent.parent / "data" / "real_data_for_testing" / "Data_source_excel.xlsx"
 
             if not excel_file.exists():
                 logger.error(f"❌ Excel file not found: {excel_file}")
@@ -177,7 +252,7 @@ async def test_sync(sync_type: str = "full", incremental_period_months: int = 12
             # Configure sync based on type
             sync_config = SyncConfiguration(
                 sync_type=sync_type,
-                incremental_period_months=incremental_period_months,
+                partial_periods=partial_periods or [],
                 max_retry_attempts=1,
                 continue_on_errors=True,
                 rollback_on_failure=False,
@@ -186,7 +261,10 @@ async def test_sync(sync_type: str = "full", incremental_period_months: int = 12
             )
 
             logger.info(f"📁 Starting {sync_type} sync for file: {excel_file}")
-            logger.info(f"📅 Incremental period: {incremental_period_months} months")
+            if sync_type == "partial" and partial_periods:
+                logger.info(f"📅 Target periods: {', '.join(partial_periods)}")
+            else:
+                logger.info(f"📅 Processing: all available periods")
 
             # Execute sync
             result = await orchestrator.execute_sync(str(excel_file), sync_config)
@@ -270,7 +348,7 @@ def parse_arguments():
 Examples:
   python test_sync_integration.py                                    # Full sync (default)
   python test_sync_integration.py --sync-type full                   # Full sync
-  python test_sync_integration.py --sync-type incremental --period-months 6  # Incremental sync for 6 months
+  python test_sync_integration.py --sync-type partial                # Partial sync (all periods) 
   python test_sync_integration.py --log-level DEBUG                  # Full sync with debug logs
   python test_sync_integration.py --interactive                      # Interactive mode
         """
@@ -278,16 +356,9 @@ Examples:
     
     parser.add_argument(
         "--sync-type",
-        choices=["full", "incremental"],
+        choices=["full", "partial"],
         default="full",
         help="Type of synchronization to perform (default: full)"
-    )
-    
-    parser.add_argument(
-        "--period-months",
-        type=int,
-        default=12,
-        help="Number of months for incremental sync (default: 12)"
     )
     
     parser.add_argument(
@@ -312,20 +383,23 @@ async def main():
     
     # Interactive mode
     if args.interactive:
-        sync_type, period_months, log_level = get_interactive_choice()
+        sync_type, partial_periods, log_level = get_interactive_choice()
     else:
         sync_type = args.sync_type
-        period_months = args.period_months
+        partial_periods = []  # For non-interactive mode, default to empty (all periods)
         log_level = args.log_level
     
     # Setup logging
     setup_logging(log_level)
     
-    logger.info(f"🚀 Starting {sync_type} synchronization tests...")
-    logger.info(f"📋 Configuration: sync_type={sync_type}, period_months={period_months}, log_level={log_level}")
+    # Setup PostgreSQL environment
+    setup_postgresql_environment()
+    
+    logger.info(f"🚀 Starting {sync_type} synchronization tests with PostgreSQL...")
+    logger.info(f"📋 Configuration: sync_type={sync_type}, partial_periods={partial_periods}, log_level={log_level}")
 
     # Test 1: Sync
-    success1 = await test_sync(sync_type, period_months)
+    success1 = await test_sync(sync_type, partial_periods)
 
     # Test 2: Data verification
     success2 = await test_data_verification()

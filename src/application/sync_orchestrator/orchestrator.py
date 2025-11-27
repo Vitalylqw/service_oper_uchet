@@ -108,29 +108,25 @@ class SyncOrchestratorService:
                 f"{result.summary.parsing_duration_seconds:.2f}s"
             )
 
-            # Phase 2: Detect changes
-            if config.sync_type == "incremental":
-                logger.info("🔍 Phase 2: Detecting changes...")
-                change_start = time.time()
+            # Phase 2: Detect changes (unified for full/partial by provided periods)
+            logger.info("🔍 Phase 2: Detecting changes...")
+            change_start = time.time()
 
-                result.change_detection_result = await self.change_detector.detect_changes(
-                    result.parse_result.deals, config.incremental_period_months
-                )
+            # For new simplified logic, we don't use period months anymore
+            # Change detection will use the target periods from config if partial sync  
+            result.change_detection_result = await self.change_detector.detect_changes(
+                result.parse_result.deals, sync_period_months=0  # Not used in new logic
+            )
 
-                result.summary.insertions_count = result.change_detection_result.insertion_count
-                result.summary.updates_count = result.change_detection_result.update_count
-                result.summary.deletions_count = result.change_detection_result.deletion_count
-                result.summary.change_detection_duration_seconds = time.time() - change_start
+            result.summary.insertions_count = result.change_detection_result.insertion_count
+            result.summary.updates_count = result.change_detection_result.update_count
+            result.summary.deletions_count = result.change_detection_result.deletion_count
+            result.summary.change_detection_duration_seconds = time.time() - change_start
 
-                logger.info(
-                    f"✅ Change detection completed: {result.change_detection_result.total_changes} changes "
-                    f"in {result.summary.change_detection_duration_seconds:.2f}s"
-                )
-            else:
-                # Full sync - all data is considered new
-                logger.info("🔍 Phase 2: Full sync - treating all data as new")
-                result.summary.insertions_count = result.summary.total_deals_processed
-                result.summary.change_detection_duration_seconds = 0.0
+            logger.info(
+                f"✅ Change detection completed: {result.change_detection_result.total_changes} changes "
+                f"in {result.summary.change_detection_duration_seconds:.2f}s"
+            )
 
             # Phase 3: Apply changes to database
             logger.info("💾 Phase 3: Applying changes to database...")
@@ -203,7 +199,7 @@ class SyncOrchestratorService:
                 _p = _Path(file_path)
                 if _p.exists() and _p.is_file():
                     sync_session.source_file_size = _p.stat().st_size
-                    sync_session.source_file_hash = _hashlib.sha256(_p.read_bytes()).hexdigest()
+                    sync_session.source_file_hash = _hashlib.md5(_p.read_bytes()).hexdigest()
                 else:
                     # Fallback placeholders to avoid DB nulls
                     sync_session.source_file_size = 0
@@ -253,13 +249,9 @@ class SyncOrchestratorService:
 
             events_to_create = []
 
-            if config.sync_type == "full":
-                # Full sync - create events for all deals
-                events_to_create = await self._create_full_sync_events(result)
-            else:
-                # Incremental sync - create events for changes only
-                if result.change_detection_result:
-                    events_to_create = await self._create_incremental_sync_events(result)
+            # Create events for detected changes only (unified)
+            if result.change_detection_result:
+                events_to_create = await self._create_incremental_sync_events(result)
 
             if events_to_create:
                 logger.info(f"Creating {len(events_to_create)} events in event store")
@@ -394,7 +386,24 @@ class SyncOrchestratorService:
                         "deal_id": str(deal.id),
                         "deal_key": deal.deal_key,
                         "client_name": deal.client_name,
-                        # ... (similar to full sync)
+                        "invoice_info": deal.invoice_info,
+                        "invoice_number": deal.invoice_number,
+                        "invoice_date": deal.invoice_date,
+                        "period": {
+                            "month": deal.period.month,
+                            "year": deal.period.year,
+                            "full_name": deal.period.full_name,
+                        },
+                        "is_shipped": deal.is_shipped.value if deal.is_shipped else None,
+                        "is_paid": deal.is_paid.value if deal.is_paid else None,
+                        "upd_number": deal.upd_number,
+                        "seller": deal.seller,
+                        "totals": {
+                            "revenue": str(deal.total_revenue.amount) if deal.total_revenue else None,
+                            "margin": str(deal.total_margin.amount) if deal.total_margin else None,
+                            "cost": str(deal.total_cost.amount) if deal.total_cost else None,
+                            "kickback": str(deal.kickback_amount.amount) if deal.kickback_amount else None,
+                        },
                     },
                     "metadata": {
                         "sync_session_id": result.sync_session_id,
@@ -404,6 +413,89 @@ class SyncOrchestratorService:
                     },
                 }
                 events.append(event)
+                
+                # Create DealItemAdded events for each item in new deal
+                for item in deal.items:
+                    item_event = {
+                        "aggregate_id": deal.id,
+                        "event_type": "DealItemAdded",
+                        "event_data": {
+                            "deal_id": str(deal.id),
+                            "item_id": str(item.id),
+                            "product_name": item.product_name,
+                            "supplier_name": item.supplier_name,
+                            "pickup_date": item.pickup_date,
+                            "quantity": str(item.quantity) if item.quantity else None,
+                            "position_number": item.position_number,
+                            "prices": {
+                                "purchase": str(item.purchase_price.amount)
+                                if item.purchase_price
+                                else None,
+                                "sale": str(item.sale_price.amount)
+                                if item.sale_price
+                                else None,
+                                "revenue": str(item.revenue.amount)
+                                if item.revenue
+                                else None,
+                                "margin": str(item.margin.amount)
+                                if item.margin
+                                else None,
+                                "cost": str(item.cost.amount)
+                                if item.cost
+                                else None,
+                            },
+                        },
+                        "metadata": {
+                            "sync_session_id": result.sync_session_id,
+                            "sync_type": result.sync_type,
+                            "change_type": "INSERT",
+                            "source": "excel_sync",
+                        },
+                    }
+                    events.append(item_event)
+            
+            elif change.entity_type.value == "deal_item" and change.new_entity:
+                # Handle individual DealItem insertions
+                item = change.new_entity
+                deal_id = item.deal_id  # This should be set by change detector
+                
+                item_event = {
+                    "aggregate_id": deal_id,
+                    "event_type": "DealItemAdded", 
+                    "event_data": {
+                        "deal_id": str(deal_id),
+                        "item_id": str(item.id),
+                        "product_name": item.product_name,
+                        "supplier_name": item.supplier_name,
+                        "pickup_date": item.pickup_date,
+                        "quantity": str(item.quantity) if item.quantity else None,
+                        "position_number": item.position_number,
+                        "prices": {
+                            "purchase": str(item.purchase_price.amount)
+                            if item.purchase_price
+                            else None,
+                            "sale": str(item.sale_price.amount)
+                            if item.sale_price
+                            else None,
+                            "revenue": str(item.revenue.amount)
+                            if item.revenue
+                            else None,
+                            "margin": str(item.margin.amount)
+                            if item.margin
+                            else None,
+                            "cost": str(item.cost.amount)
+                            if item.cost
+                            else None,
+                        },
+                    },
+                    "metadata": {
+                        "sync_session_id": result.sync_session_id,
+                        "sync_type": result.sync_type,
+                        "change_type": "INSERT",
+                        "source": "excel_sync",
+                    },
+                }
+                events.append(item_event)
 
         # Process updates
         for change in result.change_detection_result.updates:
@@ -416,7 +508,22 @@ class SyncOrchestratorService:
                         "deal_id": str(deal.id),
                         "deal_key": deal.deal_key,
                         "field_changes": change.field_changes,
-                        # Include only changed fields + identifier fields
+                        # Include required fields for backward compatibility
+                        "client_name": deal.client_name,
+                        "invoice_info": deal.invoice_info,
+                        "period": {
+                            "month": deal.period.month,
+                            "year": deal.period.year,
+                            "full_name": deal.period.full_name,
+                        },
+                        "is_shipped": deal.is_shipped.value if deal.is_shipped else None,
+                        "is_paid": deal.is_paid.value if deal.is_paid else None,
+                        "upd_number": deal.upd_number,
+                        "seller": deal.seller,
+                        "total_revenue": str(deal.total_revenue.amount) if deal.total_revenue else None,
+                        "total_margin": str(deal.total_margin.amount) if deal.total_margin else None,
+                        "total_cost": str(deal.total_cost.amount) if deal.total_cost else None,
+                        "kickback_amount": str(deal.kickback_amount.amount) if deal.kickback_amount else None,
                     },
                     "metadata": {
                         "sync_session_id": result.sync_session_id,
@@ -426,6 +533,51 @@ class SyncOrchestratorService:
                     },
                 }
                 events.append(event)
+            
+            elif change.entity_type.value == "deal_item" and change.new_entity:
+                # Handle individual DealItem updates
+                item = change.new_entity
+                deal_id = item.deal_id
+                
+                item_event = {
+                    "aggregate_id": deal_id,
+                    "event_type": "DealItemUpdated",
+                    "event_data": {
+                        "deal_id": str(deal_id),
+                        "item_id": str(item.id),
+                        "field_changes": change.field_changes,
+                        # Include current item data for read model updates
+                        "product_name": item.product_name,
+                        "supplier_name": item.supplier_name,
+                        "pickup_date": item.pickup_date,
+                        "quantity": str(item.quantity) if item.quantity else None,
+                        "position_number": item.position_number,
+                        "prices": {
+                            "purchase": str(item.purchase_price.amount)
+                            if item.purchase_price
+                            else None,
+                            "sale": str(item.sale_price.amount)
+                            if item.sale_price
+                            else None,
+                            "revenue": str(item.revenue.amount)
+                            if item.revenue
+                            else None,
+                            "margin": str(item.margin.amount)
+                            if item.margin
+                            else None,
+                            "cost": str(item.cost.amount)
+                            if item.cost
+                            else None,
+                        },
+                    },
+                    "metadata": {
+                        "sync_session_id": result.sync_session_id,
+                        "sync_type": result.sync_type,
+                        "change_type": "UPDATE",
+                        "source": "excel_sync",
+                    },
+                }
+                events.append(item_event)
 
         # Process deletions
         for change in result.change_detection_result.deletions:

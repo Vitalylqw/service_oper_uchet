@@ -16,8 +16,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.interfaces import DealRepository, ReadModelRepository, SyncSessionRepository
 from domain.models import Deal, SyncSession
+from domain.value_objects import Money, SignedMoney, Period, Status
 
 from .models import ReadModelDeal, ReadModelPosition, SyncSessionModel
+from infrastructure.database.models import (
+    EventStoreModel,
+    ReadModelAudit,
+    ReadModelDeal,
+    ReadModelPosition,
+    ReadModelStats,
+    SyncSessionModel,
+)
+from infrastructure.mappers.deal_item_mapper import from_read_position
 
 
 class DealRepositoryImplementation(DealRepository):
@@ -69,7 +79,6 @@ class DealRepositoryImplementation(DealRepository):
             query = (
                 select(ReadModelDeal)
                 .where(ReadModelDeal.client_name.ilike(f"%{client_name}%"))
-                .where(ReadModelDeal.is_active)
                 .order_by(ReadModelDeal.created_at.desc())
             )
 
@@ -95,7 +104,6 @@ class DealRepositoryImplementation(DealRepository):
                 select(ReadModelDeal)
                 .where(ReadModelDeal.period_month == period_month)
                 .where(ReadModelDeal.period_year == period_year)
-                .where(ReadModelDeal.is_active)
                 .order_by(ReadModelDeal.created_at.desc())
             )
 
@@ -123,7 +131,7 @@ class DealRepositoryImplementation(DealRepository):
         """Find all deals with pagination and filters."""
         try:
             # Base query
-            query = select(ReadModelDeal).where(ReadModelDeal.is_active)
+            query = select(ReadModelDeal)
 
             # Apply filters
             if filters:
@@ -194,12 +202,12 @@ class DealRepositoryImplementation(DealRepository):
         )
 
     async def delete(self, deal_id: uuid.UUID) -> None:
-        """Soft delete deal by marking as inactive."""
+        """Hard delete deal (positions are deleted by FK cascade)."""
         try:
-            query = update(ReadModelDeal).where(ReadModelDeal.id == deal_id).values(is_active=False)
-
-            await self.session.execute(query)
-            logger.debug(f"Soft deleted deal {deal_id}")
+            await self.session.execute(
+                delete(ReadModelDeal).where(ReadModelDeal.id == deal_id)
+            )
+            logger.debug(f"Hard deleted deal {deal_id}")
 
         except Exception as e:
             logger.error(f"Failed to delete deal {deal_id}: {e}")
@@ -208,7 +216,7 @@ class DealRepositoryImplementation(DealRepository):
     async def get_all_keys(self) -> list[str]:
         """Get all deal keys for change detection."""
         try:
-            query = select(ReadModelDeal.deal_key).where(ReadModelDeal.is_active)
+            query = select(ReadModelDeal.deal_key)
 
             result = await self.session.execute(query)
             deal_keys = result.scalars().all()
@@ -226,25 +234,32 @@ class DealRepositoryImplementation(DealRepository):
         # In a full implementation, you might reconstruct from events
         # or have more sophisticated mapping logic
 
-        from domain.value_objects import Money, Period, Status
+
 
         # Create period
         period = Period(
             month=model.period_month, year=model.period_year, full_name=model.period_full_name
         )
 
-        # Create deal
-        deal = Deal(client_name=model.client_name, invoice_info=model.invoice_info, period=period)
+        # Build deal via DealBuilder to ensure mandatory period fields are set
+        from domain.builders.deal_builder import DealBuilder
+        builder = DealBuilder(period=period)
+        builder.client_name = model.client_name
+        builder.invoice_info = model.invoice_info
+        builder.seller = model.seller or "UNKNOWN"
+        builder.invoice_number = model.invoice_number or None
+        builder.invoice_date = model.invoice_date or None
+        builder.upd_number = model.upd_number or None
+        builder.is_shipped = Status.from_string(model.is_shipped) if model.is_shipped else None
+        builder.is_paid = Status.from_string(model.is_paid) if model.is_paid else None
+        # Money fields from read model
+        builder.total_revenue = Money(amount=model.total_revenue_amount) if model.total_revenue_amount else None
+        builder.total_margin = SignedMoney(amount=model.total_margin_amount) if model.total_margin_amount else None
+        builder.total_cost = Money(amount=model.total_cost_amount) if model.total_cost_amount else None
+        builder.kickback_amount = Money(amount=model.kickback_amount_value) if model.kickback_amount_value else None
 
-        # Set ID and other fields
-        deal.id = model.id
-        # deal_key is a computed field - cannot be set directly
-        deal.invoice_number = model.invoice_number or ""
-        deal.invoice_date = model.invoice_date or ""
-        deal.is_shipped = Status.from_string(model.is_shipped) if model.is_shipped else None
-        deal.is_paid = Status.from_string(model.is_paid) if model.is_paid else None
-        deal.upd_number = model.upd_number or ""
-        deal.seller = model.seller or ""
+        deal = builder.build()
+        deal.set_id(model.id)
 
         # Set money fields
         if model.total_revenue_amount:
@@ -253,7 +268,7 @@ class DealRepositoryImplementation(DealRepository):
             )
 
         if model.total_margin_amount:
-            deal.total_margin = Money(
+            deal.total_margin = SignedMoney(
                 amount=model.total_margin_amount
             )
 
@@ -274,13 +289,10 @@ class DealRepositoryImplementation(DealRepository):
 
     async def _load_deal_items(self, deal: Deal) -> None:
         """Load deal items from positions read model."""
-        from domain.models import DealItem
-
         try:
             query = (
                 select(ReadModelPosition)
                 .where(ReadModelPosition.deal_id == deal.id)
-                .where(ReadModelPosition.is_active)
                 .order_by(ReadModelPosition.created_at.asc())
             )
 
@@ -288,54 +300,18 @@ class DealRepositoryImplementation(DealRepository):
             position_models = result.scalars().all()
 
             for position_model in position_models:
-                item = DealItem(product_name=position_model.product_name)
-                item.id = position_model.id
-                item.supplier_name = position_model.supplier_name or ""
-                item.pickup_date = position_model.pickup_date or ""
-
-                if position_model.quantity:
-                    item.quantity = position_model.quantity
-
-                # Set money fields
-                if position_model.purchase_price_amount:
-                    from domain.value_objects import Money
-
-                    item.purchase_price = Money(
-                        amount=position_model.purchase_price_amount
-                    )
-
-                if position_model.sale_price_amount:
-                    from domain.value_objects import Money
-
-                    item.sale_price = Money(
-                        amount=position_model.sale_price_amount
-                    )
-
-                if position_model.revenue_amount:
-                    from domain.value_objects import Money
-
-                    item.revenue = Money(
-                        amount=position_model.revenue_amount
-                    )
-
-                if position_model.margin_amount:
-                    from domain.value_objects import Money
-
-                    item.margin = Money(
-                        amount=position_model.margin_amount
-                    )
-
-                if position_model.cost_amount:
-                    from domain.value_objects import Money
-
-                    item.cost = Money(
-                        amount=position_model.cost_amount
-                    )
-
-                deal.items.append(item)
+                item = from_read_position(position_model, deal)
+                deal.add_item(item)
 
         except Exception as e:
-            logger.error(f"Failed to load items for deal {deal.id}: {e}")
+            import traceback
+            error_trace = traceback.format_exc()
+            logger.error(
+                "Failed to load items for deal {}: {}\n{}",
+                deal.id,
+                str(e),
+                error_trace,
+            )
             # Don't raise - deal can exist without items
 
 
@@ -487,7 +463,7 @@ class SyncSessionRepositoryImplementation(SyncSessionRepository):
     def _model_to_domain(self, model: SyncSessionModel) -> SyncSession:
         """Convert database model to domain object."""
         from domain.models import SyncType
-        from domain.value_objects import Status
+
 
         # Create sync session
         sync_session = SyncSession(sync_type=SyncType(model.sync_type), source_file_path=model.file_path)
@@ -632,8 +608,8 @@ class ReadModelRepositoryImplementation(ReadModelRepository):
         try:
             from sqlalchemy import case, cast, Numeric
 
-            # Base condition – only active deals
-            conditions = [ReadModelDeal.is_active.is_(True)]
+            # Base condition - get all deals (no is_active field)
+            conditions = []
 
             if period_month:
                 conditions.append(ReadModelDeal.period_month == period_month)
@@ -720,8 +696,6 @@ class ReadModelRepositoryImplementation(ReadModelRepository):
             if supplier_name:
                 query = query.where(ReadModelPosition.supplier_name.ilike(f"%{supplier_name}%"))
 
-            query = query.where(ReadModelPosition.is_active)
-
             result = await self.session.execute(query)
             stats = result.one()
 
@@ -739,8 +713,8 @@ class ReadModelRepositoryImplementation(ReadModelRepository):
     ) -> dict[str, Any]:
         """Search deals with filters and pagination."""
         try:
-            # Build base query
-            base_query = select(ReadModelDeal).where(ReadModelDeal.is_active)
+            # Build base query (no is_active field)
+            base_query = select(ReadModelDeal)
 
             # Add text search
             if query:

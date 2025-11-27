@@ -16,6 +16,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     DateTime,
+    ForeignKey,
     Index,
     Integer,
     Numeric,
@@ -176,32 +177,28 @@ class ReadModelDeal(Base):
     kickback_amount_value: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
 
     # Calculated totals based on positions
-    calc_revenue_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
-    calc_margin_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
-    calc_cost_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
+    calc_revenue_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), server_default='0')
+    calc_margin_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), server_default='0')
+    calc_cost_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), server_default='0')
 
-    # Mismatch values between total and calculated
-    revenue_mismatch: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
-    margin_mismatch: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
-    cost_mismatch: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
-    has_totals_error: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Quality flag: True if any mismatch is detected
+    has_totals_error: Mapped[bool] = mapped_column(Boolean, server_default=text('false'))
 
     # Aggregated fields
-    items_count: Mapped[int] = mapped_column(Integer, default=0)
+    items_count: Mapped[int] = mapped_column(Integer, server_default='0')
     total_quantity: Mapped[Decimal] = mapped_column(Numeric(15, 3), nullable=True)
 
     # System fields
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=func.now(), onupdate=func.now()
     )
-    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
     # Indexes for common queries
     __table_args__ = (
         Index("ix_read_deals_client_name", "client_name"),
         Index("ix_read_deals_period", "period_year", "period_month"),
+        Index("ix_read_deals_period_full_name", "period_full_name"),
         Index("ix_read_deals_status", "is_shipped", "is_paid"),
         Index("ix_read_deals_seller", "seller"),
         Index("ix_read_deals_created_at", "created_at"),
@@ -213,9 +210,10 @@ class ReadModelDeal(Base):
 
 class ReadModelPosition(Base):
     """
-    Read model for deal positions - optimized for queries.
+    Read model for deal positions - simplified without versioning.
 
     Denormalized view of deal items for fast reading.
+    Holds current state only. History preserved in event_store.
     Compatible with both PostgreSQL and SQLite.
     """
 
@@ -225,7 +223,9 @@ class ReadModelPosition(Base):
     id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True)
 
     # Foreign key to deal
-    deal_id: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False)
+    deal_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("read_deals.id", ondelete="CASCADE"), nullable=False
+    )
     deal_key: Mapped[str] = mapped_column(String(255), nullable=False)
 
     # Item info
@@ -239,10 +239,10 @@ class ReadModelPosition(Base):
     # Quantities and pricing
     quantity: Mapped[Decimal] = mapped_column(Numeric(15, 3), nullable=True)
 
-    purchase_price_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
+    purchase_price_amount: Mapped[Decimal] = mapped_column(Numeric(18, 5), nullable=True)
     sale_price_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
     revenue_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
-    margin_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
+    margin_amount: Mapped[Decimal] = mapped_column(Numeric(18, 5), nullable=True)
     cost_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
 
     # Deal context (denormalized for fast queries)
@@ -250,15 +250,13 @@ class ReadModelPosition(Base):
     period_month: Mapped[str] = mapped_column(String(20), nullable=False)
     period_year: Mapped[str] = mapped_column(String(4), nullable=False)
 
-    # System fields
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # System fields (simplified - no versioning)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=func.now(), onupdate=func.now()
     )
-    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
-    # Indexes for common queries
+    # Indexes for common queries (simplified - no versioning)
     __table_args__ = (
         Index("ix_read_positions_deal_id", "deal_id"),
         Index("ix_read_positions_position_number", "position_number"),
@@ -266,19 +264,16 @@ class ReadModelPosition(Base):
         Index("ix_read_positions_supplier", "supplier_name"),
         Index("ix_read_positions_client", "client_name"),
         Index("ix_read_positions_period", "period_year", "period_month"),
-        Index("ix_read_positions_hash_key", "hash_key"),
-        # Composite indexes
+        # SIMPLIFIED: Single unique constraint on hash_key (no versioning complexity)
+        Index("ix_read_positions_hash_key", "hash_key", unique=True),
+        # Composite indexes / constraints for performance and integrity
         Index("ix_read_positions_deal_product", "deal_id", "product_name"),
-        Index("ix_read_positions_deal_position", "deal_id", "position_number"),
-        # Unique constraint for hash key within deal (legacy - will be replaced)
-        Index("ix_read_positions_deal_hash_key", "deal_id", "hash_key", unique=True),
-        # NEW: Unique constraints to prevent position duplication
-        # Prevents multiple active records with same hash_key
-        Index("ix_read_positions_hash_active", "hash_key", "is_active", unique=True,
-              postgresql_where=text("is_active = true"),
-              sqlite_where=text("is_active = 1")),
-        # Ensures version uniqueness for same position
-        Index("ix_read_positions_hash_version", "hash_key", "version", unique=True),
+        UniqueConstraint(
+            "deal_id",
+            "position_number",
+            name="uq_read_positions_deal_position",
+        ),
+        Index("ix_read_positions_deal_hash", "deal_id", "hash_key"),
     )
 
 

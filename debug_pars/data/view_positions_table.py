@@ -79,10 +79,8 @@ class PositionsTableViewer:
             ReadModelPosition.client_name,
             ReadModelPosition.period_month,
             ReadModelPosition.period_year,
-            ReadModelPosition.is_active,
             ReadModelPosition.created_at,
-            ReadModelPosition.updated_at,
-            ReadModelPosition.version
+            ReadModelPosition.updated_at
         )
         
         # Запрос для подсчета общего количества
@@ -147,10 +145,8 @@ class PositionsTableViewer:
                 'client_name': pos.client_name,
                 'period_month': pos.period_month,
                 'period_year': pos.period_year,
-                'is_active': pos.is_active,
                 'created_at': pos.created_at.isoformat() if pos.created_at else None,
-                'updated_at': pos.updated_at.isoformat() if pos.updated_at else None,
-                'version': pos.version
+                'updated_at': pos.updated_at.isoformat() if pos.updated_at else None
             })
         
         return positions_data, total_count or 0

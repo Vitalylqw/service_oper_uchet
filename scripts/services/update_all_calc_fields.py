@@ -77,7 +77,7 @@ async def update_all_calc_fields():
                 COUNT(*) as total_deals,
                 COUNT(CASE WHEN calc_revenue_amount = 0 AND calc_margin_amount = 0 AND calc_cost_amount = 0 THEN 1 END) as zero_calc_deals,
                 COUNT(CASE WHEN calc_revenue_amount > 0 OR calc_margin_amount > 0 OR calc_cost_amount > 0 THEN 1 END) as non_zero_calc_deals,
-                COUNT(CASE WHEN has_totals_error = 1 THEN 1 END) as error_deals
+                COUNT(CASE WHEN has_totals_error = true THEN 1 END) as error_deals
             FROM read_deals
         """))
         
@@ -108,20 +108,20 @@ async def update_all_calc_fields():
         result = await session.execute(text("""
             SELECT 
                 deal_key,
+                total_revenue_amount,
+                total_margin_amount,
+                total_cost_amount,
                 calc_revenue_amount,
                 calc_margin_amount,
-                calc_cost_amount,
-                revenue_mismatch,
-                margin_mismatch,
-                cost_mismatch
+                calc_cost_amount
             FROM read_deals 
-            WHERE has_totals_error = 1
+            WHERE has_totals_error = true
             LIMIT 5
         """))
         
         error_examples = result.fetchall()
         for error_example in error_examples:
-            logger.info(f"  {error_example[0]}: revenue={error_example[1]}, margin={error_example[2]}, cost={error_example[3]}, mismatches={error_example[4]}/{error_example[5]}/{error_example[6]}")
+            logger.info(f"  {error_example[0]}: total_rev={error_example[1]}, total_mar={error_example[2]}, total_cost={error_example[3]}, calc_rev={error_example[4]}, calc_mar={error_example[5]}, calc_cost={error_example[6]}")
         
         await session.commit()
         

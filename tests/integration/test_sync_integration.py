@@ -27,19 +27,18 @@ def safe_cleanup_file(file_path: str | Path) -> None:
     """Safely remove file, handling Windows file locking issues."""
     import platform
     import time
+    import logging
 
     max_retries = 3
+    logger = logging.getLogger(__name__)
     for attempt in range(max_retries):
         try:
             Path(file_path).unlink()
             break
         except (OSError, PermissionError) as e:
             if attempt == max_retries - 1:
-                # On Windows, file might be locked - log but don't fail
-                if platform.system() == "Windows":
-                    print(f"Warning: Could not delete temporary file: {e}")
-                else:
-                    raise
+                # On any OS, file might be locked - log but don't fail
+                logger.warning(f"Could not delete temporary file: {e}")
             else:
                 # Wait and retry
                 time.sleep(0.1)

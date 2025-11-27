@@ -35,6 +35,7 @@
 | **[USER_GUIDE.md](USER_GUIDE.md)** | Руководство пользователя | Конечные пользователи |
 | **[DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md)** | Руководство разработчика | Разработчики, DevOps |
 | **[DATABASE_DESIGN.md](DATABASE_DESIGN.md)** | Архитектура базы данных | Архитекторы, DBA |
+| **[SYNC_FLOW.md](../project_progress/SYNC_FLOW.md)** | Полный поток синхронизации (Excel → Events → Read Models) | Разработчики |
 
 ### 📊 Техническая документация
 
@@ -119,7 +120,7 @@
 src/
 ├── domain/              # Бизнес-логика предметной области
 │   ├── models/          # Сущности (Deal, DealItem, SyncSession)
-│   ├── value_objects/   # Объекты-значения (Money, Period, Status)
+│   ├── value_objects/   # Объекты-значения (Money, Money5, SignedMoney, SignedMoney5, Period, Status)
 │   ├── exceptions/      # Доменные исключения
 │   └── interfaces/      # Интерфейсы репозиториев
 ├── application/         # Сценарии использования
@@ -146,6 +147,15 @@ src/
 | **Frontend** | React + TypeScript | 18+ |
 | **Testing** | pytest + Vitest | 7.4+ |
 | **Linting** | Ruff + ESLint | 0.1+ |
+
+---
+
+## 🔄 КРАТКО О СИНХРОНИЗАЦИИ
+
+- Вход: Excel парсится `ExcelParserService.parse_file` → `ParseResult (deals + items)`.
+- События: оркестратор формирует `DealCreated/DealItemAdded` (full) или `DealCreated/DealUpdated/DealDeleted` (incremental) и пишет в `event_store`.
+- Обработка: `ReadModelBuilder.process_latest_events(limit)` применяет события по `(aggregate_id, sequence_number)`, обновляя `read_deals`, `read_positions`, `read_stats`.
+- Детали логики (версионирование позиций, soft‑delete, лимиты, форматы): `project_progress/SYNC_FLOW.md`.
 
 ---
 

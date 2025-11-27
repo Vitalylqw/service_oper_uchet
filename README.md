@@ -31,6 +31,7 @@
 - **[Database Design](docs/database_design.md)** - архитектура базы данных *(скоро)*
 - **[API Documentation](docs/api.md)** - REST API спецификация *(скоро)*
 - **[User Guide](docs/user_guide.md)** - руководство пользователя *(скоро)*
+- **[SYNC_FLOW](project_progress/SYNC_FLOW.md)** - подробный поток синхронизации (Excel → Events → Read Models)
 
 ### 🔒 Защищенные файлы
 >
@@ -337,3 +338,12 @@ MIT License - см. файл [LICENSE](LICENSE)
 **Платформа**: Cross-platform (Windows, Linux, macOS)  
 **Интеграция**: PostgreSQL, 1С Предприятие, Excel  
 **Архитектура**: DDD, Event Sourcing, CQRS
+
+## 🔄 Кратко о процессе синхронизации
+
+- Вход: Excel → `ExcelParserService.parse_file` формирует `ParseResult` с `Deal` и `DealItem`.
+- Генерация событий: `SyncOrchestratorService` создаёт `DealCreated`, `DealItemAdded` (для full) либо
+  `DealCreated/DealUpdated/DealDeleted` (для incremental) и записывает их в `event_store`.
+- Построение read‑моделей: `ReadModelBuilder.process_latest_events` применяет события по порядку
+  `(aggregate_id, sequence_number)`, обновляя `read_deals`, `read_positions`, `read_stats`.
+- Детали (форматы событий, порядок, версияция позиций, soft‑delete): смотрите `project_progress/SYNC_FLOW.md`.

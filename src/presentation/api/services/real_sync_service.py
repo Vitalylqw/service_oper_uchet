@@ -180,7 +180,7 @@ class RealSyncService:
             # Calculate file hash for integrity checking
             import hashlib
             with open(file_pathlib, 'rb') as f:
-                file_hash = hashlib.sha256(f.read()).hexdigest()
+                file_hash = hashlib.md5(f.read()).hexdigest()
             file_size = file_pathlib.stat().st_size
 
             # Check for running sessions if not forcing
@@ -193,7 +193,7 @@ class RealSyncService:
             # Create sync configuration (placeholder for orchestrator usage)
             _config = SyncConfiguration(
                 sync_type=session_type,
-                incremental_period_months=3 if session_type == "incremental" else 12,
+                partial_periods=[],  # Updated for new sync logic
                 max_retry_attempts=3,
                 continue_on_errors=True,
                 rollback_on_failure=False,  # Don't rollback for API calls

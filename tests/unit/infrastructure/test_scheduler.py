@@ -75,8 +75,8 @@ class TestSchedulerConfig:
         assert "python" in python_path.lower()
 
         # Should use configured path when set
-        config.python_executable_path = "C:\\Python39\\python.exe"
-        assert config.get_python_executable() == "C:\\Python39\\python.exe"
+        config.python_executable_path = "/usr/bin/python3"  # Linux path
+        assert config.get_python_executable() == "/usr/bin/python3"
 
     def test_env_prefix(self):
         """Test that configuration uses SCHEDULER_ env prefix."""

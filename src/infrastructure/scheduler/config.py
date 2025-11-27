@@ -125,19 +125,18 @@ class SchedulerConfig(BaseSettings):
         return f"{minute} {hour} * * *"
 
     def get_python_executable(self) -> str:
-        """Get Python executable path for Windows Task Scheduler."""
+        """Get Python executable path for cross-platform compatibility."""
         if self.python_executable_path:
             return self.python_executable_path
 
         # Try to find Python executable automatically
         import sys
-
         return str(Path(sys.executable))
 
     def get_script_path(self) -> str:
-        """Get script path for Windows Task Scheduler."""
+        """Get script path for cross-platform compatibility."""
         if self.script_path:
             return self.script_path
 
-        # Default to project root script
+        # Default to project root script - use Path for cross-platform compatibility
         return str(Path(__file__).parent.parent.parent.parent / "scripts" / "sync_scheduler.py")

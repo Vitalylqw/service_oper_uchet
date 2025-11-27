@@ -58,7 +58,7 @@ class DatabaseConfig(BaseSettings):
         default=24, description="Event store retention months"
     )
 
-    model_config = ConfigDict(env_prefix="DB_", env_file=".env", extra="ignore")
+    model_config = ConfigDict(env_prefix="DB_", env_file="config.env", extra="ignore")
 
     @computed_field
     @property
