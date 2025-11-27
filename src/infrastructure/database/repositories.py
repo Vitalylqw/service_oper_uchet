@@ -19,6 +19,15 @@ from domain.models import Deal, SyncSession
 from domain.value_objects import Money, SignedMoney, Period, Status
 
 from .models import ReadModelDeal, ReadModelPosition, SyncSessionModel
+from infrastructure.database.models import (
+    EventStoreModel,
+    ReadModelAudit,
+    ReadModelDeal,
+    ReadModelPosition,
+    ReadModelStats,
+    SyncSessionModel,
+)
+from infrastructure.mappers.deal_item_mapper import from_read_position
 
 
 class DealRepositoryImplementation(DealRepository):
@@ -232,18 +241,25 @@ class DealRepositoryImplementation(DealRepository):
             month=model.period_month, year=model.period_year, full_name=model.period_full_name
         )
 
-        # Create deal
-        deal = Deal(client_name=model.client_name, invoice_info=model.invoice_info, period=period)
+        # Build deal via DealBuilder to ensure mandatory period fields are set
+        from domain.builders.deal_builder import DealBuilder
+        builder = DealBuilder(period=period)
+        builder.client_name = model.client_name
+        builder.invoice_info = model.invoice_info
+        builder.seller = model.seller or "UNKNOWN"
+        builder.invoice_number = model.invoice_number or None
+        builder.invoice_date = model.invoice_date or None
+        builder.upd_number = model.upd_number or None
+        builder.is_shipped = Status.from_string(model.is_shipped) if model.is_shipped else None
+        builder.is_paid = Status.from_string(model.is_paid) if model.is_paid else None
+        # Money fields from read model
+        builder.total_revenue = Money(amount=model.total_revenue_amount) if model.total_revenue_amount else None
+        builder.total_margin = SignedMoney(amount=model.total_margin_amount) if model.total_margin_amount else None
+        builder.total_cost = Money(amount=model.total_cost_amount) if model.total_cost_amount else None
+        builder.kickback_amount = Money(amount=model.kickback_amount_value) if model.kickback_amount_value else None
 
-        # Set ID and other fields
+        deal = builder.build()
         deal.set_id(model.id)
-        # deal_key and hash_key are computed fields - they are calculated automatically
-        deal.invoice_number = model.invoice_number or ""
-        deal.invoice_date = model.invoice_date or ""
-        deal.is_shipped = Status.from_string(model.is_shipped) if model.is_shipped else None
-        deal.is_paid = Status.from_string(model.is_paid) if model.is_paid else None
-        deal.upd_number = model.upd_number or ""
-        deal.seller = model.seller or ""
 
         # Set money fields
         if model.total_revenue_amount:
@@ -273,8 +289,6 @@ class DealRepositoryImplementation(DealRepository):
 
     async def _load_deal_items(self, deal: Deal) -> None:
         """Load deal items from positions read model."""
-        from domain.models import DealItem
-
         try:
             query = (
                 select(ReadModelPosition)
@@ -286,44 +300,18 @@ class DealRepositoryImplementation(DealRepository):
             position_models = result.scalars().all()
 
             for position_model in position_models:
-                item = DealItem(product_name=position_model.product_name)
-                item.set_id(position_model.id)
-                item.supplier_name = position_model.supplier_name or ""
-                item.pickup_date = position_model.pickup_date or ""
-
-                if position_model.quantity:
-                    item.quantity = position_model.quantity
-
-                # Set money fields
-                if position_model.purchase_price_amount:
-                    item.purchase_price = Money(
-                        amount=position_model.purchase_price_amount
-                    )
-
-                if position_model.sale_price_amount:
-                    item.sale_price = Money(
-                        amount=position_model.sale_price_amount
-                    )
-
-                if position_model.revenue_amount:
-                    item.revenue = Money(
-                        amount=position_model.revenue_amount
-                    )
-
-                if position_model.margin_amount:
-                    item.margin = SignedMoney(
-                        amount=position_model.margin_amount
-                    )
-
-                if position_model.cost_amount:
-                    item.cost = Money(
-                        amount=position_model.cost_amount
-                    )
-
-                deal.items.append(item)
+                item = from_read_position(position_model, deal)
+                deal.add_item(item)
 
         except Exception as e:
-            logger.error(f"Failed to load items for deal {deal.id}: {e}")
+            import traceback
+            error_trace = traceback.format_exc()
+            logger.error(
+                "Failed to load items for deal {}: {}\n{}",
+                deal.id,
+                str(e),
+                error_trace,
+            )
             # Don't raise - deal can exist without items
 
 

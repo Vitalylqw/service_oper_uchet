@@ -177,15 +177,15 @@ class ReadModelDeal(Base):
     kickback_amount_value: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
 
     # Calculated totals based on positions
-    calc_revenue_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
-    calc_margin_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
-    calc_cost_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
+    calc_revenue_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), server_default='0')
+    calc_margin_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), server_default='0')
+    calc_cost_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), server_default='0')
 
     # Quality flag: True if any mismatch is detected
-    has_totals_error: Mapped[bool] = mapped_column(Boolean, default=False)
+    has_totals_error: Mapped[bool] = mapped_column(Boolean, server_default=text('false'))
 
     # Aggregated fields
-    items_count: Mapped[int] = mapped_column(Integer, default=0)
+    items_count: Mapped[int] = mapped_column(Integer, server_default='0')
     total_quantity: Mapped[Decimal] = mapped_column(Numeric(15, 3), nullable=True)
 
     # System fields
@@ -239,10 +239,10 @@ class ReadModelPosition(Base):
     # Quantities and pricing
     quantity: Mapped[Decimal] = mapped_column(Numeric(15, 3), nullable=True)
 
-    purchase_price_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
+    purchase_price_amount: Mapped[Decimal] = mapped_column(Numeric(18, 5), nullable=True)
     sale_price_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
     revenue_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
-    margin_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
+    margin_amount: Mapped[Decimal] = mapped_column(Numeric(18, 5), nullable=True)
     cost_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
 
     # Deal context (denormalized for fast queries)
@@ -266,9 +266,13 @@ class ReadModelPosition(Base):
         Index("ix_read_positions_period", "period_year", "period_month"),
         # SIMPLIFIED: Single unique constraint on hash_key (no versioning complexity)
         Index("ix_read_positions_hash_key", "hash_key", unique=True),
-        # Composite indexes for performance
+        # Composite indexes / constraints for performance and integrity
         Index("ix_read_positions_deal_product", "deal_id", "product_name"),
-        Index("ix_read_positions_deal_position", "deal_id", "position_number"),
+        UniqueConstraint(
+            "deal_id",
+            "position_number",
+            name="uq_read_positions_deal_position",
+        ),
         Index("ix_read_positions_deal_hash", "deal_id", "hash_key"),
     )
 
