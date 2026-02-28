@@ -1,0 +1,172 @@
+# MIXED Test Scenarios
+# Tests for combined INSERT/UPDATE/DELETE operations
+
+scenarios:
+  # TEST_MIX_01: INSERT + UPDATE in same period
+  - id: TEST_MIX_01
+    name: "INSERT + UPDATE в одном периоде"
+    description: "Добавляет новую сделку и изменяет статус существующей"
+    category: MIXED
+    enabled: true
+    
+    setup:
+      base_state: "base_state.xlsx"
+      clear_db_before: true
+      sync_base_first: true
+    
+    actions:
+      - type: add_deal
+        sheet_name: "Май 2025"
+        deals:
+          - client_name: "ООО МИКС"
+            invoice_info: "5960 от 28.05.2025"
+            invoice_number: "5960"
+            invoice_date: "28.05.2025"
+            seller: "КРЕПЕЖ-ИНСТРУМЕНТ ООО"
+            is_shipped: "нет"
+            is_paid: "нет"
+            total_revenue: 15000.00
+            total_margin: 3000.00
+            total_cost: 12000.00
+            items:
+              - product_name: "Ключ разводной"
+                quantity: 10
+                purchase_price: 600.00
+                sale_price: 800.00
+                revenue: 8000.00
+                margin: 2000.00
+                cost: 6000.00
+                supplier_name: "ЭТМ"
+                pickup_date: "28"
+              - product_name: "Плоскогубцы"
+                quantity: 10
+                purchase_price: 400.00
+                sale_price: 550.00
+                revenue: 5500.00
+                margin: 1500.00
+                cost: 4000.00
+                supplier_name: "ЭТМ"
+                pickup_date: "28"
+      - type: update_deal_field
+        sheet_name: "Май 2025"
+        deal_key: "5938|16.05.2025|крепеж-инструмент ооо|май 2025"
+        field_name: "is_shipped"
+        field_value: "да"
+    
+    expected:
+      changes:
+        insertions: 3  # 1 deal + 2 items
+        updates: 1     # Existing deal status
+        deletions: 0
+      db_state:
+        deals_count: "+1"
+        positions_count: "+2"
+      events:
+        - type: DealCreated
+          count: 1
+        - type: DealItemAdded
+          count: 2
+        - type: DealUpdated
+          count: 1
+      sync_success: true
+
+  # TEST_MIX_02: UPDATE + DELETE in same deal
+  - id: TEST_MIX_02
+    name: "UPDATE + DELETE в одной сделке"
+    description: "Изменяет одну позицию и удаляет другую"
+    category: MIXED
+    enabled: true
+    
+    setup:
+      base_state: "base_state.xlsx"
+      clear_db_before: true
+      sync_base_first: true
+    
+    actions:
+      - type: update_position_field
+        sheet_name: "Май 2025"
+        deal_key: "5938|16.05.2025|крепеж-инструмент ооо|май 2025"
+        position_number: 1
+        field_name: "quantity"
+        field_value: 30
+      - type: remove_position
+        sheet_name: "Май 2025"
+        deal_key: "5938|16.05.2025|крепеж-инструмент ооо|май 2025"
+        position_number: 2
+    
+    expected:
+      changes:
+        insertions: 0
+        updates: 2  # 1 position + deal items_count
+        deletions: 1
+      db_state:
+        positions_count: "-1"
+      sync_success: true
+
+  # TEST_MIX_03: INSERT + UPDATE + DELETE (full cycle)
+  - id: TEST_MIX_03
+    name: "Полный цикл INSERT + UPDATE + DELETE"
+    description: "Добавляет новый лист, изменяет данные в другом периоде, удаляет третью сделку"
+    category: MIXED
+    enabled: true
+    
+    setup:
+      base_state: "base_state.xlsx"
+      clear_db_before: true
+      sync_base_first: true
+    
+    actions:
+      # INSERT: New sheet with new deal
+      - type: add_sheet
+        sheet_name: "Июль 2025"
+        deals:
+          - client_name: "ООО ИЮЛЬ"
+            invoice_info: "7001 от 01.07.2025"
+            invoice_number: "7001"
+            invoice_date: "01.07.2025"
+            seller: "КРЕПЕЖ-ИНСТРУМЕНТ ООО"
+            is_shipped: "нет"
+            is_paid: "нет"
+            total_revenue: 20000.00
+            total_margin: 4000.00
+            total_cost: 16000.00
+            items:
+              - product_name: "Молоток слесарный"
+                quantity: 20
+                purchase_price: 400.00
+                sale_price: 600.00
+                revenue: 12000.00
+                margin: 4000.00
+                cost: 8000.00
+                supplier_name: "ЭТМ"
+                pickup_date: "01"
+      # UPDATE: Change status in May
+      - type: update_deal_field
+        sheet_name: "Май 2025"
+        deal_key: "5939|17.05.2025|крепеж-инструмент ооо|май 2025"
+        field_name: "is_paid"
+        field_value: "нет"
+      # DELETE: Remove deal from April
+      - type: remove_deal
+        sheet_name: "Апрель 2025"
+        deal_key: "5900|10.04.2025|крепеж-инструмент ооо|апрель 2025"
+    
+    expected:
+      changes:
+        insertions: 2  # 1 deal + 1 item
+        updates: 1     # Status change
+        deletions: 3   # 1 deal + 2 items
+      db_state:
+        deals_in_period:
+          "Июль 2025": 1
+          "Апрель 2025": 0
+      events:
+        - type: DealCreated
+          count: 1
+        - type: DealItemAdded
+          count: 1
+        - type: DealUpdated
+          count: 1
+        - type: DealDeleted
+          count: 1
+      sync_success: true

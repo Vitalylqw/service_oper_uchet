@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QA Suite Test Report - 2026-01-12 23:27</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .summary-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .summary-card h3 {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .summary-card .value {
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .passed { color: #28a745; }
+        .failed { color: #dc3545; }
+        .skipped { color: #6c757d; }
+        .error { color: #fd7e14; }
+        .scenarios {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .scenarios h2 {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #dee2e6;
+            font-size: 18px;
+        }
+        .scenario {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .scenario:last-child {
+            border-bottom: none;
+        }
+        .scenario-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .scenario-id {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .scenario-status {
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status-PASSED {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-FAILED {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .status-ERROR {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status-SKIPPED {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+        .scenario-name {
+            color: #666;
+            font-size: 14px;
+        }
+        .scenario-details {
+            font-size: 13px;
+            color: #888;
+        }
+        .validations {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .validation-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .validation-item:last-child {
+            border-bottom: none;
+        }
+        .check-passed {
+            color: #28a745;
+        }
+        .check-failed {
+            color: #dc3545;
+        }
+        .aggregates {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .aggregates h2 {
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        .aggregate-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .aggregate-item {
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .aggregate-item h4 {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .aggregate-item .value {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #888;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>QA Suite Integration Test Report</h1>
+            <p>Run ID: 6af469eb-9661-4e53-a42d-0a0e214a8851</p>
+            <p>Timestamp: 2026-01-12 23:27:32</p>
+        </header>
+
+        <div class="summary">
+            <div class="summary-card">
+                <h3>Total Scenarios</h3>
+                <div class="value">21</div>
+            </div>
+            <div class="summary-card">
+                <h3>Passed</h3>
+                <div class="value passed">0</div>
+            </div>
+            <div class="summary-card">
+                <h3>Failed</h3>
+                <div class="value failed">20</div>
+            </div>
+            <div class="summary-card">
+                <h3>Errors</h3>
+                <div class="value error">1</div>
+            </div>
+            <div class="summary-card">
+                <h3>Success Rate</h3>
+                <div class="value" style="color: #dc3545">0.0%</div>
+            </div>
+            <div class="summary-card">
+                <h3>Duration</h3>
+                <div class="value">31.44s</div>
+            </div>
+        </div>
+
+        <div class="scenarios">
+            <h2>Test Scenarios</h2>
+            
+            <div class="scenario">
+                <div class="scenario-header">
+                    <div>
+                        <span class="scenario-id">TEST_EDGE_01</span>
+                        <span class="scenario-name"> - Идемпотентность (повторная синхронизация)</span>
+                    </div>
+                    <span class="scenario-status status-FAILED">FAILED</span>
+                </div>
+                <span class="scenario-details">Insertions: 8 | Updates: 0 | Deletions: 0</span>
+                <div class="validations"><div class="validation-item"><span class="check-failed">[x] insertions_count</span><span>Expected: 0 | Actual: 8</span></div><div class="validation-item"><span class="check-passed">[+] updates_count</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] deletions_count</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] sync_success</span><span>Expected: True | Actual: True</span></div></div>
+                
+            </div>
+            
+            <div class="scenario">
+                <div class="scenario-header">
+                    <div>
+                        <span class="scenario-id">TEST_EDGE_02</span>
+                        <span class="scenario-name"> - Пустой Excel файл</span>
+                    </div>
+                    <span class="scenario-status status-ERROR">ERROR</span>
+                </div>
+                
+                
+                <div style="color: #dc3545; margin-top: 10px; font-size: 13px;">Error: At least one sheet must be visible</div>
+            </div>
+            
+            <div class="scenario">
+                <div class="scenario-header">
+                    <div>
+                        <span class="scenario-id">TEST_EDGE_04</span>
+                        <span class="scenario-name"> - Специальные символы в названиях</span>
+                    </div>
+                    <span class="scenario-status status-FAILED">FAILED</span>
+                </div>
+                <span class="scenario-details">Insertions: 10 | Updates: 0 | Deletions: 0</span>
+                <div class="validations"><div class="validation-item"><span class="check-failed">[x] insertions_count</span><span>Expected: 2 | Actual: 10</span></div><div class="validation-item"><span class="check-passed">[+] updates_count</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] deletions_count</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] sync_success</span><span>Expected: True | Actual: True</span></div></div>
+                
+            </div>
+            
+            <div class="scenario">
+                <div class="scenario-header">
+                    <div>
+                        <span class="scenario-id">TEST_EDGE_05</span>
+                        <span class="scenario-name"> - Нулевые значения</span>
+                    </div>
+                    <span class="scenario-status status-FAILED">FAILED</span>
+                </div>
+                <span class="scenario-details">Insertions: 10 | Updates: 0 | Deletions: 0</span>
+                <div class="validations"><div class="validation-item"><span class="check-failed">[x] insertions_count</span><span>Expected: 2 | Actual: 10</span></div><div class="validation-item"><span class="check-passed">[+] updates_count</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] deletions_count</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] sync_success</span><span>Expected: True | Actual: True</span></div></div>
+                
+            </div>
+            
+            <div class="scenario">
+                <div class="scenario-header">
+                    <div>
+                        <span class="scenario-id">TEST_EDGE_06</span>
+                        <span class="scenario-name"> - Длинные названия товаров</span>
+                    </div>
+                    <span class="scenario-status status-FAILED">FAILED</span>
+                </div>
+                <span class="scenario-details">Insertions: 10 | Updates: 0 | Deletions: 0</span>
+                <div class="validations"><div class="validation-item"><span class="check-failed">[x] insertions_count</span><span>Expected: 2 | Actual: 10</span></div><div class="validation-item"><span class="check-passed">[+] updates_count</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] deletions_count</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] sync_success</span><span>Expected: True | Actual: True</span></div></div>
+                
+            </div>
+            
+            <div class="scenario">
+                <div class="scenario-header">
+                    <div>
+                        <span class="scenario-id">TEST_EDGE_07</span>
+                        <span class="scenario-name"> - Точность десятичных чисел</span>
+                    </div>
+                    <span class="scenario-status status-FAILED">FAILED</span>
+                </div>
+                <span class="scenario-details">Insertions: 10 | Updates: 0 | Deletions: 0</span>
+                <div class="validations"><div class="validation-item"><span class="check-failed">[x] insertions_count</span><span>Expected: 2 | Actual: 10</span></div><div class="validation-item"><span class="check-passed">[+] updates_count</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] deletions_count</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] sync_success</span><span>Expected: True | Actual: True</span></div></div>
+                
+            </div>
+            
+            <div class="scenario">
+                <div class="scenario-header">
+                    <div>
+                        <span class="scenario-id">TEST_DEL_01</span>
+                        <span class="scenario-name"> - Удаление листа (целого периода)</span>
+                    </div>
+                    <span class="scenario-status status-FAILED">FAILED</span>
+                </div>
+                <span class="scenario-details">Insertions: 5 | Updates: 0 | Deletions: 0</span>
+                <div class="validations"><div class="validation-item"><span class="check-failed">[x] insertions_count</span><span>Expected: 0 | Actual: 5</span></div><div class="validation-item"><span class="check-passed">[+] updates_count</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] deletions_count</span><span>Expected: 3 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] deals_in_period_Апрель 2025</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] event_count_DealDeleted</span><span>Expected: 1 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] sync_success</span><span>Expected: True | Actual: True</span></div></div>
+                
+            </div>
+            
+            <div class="scenario">
+                <div class="scenario-header">
+                    <div>
+                        <span class="scenario-id">TEST_DEL_02</span>
+                        <span class="scenario-name"> - Удаление сделки из периода</span>
+                    </div>
+                    <span class="scenario-status status-FAILED">FAILED</span>
+                </div>
+                <span class="scenario-details">Insertions: 5 | Updates: 0 | Deletions: 0</span>
+                <div class="validations"><div class="validation-item"><span class="check-failed">[x] insertions_count</span><span>Expected: 0 | Actual: 5</span></div><div class="validation-item"><span class="check-passed">[+] updates_count</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] deletions_count</span><span>Expected: 3 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] deals_count</span><span>Expected: -1 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] positions_count</span><span>Expected: -2 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] deal_not_exists_5938|16.05.2025|крепеж-инструмент ооо|май 2025</span><span>Expected: False | Actual: False</span></div><div class="validation-item"><span class="check-failed">[x] event_count_DealDeleted</span><span>Expected: 1 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] sync_success</span><span>Expected: True | Actual: True</span></div></div>
+                
+            </div>
+            
+            <div class="scenario">
+                <div class="scenario-header">
+                    <div>
+                        <span class="scenario-id">TEST_DEL_03</span>
+                        <span class="scenario-name"> - Частичное удаление позиций</span>
+                    </div>
+                    <span class="scenario-status status-FAILED">FAILED</span>
+                </div>
+                <span class="scenario-details">Insertions: 7 | Updates: 0 | Deletions: 0</span>
+                <div class="validations"><div class="validation-item"><span class="check-failed">[x] insertions_count</span><span>Expected: 0 | Actual: 7</span></div><div class="validation-item"><span class="check-failed">[x] updates_count</span><span>Expected: 1 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] deletions_count</span><span>Expected: 1 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] positions_count</span><span>Expected: -1 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] deal_exists_5938|16.05.2025|крепеж-инструмент ооо|май 2025</span><span>Expected: True | Actual: False</span></div><div class="validation-item"><span class="check-passed">[+] sync_success</span><span>Expected: True | Actual: True</span></div></div>
+                
+            </div>
+            
+            <div class="scenario">
+                <div class="scenario-header">
+                    <div>
+                        <span class="scenario-id">TEST_DEL_04</span>
+                        <span class="scenario-name"> - Удаление всех позиций из сделки</span>
+                    </div>
+                    <span class="scenario-status status-FAILED">FAILED</span>
+                </div>
+                <span class="scenario-details">Insertions: 6 | Updates: 0 | Deletions: 0</span>
+                <div class="validations"><div class="validation-item"><span class="check-failed">[x] insertions_count</span><span>Expected: 0 | Actual: 6</span></div><div class="validation-item"><span class="check-failed">[x] updates_count</span><span>Expected: 1 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] deletions_count</span><span>Expected: 2 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] positions_count</span><span>Expected: -2 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] deal_exists_5938|16.05.2025|крепеж-инструмент ооо|май 2025</span><span>Expected: True | Actual: False</span></div><div class="validation-item"><span class="check-passed">[+] sync_success</span><span>Expected: True | Actual: True</span></div></div>
+                
+            </div>
+            
+            <div class="scenario">
+                <div class="scenario-header">
+                    <div>
+                        <span class="scenario-id">TEST_INS_01</span>
+                        <span class="scenario-name"> - Добавление нового листа (нового периода)</span>
+                    </div>
+                    <span class="scenario-status status-FAILED">FAILED</span>
+                </div>
+                <span class="scenario-details">Insertions: 15 | Updates: 0 | Deletions: 0</span>
+                <div class="validations"><div class="validation-item"><span class="check-failed">[x] insertions_count</span><span>Expected: 7 | Actual: 15</span></div><div class="validation-item"><span class="check-passed">[+] updates_count</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] deletions_count</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] deals_count</span><span>Expected: 2 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] positions_count</span><span>Expected: 5 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] deals_in_period_Июнь 2025</span><span>Expected: 2 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] event_count_DealCreated</span><span>Expected: 2 | Actual: 5</span></div><div class="validation-item"><span class="check-failed">[x] event_count_DealItemAdded</span><span>Expected: 5 | Actual: 20</span></div><div class="validation-item"><span class="check-passed">[+] sync_success</span><span>Expected: True | Actual: True</span></div></div>
+                
+            </div>
+            
+            <div class="scenario">
+                <div class="scenario-header">
+                    <div>
+                        <span class="scenario-id">TEST_INS_02</span>
+                        <span class="scenario-name"> - Добавление новой сделки в существующий период</span>
+                    </div>
+                    <span class="scenario-status status-FAILED">FAILED</span>
+                </div>
+                <span class="scenario-details">Insertions: 12 | Updates: 0 | Deletions: 0</span>
+                <div class="validations"><div class="validation-item"><span class="check-failed">[x] insertions_count</span><span>Expected: 4 | Actual: 12</span></div><div class="validation-item"><span class="check-passed">[+] updates_count</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] deletions_count</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] deals_count</span><span>Expected: 1 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] positions_count</span><span>Expected: 3 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] event_count_DealCreated</span><span>Expected: 1 | Actual: 4</span></div><div class="validation-item"><span class="check-failed">[x] event_count_DealItemAdded</span><span>Expected: 3 | Actual: 16</span></div><div class="validation-item"><span class="check-passed">[+] sync_success</span><span>Expected: True | Actual: True</span></div></div>
+                
+            </div>
+            
+            <div class="scenario">
+                <div class="scenario-header">
+                    <div>
+                        <span class="scenario-id">TEST_INS_03</span>
+                        <span class="scenario-name"> - Добавление новых позиций к существующей сделке</span>
+                    </div>
+                    <span class="scenario-status status-FAILED">FAILED</span>
+                </div>
+                <span class="scenario-details">Insertions: 10 | Updates: 0 | Deletions: 0</span>
+                <div class="validations"><div class="validation-item"><span class="check-failed">[x] insertions_count</span><span>Expected: 2 | Actual: 10</span></div><div class="validation-item"><span class="check-failed">[x] updates_count</span><span>Expected: 1 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] deletions_count</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] positions_count</span><span>Expected: 2 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] event_count_DealItemAdded</span><span>Expected: 2 | Actual: 14</span></div><div class="validation-item"><span class="check-passed">[+] sync_success</span><span>Expected: True | Actual: True</span></div></div>
+                
+            </div>
+            
+            <div class="scenario">
+                <div class="scenario-header">
+                    <div>
+                        <span class="scenario-id">TEST_MIX_01</span>
+                        <span class="scenario-name"> - INSERT + UPDATE в одном периоде</span>
+                    </div>
+                    <span class="scenario-status status-FAILED">FAILED</span>
+                </div>
+                <span class="scenario-details">Insertions: 11 | Updates: 0 | Deletions: 0</span>
+                <div class="validations"><div class="validation-item"><span class="check-failed">[x] insertions_count</span><span>Expected: 3 | Actual: 11</span></div><div class="validation-item"><span class="check-failed">[x] updates_count</span><span>Expected: 1 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] deletions_count</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] deals_count</span><span>Expected: 1 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] positions_count</span><span>Expected: 2 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] event_count_DealCreated</span><span>Expected: 1 | Actual: 4</span></div><div class="validation-item"><span class="check-failed">[x] event_count_DealItemAdded</span><span>Expected: 2 | Actual: 14</span></div><div class="validation-item"><span class="check-failed">[x] event_count_DealUpdated</span><span>Expected: 1 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] sync_success</span><span>Expected: True | Actual: True</span></div></div>
+                
+            </div>
+            
+            <div class="scenario">
+                <div class="scenario-header">
+                    <div>
+                        <span class="scenario-id">TEST_MIX_02</span>
+                        <span class="scenario-name"> - UPDATE + DELETE в одной сделке</span>
+                    </div>
+                    <span class="scenario-status status-FAILED">FAILED</span>
+                </div>
+                <span class="scenario-details">Insertions: 7 | Updates: 0 | Deletions: 0</span>
+                <div class="validations"><div class="validation-item"><span class="check-failed">[x] insertions_count</span><span>Expected: 0 | Actual: 7</span></div><div class="validation-item"><span class="check-failed">[x] updates_count</span><span>Expected: 2 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] deletions_count</span><span>Expected: 1 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] positions_count</span><span>Expected: -1 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] sync_success</span><span>Expected: True | Actual: True</span></div></div>
+                
+            </div>
+            
+            <div class="scenario">
+                <div class="scenario-header">
+                    <div>
+                        <span class="scenario-id">TEST_MIX_03</span>
+                        <span class="scenario-name"> - Полный цикл INSERT + UPDATE + DELETE</span>
+                    </div>
+                    <span class="scenario-status status-FAILED">FAILED</span>
+                </div>
+                <span class="scenario-details">Insertions: 7 | Updates: 0 | Deletions: 0</span>
+                <div class="validations"><div class="validation-item"><span class="check-failed">[x] insertions_count</span><span>Expected: 2 | Actual: 7</span></div><div class="validation-item"><span class="check-failed">[x] updates_count</span><span>Expected: 1 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] deletions_count</span><span>Expected: 3 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] deals_in_period_Июль 2025</span><span>Expected: 1 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] deals_in_period_Апрель 2025</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] event_count_DealCreated</span><span>Expected: 1 | Actual: 3</span></div><div class="validation-item"><span class="check-failed">[x] event_count_DealItemAdded</span><span>Expected: 1 | Actual: 8</span></div><div class="validation-item"><span class="check-failed">[x] event_count_DealUpdated</span><span>Expected: 1 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] event_count_DealDeleted</span><span>Expected: 1 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] sync_success</span><span>Expected: True | Actual: True</span></div></div>
+                
+            </div>
+            
+            <div class="scenario">
+                <div class="scenario-header">
+                    <div>
+                        <span class="scenario-id">TEST_UPD_01</span>
+                        <span class="scenario-name"> - Изменение статусов сделки</span>
+                    </div>
+                    <span class="scenario-status status-FAILED">FAILED</span>
+                </div>
+                <span class="scenario-details">Insertions: 8 | Updates: 0 | Deletions: 0</span>
+                <div class="validations"><div class="validation-item"><span class="check-failed">[x] insertions_count</span><span>Expected: 0 | Actual: 8</span></div><div class="validation-item"><span class="check-failed">[x] updates_count</span><span>Expected: 1 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] deletions_count</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] sync_success</span><span>Expected: True | Actual: True</span></div></div>
+                
+            </div>
+            
+            <div class="scenario">
+                <div class="scenario-header">
+                    <div>
+                        <span class="scenario-id">TEST_UPD_02</span>
+                        <span class="scenario-name"> - Изменение финансовых показателей сделки</span>
+                    </div>
+                    <span class="scenario-status status-FAILED">FAILED</span>
+                </div>
+                <span class="scenario-details">Insertions: 8 | Updates: 0 | Deletions: 0</span>
+                <div class="validations"><div class="validation-item"><span class="check-failed">[x] insertions_count</span><span>Expected: 0 | Actual: 8</span></div><div class="validation-item"><span class="check-failed">[x] updates_count</span><span>Expected: 1 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] deletions_count</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] sync_success</span><span>Expected: True | Actual: True</span></div></div>
+                
+            </div>
+            
+            <div class="scenario">
+                <div class="scenario-header">
+                    <div>
+                        <span class="scenario-id">TEST_UPD_03</span>
+                        <span class="scenario-name"> - Изменение данных позиции</span>
+                    </div>
+                    <span class="scenario-status status-FAILED">FAILED</span>
+                </div>
+                <span class="scenario-details">Insertions: 8 | Updates: 0 | Deletions: 0</span>
+                <div class="validations"><div class="validation-item"><span class="check-failed">[x] insertions_count</span><span>Expected: 0 | Actual: 8</span></div><div class="validation-item"><span class="check-failed">[x] updates_count</span><span>Expected: 1 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] deletions_count</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] sync_success</span><span>Expected: True | Actual: True</span></div></div>
+                
+            </div>
+            
+            <div class="scenario">
+                <div class="scenario-header">
+                    <div>
+                        <span class="scenario-id">TEST_UPD_04</span>
+                        <span class="scenario-name"> - Изменение названия товара</span>
+                    </div>
+                    <span class="scenario-status status-FAILED">FAILED</span>
+                </div>
+                <span class="scenario-details">Insertions: 8 | Updates: 0 | Deletions: 0</span>
+                <div class="validations"><div class="validation-item"><span class="check-failed">[x] insertions_count</span><span>Expected: 1 | Actual: 8</span></div><div class="validation-item"><span class="check-passed">[+] updates_count</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-failed">[x] deletions_count</span><span>Expected: 1 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] sync_success</span><span>Expected: True | Actual: True</span></div></div>
+                
+            </div>
+            
+            <div class="scenario">
+                <div class="scenario-header">
+                    <div>
+                        <span class="scenario-id">TEST_UPD_05</span>
+                        <span class="scenario-name"> - Изменение поставщика позиции</span>
+                    </div>
+                    <span class="scenario-status status-FAILED">FAILED</span>
+                </div>
+                <span class="scenario-details">Insertions: 8 | Updates: 0 | Deletions: 0</span>
+                <div class="validations"><div class="validation-item"><span class="check-failed">[x] insertions_count</span><span>Expected: 0 | Actual: 8</span></div><div class="validation-item"><span class="check-failed">[x] updates_count</span><span>Expected: 1 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] deletions_count</span><span>Expected: 0 | Actual: 0</span></div><div class="validation-item"><span class="check-passed">[+] sync_success</span><span>Expected: True | Actual: True</span></div></div>
+                
+            </div>
+            
+        </div>
+
+        
+        <div class="aggregates">
+            <h2>Aggregate Changes</h2>
+            <div class="aggregate-grid">
+                <div class="aggregate-item"><h4>Deals Change</h4><div class="value">+0</div></div><div class="aggregate-item"><h4>Positions Change</h4><div class="value">+0</div></div><div class="aggregate-item"><h4>Events Created</h4><div class="value">+0</div></div>
+            </div>
+        </div>
+        
+
+        <footer>
+            Generated by QA Suite Integration Testing Framework
+        </footer>
+    </div>
+</body>
+</html>

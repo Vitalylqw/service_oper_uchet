@@ -1,0 +1,285 @@
+# EDGE Test Scenarios
+# Edge cases and boundary conditions
+
+scenarios:
+  # TEST_EDGE_01: Idempotency (same file twice)
+  - id: TEST_EDGE_01
+    name: "Идемпотентность (повторная синхронизация)"
+    description: "Загружает тот же файл дважды - второй раз должно быть 0 изменений"
+    category: EDGE
+    enabled: true
+    
+    setup:
+      base_state: "base_state.xlsx"
+      clear_db_before: true
+      sync_base_first: true
+    
+    actions: []  # No actions - just sync the same file again
+    
+    expected:
+      changes:
+        insertions: 0
+        updates: 0
+        deletions: 0
+      sync_success: true
+
+  # TEST_EDGE_02: Empty Excel file (only headers)
+  - id: TEST_EDGE_02
+    name: "Пустой Excel файл"
+    description: "Файл только с заголовками - все данные должны быть удалены"
+    category: EDGE
+    enabled: true
+    
+    setup:
+      base_state: "base_state.xlsx"
+      clear_db_before: true
+      sync_base_first: true
+    
+    actions:
+      # Remove all deals to make empty file
+      - type: remove_sheet
+        sheet_name: "Май 2025"
+      - type: remove_sheet
+        sheet_name: "Апрель 2025"
+    
+    expected:
+      changes:
+        insertions: 0
+        updates: 0
+        deletions: 7  # All existing deals and items
+      db_state:
+        deals_count: "0"
+        positions_count: "0"
+      sync_success: true
+
+  # TEST_EDGE_03: Large volume (many deals)
+  - id: TEST_EDGE_03
+    name: "Большой объем данных"
+    description: "Тест производительности с большим количеством сделок"
+    category: EDGE
+    enabled: false  # Disabled by default - long running
+    
+    setup:
+      base_state: "base_state.xlsx"
+      clear_db_before: true
+      sync_base_first: true
+    
+    actions:
+      - type: add_sheet
+        sheet_name: "Август 2025"
+        deals:
+          - client_name: "КЛИЕНТ 001"
+            invoice_info: "8001 от 01.08.2025"
+            invoice_number: "8001"
+            invoice_date: "01.08.2025"
+            seller: "КРЕПЕЖ-ИНСТРУМЕНТ ООО"
+            is_shipped: "нет"
+            is_paid: "нет"
+            total_revenue: 10000.00
+            total_margin: 2000.00
+            total_cost: 8000.00
+            items:
+              - product_name: "Товар 1"
+                quantity: 10
+                purchase_price: 100.00
+                sale_price: 150.00
+                supplier_name: "Поставщик"
+          - client_name: "КЛИЕНТ 002"
+            invoice_info: "8002 от 02.08.2025"
+            invoice_number: "8002"
+            invoice_date: "02.08.2025"
+            seller: "КРЕПЕЖ-ИНСТРУМЕНТ ООО"
+            is_shipped: "нет"
+            is_paid: "нет"
+            total_revenue: 10000.00
+            total_margin: 2000.00
+            total_cost: 8000.00
+            items:
+              - product_name: "Товар 2"
+                quantity: 10
+                purchase_price: 100.00
+                sale_price: 150.00
+                supplier_name: "Поставщик"
+    
+    expected:
+      changes:
+        insertions: 4  # 2 deals + 2 items
+        updates: 0
+        deletions: 0
+      sync_success: true
+
+  # TEST_EDGE_04: Special characters in names
+  - id: TEST_EDGE_04
+    name: "Специальные символы в названиях"
+    description: "Клиенты и товары со специальными символами"
+    category: EDGE
+    enabled: true
+    
+    setup:
+      base_state: "base_state.xlsx"
+      clear_db_before: true
+      sync_base_first: true
+    
+    actions:
+      - type: add_deal
+        sheet_name: "Май 2025"
+        deals:
+          - client_name: 'ООО "Тест & Компания"'
+            invoice_info: "5999 от 30.05.2025"
+            invoice_number: "5999"
+            invoice_date: "30.05.2025"
+            seller: "КРЕПЕЖ-ИНСТРУМЕНТ ООО"
+            is_shipped: "нет"
+            is_paid: "нет"
+            total_revenue: 5000.00
+            total_margin: 1000.00
+            total_cost: 4000.00
+            items:
+              - product_name: "Товар #1 (специальный) @ 100%"
+                quantity: 5
+                purchase_price: 500.00
+                sale_price: 700.00
+                revenue: 3500.00
+                margin: 1000.00
+                cost: 2500.00
+                supplier_name: "Поставщик <А>"
+                pickup_date: "30"
+    
+    expected:
+      changes:
+        insertions: 2  # 1 deal + 1 item
+        updates: 0
+        deletions: 0
+      sync_success: true
+
+  # TEST_EDGE_05: Zero quantities and prices
+  - id: TEST_EDGE_05
+    name: "Нулевые значения"
+    description: "Позиции с нулевыми количествами и ценами"
+    category: EDGE
+    enabled: true
+    
+    setup:
+      base_state: "base_state.xlsx"
+      clear_db_before: true
+      sync_base_first: true
+    
+    actions:
+      - type: add_deal
+        sheet_name: "Май 2025"
+        deals:
+          - client_name: "КЛИЕНТ НУЛИ"
+            invoice_info: "5998 от 29.05.2025"
+            invoice_number: "5998"
+            invoice_date: "29.05.2025"
+            seller: "КРЕПЕЖ-ИНСТРУМЕНТ ООО"
+            is_shipped: "нет"
+            is_paid: "нет"
+            total_revenue: 0
+            total_margin: 0
+            total_cost: 0
+            items:
+              - product_name: "Бесплатный образец"
+                quantity: 1
+                purchase_price: 0
+                sale_price: 0
+                revenue: 0
+                margin: 0
+                cost: 0
+                supplier_name: "БОНУС"
+                pickup_date: "29"
+    
+    expected:
+      changes:
+        insertions: 2
+        updates: 0
+        deletions: 0
+      sync_success: true
+
+  # TEST_EDGE_06: Long product names
+  - id: TEST_EDGE_06
+    name: "Длинные названия товаров"
+    description: "Позиции с очень длинными названиями"
+    category: EDGE
+    enabled: true
+    
+    setup:
+      base_state: "base_state.xlsx"
+      clear_db_before: true
+      sync_base_first: true
+    
+    actions:
+      - type: add_deal
+        sheet_name: "Май 2025"
+        deals:
+          - client_name: "КЛИЕНТ ДЛИННЫЕ НАЗВАНИЯ"
+            invoice_info: "5997 от 28.05.2025"
+            invoice_number: "5997"
+            invoice_date: "28.05.2025"
+            seller: "КРЕПЕЖ-ИНСТРУМЕНТ ООО"
+            is_shipped: "нет"
+            is_paid: "нет"
+            total_revenue: 10000.00
+            total_margin: 2000.00
+            total_cost: 8000.00
+            items:
+              - product_name: "Очень длинное название товара которое содержит много слов и описывает товар максимально подробно включая все характеристики и спецификации модель артикул и прочую информацию"
+                quantity: 10
+                purchase_price: 500.00
+                sale_price: 700.00
+                revenue: 7000.00
+                margin: 2000.00
+                cost: 5000.00
+                supplier_name: "ПОСТАВЩИК"
+                pickup_date: "28"
+    
+    expected:
+      changes:
+        insertions: 2
+        updates: 0
+        deletions: 0
+      sync_success: true
+
+  # TEST_EDGE_07: Decimal precision
+  - id: TEST_EDGE_07
+    name: "Точность десятичных чисел"
+    description: "Проверка точности 5 знаков для purchase_price и margin"
+    category: EDGE
+    enabled: true
+    
+    setup:
+      base_state: "base_state.xlsx"
+      clear_db_before: true
+      sync_base_first: true
+    
+    actions:
+      - type: add_deal
+        sheet_name: "Май 2025"
+        deals:
+          - client_name: "КЛИЕНТ ТОЧНОСТЬ"
+            invoice_info: "5996 от 27.05.2025"
+            invoice_number: "5996"
+            invoice_date: "27.05.2025"
+            seller: "КРЕПЕЖ-ИНСТРУМЕНТ ООО"
+            is_shipped: "нет"
+            is_paid: "нет"
+            total_revenue: 1234.56
+            total_margin: 123.45678
+            total_cost: 1111.10322
+            items:
+              - product_name: "Товар с точной ценой"
+                quantity: 3
+                purchase_price: 123.45678
+                sale_price: 200.00
+                revenue: 600.00
+                margin: 229.62966
+                cost: 370.37034
+                supplier_name: "ТОЧНЫЙ ПОСТАВЩИК"
+                pickup_date: "27"
+    
+    expected:
+      changes:
+        insertions: 2
+        updates: 0
+        deletions: 0
+      sync_success: true
