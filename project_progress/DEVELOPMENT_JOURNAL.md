@@ -6,6 +6,48 @@
 
 ---
 
+## 2026-02-28 - Устранение регрессии синхронизации после ужесточения доменных моделей
+
+### Цель:
+Восстановить корректную загрузку данных в БД после изменений контракта `Deal/DealItem`.
+
+### Проблема:
+- При запуске `testing/scripts/test_sync_integration.py` появлялись ошибки валидации:
+  - `DealCreated`: отсутствуют `period_month`, `period_year`
+  - `DealItemAdded`: отсутствуют `client_name`, `period_month`, `period_year`,
+    `seller`, `invoice_info`
+- Из-за общего `rollback()` на ошибке обработки события откатывался весь батч и
+  верификация показывала `read_deals = 0`, `event_store = 0`.
+
+### Выполненные действия:
+1. Обновлен `src/infrastructure/workers/read_model_builder.py`:
+   - обработка событий переведена на `SAVEPOINT` (`begin_nested`) вместо общего rollback;
+   - в создание `Deal` добавлены обязательные `period_month`, `period_year`;
+   - в создание `DealItem` добавлена обязательная контекстная денормализация
+     (`client_name`, `period_month`, `period_year`, `seller`, `invoice_info`);
+   - расширен `_get_deal_context()` полями `seller` и `invoice_info`;
+   - добавлена совместимость ветки `DealItemUpdated` с текущим форматом событий
+     (`field_changes` + плоский `event_data`) и старым форматом (`deal_item` + `changes`);
+   - исправлены обращения к несуществующему `item.item_key` на `item.product_name`.
+2. Усилен интеграционный скрипт `testing/scripts/test_sync_integration.py`:
+   - добавлен явный `fail`, если после sync таблицы `read_deals` или `event_store`
+     остаются пустыми.
+
+### Результат:
+- Ошибки валидации `Deal/DealItem` устранены.
+- События больше не теряются из-за отката всего батча.
+- Ветка `DealItemUpdated` больше не зависит от устаревшего формата payload.
+- Повторный прогон интеграционного сценария успешен:
+  - `Read models updated for 84 events`;
+  - `Total deals in database: 15`;
+  - `Total events: 366`.
+
+### Зачем:
+Согласовать `infrastructure`-проекцию с новым доменным контрактом и исключить
+ложно-успешные запуски синхронизации при пустой БД.
+
+---
+
 ## 📅 31 августа 2025 - Исправление артефактов is_active/version
 
 ### 🎯 Цель:

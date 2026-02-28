@@ -310,6 +310,9 @@ async def test_data_verification():
             result = await session.execute(text("SELECT COUNT(*) FROM read_deals"))
             deals_count = result.scalar()
             logger.info(f"📊 Total deals in database: {deals_count}")
+            if not deals_count or deals_count <= 0:
+                logger.error("❌ Verification failed: read_deals is empty after sync")
+                return False
 
             # Check recent deals
             result = await session.execute(
@@ -329,6 +332,9 @@ async def test_data_verification():
             result = await session.execute(text("SELECT COUNT(*) FROM event_store"))
             events_count = result.scalar()
             logger.info(f"📊 Total events: {events_count}")
+            if not events_count or events_count <= 0:
+                logger.error("❌ Verification failed: event_store is empty after sync")
+                return False
 
             return True
 

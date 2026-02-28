@@ -46,6 +46,19 @@
 
 ## 🚀 Последние достижения
 
+### 28 февраля 2026 - Восстановление синхронизации после регрессии контракта моделей
+- Исправлен `read_model_builder` под обязательные поля `Deal/DealItem`
+  (`period_month`, `period_year`, `client_name`, `seller`, `invoice_info`).
+- Убрана потеря батча при ошибке одного события:
+  обработка переведена на `SAVEPOINT` (`begin_nested`).
+- Закрыта совместимость `DealItemUpdated` с текущим форматом
+  (`field_changes` + плоский payload), чтобы исключить будущую регрессию.
+- Исправлен ключ аудита позиции: `item.item_key` → `item.product_name`.
+- Усилен `testing/scripts/test_sync_integration.py`:
+  сценарий теперь падает, если после sync пусты `read_deals` или `event_store`.
+- Проверка выполнена фактическим прогоном:
+  `Total deals in database: 15`, `Total events: 366`.
+
 ### 31 августа 2025 - Исправление артефактов is_active ⭐ **НОВОЕ**
 - ✅ Устранены все артефакты после удаления полей `is_active` и `version`
 - ✅ Исправлены ошибки в `repositories.py` и debug скриптах

@@ -18,7 +18,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.interfaces import EventStore
 from domain.models import Deal, DealItem
-from domain.value_objects import HashKey
 
 from ..database.models import (
     ReadModelAudit,
@@ -132,16 +131,14 @@ class ReadModelBuilder:
 
         for event in events:
             try:
-                await self._process_single_event(event)
+                # Isolate each event in its own SAVEPOINT so one broken payload
+                # does not roll back the whole batch (including appended events).
+                async with self.session.begin_nested():
+                    await self._process_single_event(event)
                 processed_count += 1
             except Exception as e:
                 # If event processing fails, defer it
                 reason = f"Processing failed: {str(e)}"
-                # Critical: rollback current transaction to clear aborted state
-                try:
-                    await self.session.rollback()
-                except Exception as _rb_err:
-                    logger.warning(f"Rollback after event failure also failed: {_rb_err}")
                 await self.deferred_queue.add_event(event, reason)
                 logger.warning(f"Event processing failed, deferred: {event.get('event_type')} - {e}")
 
@@ -343,7 +340,7 @@ class ReadModelBuilder:
         self, deal_data: dict[str, Any], items_data: list[dict[str, Any]]
     ) -> Deal:
         """Create Deal object from event data with all items."""
-        from domain.models import Deal, DealItem
+        from domain.models import Deal
         from domain.value_objects import Period, Money, SignedMoney
         
         # Extract and create period
@@ -369,34 +366,61 @@ class ReadModelBuilder:
         total_cost = Money(amount=Decimal(totals["cost"])) if totals.get("cost") else None
         kickback_amount = Money(amount=Decimal(totals["kickback"])) if totals.get("kickback") else None
         
+        deal_id = uuid.UUID(deal_data["deal_id"])
+        deal_key = deal_data["deal_key"]
+        client_name = deal_data["client_name"]
+        seller = deal_data.get("seller", "")
+        invoice_info = deal_data.get("invoice_info", "")
+
+        items: list[DealItem] = []
+        for item_data in items_data:
+            item = await self._create_deal_item_from_data(
+                item_data=item_data,
+                deal_id=deal_id,
+                deal_key=deal_key,
+                client_name=client_name,
+                period_month=period.month,
+                period_year=period.year,
+                seller=seller,
+                invoice_info=invoice_info,
+            )
+            items.append(item)
+
         # Create Deal object
         deal = Deal(
-            id=uuid.UUID(deal_data["deal_id"]),
-            deal_key=deal_data["deal_key"],
-            client_name=deal_data["client_name"],
-            invoice_info=deal_data.get("invoice_info", ""),
+            id=deal_id,
+            deal_key=deal_key,
+            client_name=client_name,
+            invoice_info=invoice_info,
             invoice_number=deal_data.get("invoice_number", ""),
             invoice_date=deal_data.get("invoice_date"),
             period=period,
+            period_month=period.month,
+            period_year=period.year,
             is_shipped=deal_data.get("is_shipped"),
             is_paid=deal_data.get("is_paid"),
             upd_number=deal_data.get("upd_number", ""),
-            seller=deal_data.get("seller", ""),
+            seller=seller,
             total_revenue=total_revenue,
             total_margin=total_margin,
             total_cost=total_cost,
             kickback_amount=kickback_amount,
-            items=[],
+            items=items,
         )
-        
-        # Add items to deal
-        for item_data in items_data:
-            item = await self._create_deal_item_from_data(item_data, deal.id)
-            deal.items.append(item)
-        
+        deal.set_id(deal_id)
         return deal
 
-    async def _create_deal_item_from_data(self, item_data: dict[str, Any], deal_id: uuid.UUID) -> DealItem:
+    async def _create_deal_item_from_data(
+        self,
+        item_data: dict[str, Any],
+        deal_id: uuid.UUID,
+        deal_key: str,
+        client_name: str,
+        period_month: str,
+        period_year: str,
+        seller: str,
+        invoice_info: str,
+    ) -> DealItem:
         """Create DealItem object from event data."""
         from domain.models import DealItem
         from domain.value_objects import Money, SignedMoney
@@ -409,10 +433,9 @@ class ReadModelBuilder:
         margin = SignedMoney(amount=Decimal(prices["margin"])) if prices.get("margin") else None
         cost = Money(amount=Decimal(prices["cost"])) if prices.get("cost") else None
         
-        return DealItem(
-            id=uuid.UUID(item_data["item_id"]),
+        item = DealItem(
             deal_id=deal_id,
-            item_key=item_data.get("product_name", ""),
+            deal_key=deal_key,
             product_name=item_data["product_name"],
             supplier_name=item_data.get("supplier_name", ""),
             pickup_date=item_data.get("pickup_date"),
@@ -422,8 +445,19 @@ class ReadModelBuilder:
             revenue=revenue,
             margin=margin,
             cost=cost,
+            client_name=client_name,
+            period_month=period_month,
+            period_year=period_year,
+            seller=seller,
+            invoice_info=invoice_info,
             position_number=item_data.get("position_number", 1),  # Add position_number from event data
         )
+
+        item_id = item_data.get("item_id")
+        if item_id:
+            item.set_id(uuid.UUID(item_id))
+
+        return item
 
     async def _upsert_deal_read_model(self, deal: Deal, full_event: dict[str, Any]) -> None:
         """Create or update deal read model."""
@@ -520,6 +554,8 @@ class ReadModelBuilder:
                 invoice_number=deal_data.get("invoice_number", ""),
                 invoice_date=deal_data.get("invoice_date"),
                 period=period,
+                period_month=period.month,
+                period_year=period.year,
                 is_shipped=deal_data.get("is_shipped"),
                 is_paid=deal_data.get("is_paid"),
                 upd_number=deal_data.get("upd_number", ""),
@@ -530,6 +566,7 @@ class ReadModelBuilder:
                 kickback_amount=kickback_amount,
                 items=[],  # Items are handled separately
             )
+            deal.set_id(uuid.UUID(deal_data["deal_id"]))
 
             # Create read model entry
             read_deal_data = {
@@ -741,35 +778,56 @@ class ReadModelBuilder:
         try:
             # Handle both formats: event_data.deal_item and direct event_data
             item_data = event_data.get("deal_item", event_data)
-            
-            # Create a DealItem object from the event data
+
+            item_id_raw = item_data.get("item_id")
+            deal_id_raw = item_data.get("deal_id")
+            if not item_id_raw or not deal_id_raw:
+                raise ValueError(
+                    "DealItemAdded payload must contain item_id and deal_id"
+                )
+
+            deal_id = uuid.UUID(str(deal_id_raw))
+            deal_context = await self._get_deal_context(deal_id)
+
+            # HYBRID APPROACH: Check if parent deal exists
+            if not deal_context:
+                reason = (
+                    f"Parent deal {deal_id} not found in read model "
+                    "(DealCreated event may not be processed yet)"
+                )
+                await self.deferred_queue.add_event(full_event, reason)
+                logger.warning(
+                    f"DealItemAdded event deferred: parent deal {deal_id} not found. "
+                    "Event will be retried after DealCreated is processed."
+                )
+                return
+
             from domain.models import DealItem
             from domain.value_objects import Money, SignedMoney
-            
+
             # Extract prices data
             prices = item_data.get("prices", {})
-            
+
             # Create Money objects for pricing data
             purchase_data = prices.get("purchase")
             purchase_price = Money(amount=Decimal(purchase_data)) if purchase_data else None
-            
+
             sale_data = prices.get("sale")
             sale_price = Money(amount=Decimal(sale_data)) if sale_data else None
-            
+
             revenue_data = prices.get("revenue")
             revenue = Money(amount=Decimal(revenue_data)) if revenue_data else None
-            
+
             margin_data = prices.get("margin")
             margin = SignedMoney(amount=Decimal(margin_data)) if margin_data else None
-            
+
             cost_data = prices.get("cost")
             cost = Money(amount=Decimal(cost_data)) if cost_data else None
 
             # Create DealItem object
             item = DealItem(
-                id=uuid.UUID(item_data["item_id"]),
-                deal_id=uuid.UUID(item_data["deal_id"]),
-                item_key=item_data.get("product_name", ""),  # Use product_name as item_key
+                deal_id=deal_id,
+                deal_key=deal_context.get("deal_key", ""),
                 product_name=item_data["product_name"],
                 supplier_name=item_data.get("supplier_name", ""),
                 pickup_date=item_data.get("pickup_date"),
@@ -779,22 +837,14 @@ class ReadModelBuilder:
                 revenue=revenue,
                 margin=margin,
                 cost=cost,
+                client_name=deal_context.get("client_name", ""),
+                period_month=deal_context.get("period_month", ""),
+                period_year=deal_context.get("period_year", ""),
+                seller=deal_context.get("seller", ""),
+                invoice_info=deal_context.get("invoice_info", ""),
                 position_number=item_data.get("position_number", 1),  # Add position_number from event data
             )
-
-            # Get deal context for denormalization
-            deal_context = await self._get_deal_context(item.deal_id)
-
-            # HYBRID APPROACH: Check if parent deal exists
-            if not deal_context:
-                # Defer processing - parent deal not found
-                reason = f"Parent deal {item.deal_id} not found in read model (DealCreated event may not be processed yet)"
-                await self.deferred_queue.add_event(full_event, reason)
-                logger.warning(
-                    f"DealItemAdded event deferred: parent deal {item.deal_id} not found. "
-                    f"Event will be retried after DealCreated is processed."
-                )
-                return
+            item.set_id(uuid.UUID(str(item_id_raw)))
 
             # Create read model entry
             deal_key = deal_context.get("deal_key", "")
@@ -873,7 +923,7 @@ class ReadModelBuilder:
             await self._create_audit_entry(
                 entity_type="position",
                 entity_id=item.id,
-                entity_key=item.item_key,
+                entity_key=item.product_name,
                 change_type="INSERT",
                 event_id=full_event["event_id"],
                 sync_session_id=full_event.get("metadata", {}).get("sync_session_id"),
@@ -882,7 +932,7 @@ class ReadModelBuilder:
             # Recalculate totals for the deal after adding position
             await self._recalculate_totals(item.deal_id)
 
-            logger.debug(f"Created read model for position {item.item_key}")
+            logger.debug(f"Created read model for position {item.product_name}")
 
         except Exception as e:
             logger.error(f"Failed to create deal item read model: {e}")
@@ -893,14 +943,72 @@ class ReadModelBuilder:
     ) -> None:
         """Update existing deal item read model."""
         try:
-            item_data = event_data.get("deal_item", {})
-            item = DealItem.model_validate(item_data)
+            # Support both old and current payload formats:
+            # - {"deal_item": {...}, "changes": {...}}
+            # - {"deal_id": ..., "item_id": ..., "field_changes": {...}, ...}
+            item_data = event_data.get("deal_item", event_data)
+            item_id_raw = item_data.get("item_id")
+            deal_id_raw = item_data.get("deal_id")
+            if not item_id_raw or not deal_id_raw:
+                raise ValueError(
+                    "DealItemUpdated payload must contain item_id and deal_id"
+                )
+
+            deal_id = uuid.UUID(str(deal_id_raw))
+            deal_context = await self._get_deal_context(deal_id)
+            if not deal_context:
+                reason = (
+                    f"Parent deal {deal_id} not found in read model "
+                    "(DealCreated event may not be processed yet)"
+                )
+                await self.deferred_queue.add_event(full_event, reason)
+                logger.warning(
+                    f"DealItemUpdated event deferred: parent deal {deal_id} not found. "
+                    "Event will be retried after DealCreated is processed."
+                )
+                return
+
+            from domain.value_objects import Money, SignedMoney
+
+            prices = item_data.get("prices", {})
+            purchase_data = prices.get("purchase")
+            purchase_price = Money(amount=Decimal(purchase_data)) if purchase_data else None
+
+            sale_data = prices.get("sale")
+            sale_price = Money(amount=Decimal(sale_data)) if sale_data else None
+
+            revenue_data = prices.get("revenue")
+            revenue = Money(amount=Decimal(revenue_data)) if revenue_data else None
+
+            margin_data = prices.get("margin")
+            margin = SignedMoney(amount=Decimal(margin_data)) if margin_data else None
+
+            cost_data = prices.get("cost")
+            cost = Money(amount=Decimal(cost_data)) if cost_data else None
+
+            item = DealItem(
+                deal_id=deal_id,
+                deal_key=deal_context.get("deal_key", ""),
+                product_name=item_data["product_name"],
+                supplier_name=item_data.get("supplier_name", ""),
+                pickup_date=item_data.get("pickup_date"),
+                quantity=Decimal(item_data["quantity"]) if item_data.get("quantity") else None,
+                purchase_price=purchase_price,
+                sale_price=sale_price,
+                revenue=revenue,
+                margin=margin,
+                cost=cost,
+                client_name=deal_context.get("client_name", ""),
+                period_month=deal_context.get("period_month", ""),
+                period_year=deal_context.get("period_year", ""),
+                seller=deal_context.get("seller", ""),
+                invoice_info=deal_context.get("invoice_info", ""),
+                position_number=item_data.get("position_number", 1),
+            )
+            item.set_id(uuid.UUID(str(item_id_raw)))
 
             # Get changes from event
-            changes = event_data.get("changes", {})
-
-            # Get deal context for denormalization
-            deal_context = await self._get_deal_context(item.deal_id)
+            changes = event_data.get("field_changes", event_data.get("changes", {}))
 
             # NEW UPDATE LOGIC: Handle hash_key changes with versioning
             new_hash_key = str(item.hash_key)
@@ -996,7 +1104,7 @@ class ReadModelBuilder:
                 await self._create_audit_entry(
                     entity_type="position",
                     entity_id=item.id,
-                    entity_key=item.item_key,
+                    entity_key=item.product_name,
                     change_type="UPDATE",
                     field_name=field_name,
                     old_value=str(change_data.get("old_value")),
@@ -1008,7 +1116,7 @@ class ReadModelBuilder:
             # Recalculate totals for the deal after updating position
             await self._recalculate_totals(item.deal_id)
 
-            logger.debug(f"Updated read model for position {item.item_key}")
+            logger.debug(f"Updated read model for position {item.product_name}")
 
         except Exception as e:
             logger.error(f"Failed to update deal item read model: {e}")
@@ -1143,6 +1251,8 @@ class ReadModelBuilder:
                     "client_name": deal.client_name,
                     "period_month": deal.period_month,
                     "period_year": deal.period_year,
+                    "seller": deal.seller,
+                    "invoice_info": deal.invoice_info,
                 }
             return {}
 
@@ -1153,7 +1263,7 @@ class ReadModelBuilder:
     async def _recalculate_totals(self, deal_id: uuid.UUID) -> None:
         """Recalculate aggregated totals and detect mismatches for a deal."""
         from decimal import Decimal
-        from sqlalchemy import select, func, update, and_
+        from sqlalchemy import select, func, update
 
         # 1. Collect aggregates from positions
         result = await self.session.execute(
