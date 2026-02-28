@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from enum import Enum
 from pathlib import Path
 
@@ -585,7 +585,7 @@ class ExcelParserService:
                                             else:
                                                 try:
                                                     row_values.append(Decimal(str(cell_value)))
-                                                except (ValueError, TypeError):
+                                                except (ValueError, TypeError, InvalidOperation):
                                                     row_values.append(cell_value)
                                         elif cached_value is not None:
                                             if isinstance(cached_value, (int, float)):
@@ -595,7 +595,7 @@ class ExcelParserService:
                                             else:
                                                 try:
                                                     row_values.append(Decimal(str(cached_value)))
-                                                except (ValueError, TypeError):
+                                                except (ValueError, TypeError, InvalidOperation):
                                                     row_values.append(cached_value)
                                         else:
                                             row_values.append(None)

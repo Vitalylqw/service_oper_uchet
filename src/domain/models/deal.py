@@ -168,7 +168,36 @@ class DealItem(BaseModel):
         }
         return HashKey.from_dict(data)
 
-    
+    def get_full_hash_key(self, deal_key: str) -> HashKey:
+        """Hash key for item uniqueness including deal_key and all financial fields.
+
+        Includes ALL fields for complete uniqueness:
+        - position_number, product_name, supplier_name, pickup_date
+        - quantity, purchase_price, sale_price
+        - revenue, margin, cost
+        - deal_key
+
+        Args:
+            deal_key: Parent deal key.
+
+        Returns:
+            HashKey considering all item fields.
+        """
+        data = {
+            "position_number": str(self.position_number) if self.position_number else "1",
+            "product_name": self.product_name,
+            "supplier_name": self.supplier_name or "",
+            "pickup_date": self.pickup_date or "",
+            "quantity": str(self.quantity) if self.quantity else "",
+            "purchase_price": str(self.purchase_price.amount) if self.purchase_price else "",
+            "sale_price": str(self.sale_price.amount) if self.sale_price else "",
+            "revenue": str(self.revenue.amount) if self.revenue else "",
+            "margin": str(self.margin.amount) if self.margin else "",
+            "cost": str(self.cost.amount) if self.cost else "",
+            "deal_key": deal_key,
+        }
+        return HashKey.from_dict(data)
+
     @field_validator("supplier_name", mode="before")
     @classmethod
     def validate_supplier_name(cls, v: str) -> str:
