@@ -18,7 +18,10 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import re
 import sys
+import webbrowser
+from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
@@ -207,12 +210,20 @@ CSS = """
     .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
     .delta-cell { font-weight: 600; }
+    .delta-cell a { color: inherit; text-decoration: underline dotted; cursor: pointer; }
+    .delta-cell a:hover { text-decoration: underline solid; }
+    .fail a { color: inherit; text-decoration: underline dotted; cursor: pointer; }
+    .fail a:hover { text-decoration: underline solid; }
     .compare-header { display: flex; gap: 20px; margin-bottom: 12px; flex-wrap: wrap; }
     .snap-badge {
         background: #fff; border-radius: 6px; padding: 10px 16px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.06); flex: 1; min-width: 280px;
     }
     .snap-badge .snap-label { font-weight: 700; font-size: 15px; }
+    .snap-badge .snap-label a {
+        color: #1a1a2e; text-decoration: none; border-bottom: 2px dashed #3498db;
+    }
+    .snap-badge .snap-label a:hover { border-bottom-style: solid; color: #3498db; }
     .snap-badge .snap-meta { font-size: 11px; color: #666; margin-top: 2px; }
 </style>
 """
@@ -244,8 +255,11 @@ def _render_overview_cards(snap: dict) -> str:
     return html
 
 
-def _render_financial_table(snap: dict) -> str:
+def _render_financial_table(
+    snap: dict, period_links: dict[str, str] | None = None,
+) -> str:
     """Block 2: Financial totals -- deals vs positions side by side."""
+    all_href = (period_links or {}).get("__ALL__")
     rows_data = [
         ("Revenue", "deals_sum_revenue", "pos_sum_revenue"),
         ("Margin", "deals_sum_margin", "pos_sum_margin"),
@@ -267,7 +281,17 @@ def _render_financial_table(snap: dict) -> str:
             delta = Decimal(str(d_val)) - Decimal(str(p_val))
             cls = _delta_cls(delta)
             html += f"<tr><td>{label}</td><td>{_fmt(d_val)}</td>"
-            html += f'<td>{_fmt(p_val)}</td><td class="delta-cell {cls}">{_fmt(delta)}</td></tr>'
+            if delta != 0 and all_href:
+                html += (
+                    f'<td>{_fmt(p_val)}</td>'
+                    f'<td class="delta-cell {cls}">'
+                    f'<a href="{all_href}" target="_blank">{_fmt(delta)}</a></td></tr>'
+                )
+            else:
+                html += (
+                    f'<td>{_fmt(p_val)}</td>'
+                    f'<td class="delta-cell {cls}">{_fmt(delta)}</td></tr>'
+                )
         else:
             html += f"<tr><td>{label}</td><td>{_fmt(d_val)}</td>"
             html += "<td>-</td><td>-</td></tr>"
@@ -315,10 +339,13 @@ def _render_health(snap: dict) -> str:
     return html
 
 
-def _render_deal_periods_table(periods: list[dict]) -> str:
+def _render_deal_periods_table(
+    periods: list[dict], period_links: dict[str, str] | None = None,
+) -> str:
     """Block 4A: Deals by period."""
     if not periods:
         return "<p>No deal period data.</p>"
+    links = period_links or {}
 
     cols = [
         ("Period", "period_full_name"),
@@ -346,12 +373,24 @@ def _render_deal_periods_table(periods: list[dict]) -> str:
 
     totals: dict[str, Any] = {}
     for p in periods:
+        period_name = p.get("period_full_name", "")
+        norm_period = _normalize_period_key(period_name)
+        href = links.get(norm_period)
         html += "<tr>"
         for label, key in cols:
             val = p.get(key, 0)
             if key == "period_full_name":
                 html += f"<td><strong>{val}</strong></td>"
-            elif key in ("delta_dk_hk", "has_error_count"):
+            elif key == "has_error_count":
+                cls = "ok" if (val or 0) == 0 else "fail"
+                if (val or 0) != 0 and href:
+                    html += (
+                        f'<td class="{cls}">'
+                        f'<a href="{href}" target="_blank">{_fmt(val)}</a></td>'
+                    )
+                else:
+                    html += f'<td class="{cls}">{_fmt(val)}</td>'
+            elif key == "delta_dk_hk":
                 cls = "ok" if (val or 0) == 0 else "fail"
                 html += f'<td class="{cls}">{_fmt(val)}</td>'
             else:
@@ -425,10 +464,23 @@ def _render_position_periods_table(periods: list[dict]) -> str:
     return html
 
 
-def _render_cross_period_table(deal_periods: list[dict], pos_periods: list[dict]) -> str:
+def _normalize_period_key(key: str) -> str:
+    """Normalize period key to a common format 'Month YYYY'.
+
+    Handles different separators: 'Июнь 2025', 'Июнь.2025' -> 'Июнь 2025'.
+    """
+    return re.sub(r"[.\s]+", " ", key.strip())
+
+
+def _render_cross_period_table(
+    deal_periods: list[dict],
+    pos_periods: list[dict],
+    period_links: dict[str, str] | None = None,
+) -> str:
     """Block 4C: Cross-compare deals vs positions by period."""
-    dp_map = {p["period_full_name"]: p for p in deal_periods}
-    pp_map = {p["period_key"]: p for p in pos_periods}
+    dp_map = {_normalize_period_key(p["period_full_name"]): p for p in deal_periods}
+    pp_map = {_normalize_period_key(p["period_key"]): p for p in pos_periods}
+    links = period_links or {}
 
     all_periods = sorted(set(dp_map.keys()) | set(pp_map.keys()))
     if not all_periods:
@@ -441,12 +493,15 @@ def _render_cross_period_table(deal_periods: list[dict], pos_periods: list[dict]
         <th>D: revenue</th><th>P: revenue</th><th>Delta Rev</th>
         <th>D: margin</th><th>P: margin</th><th>Delta Mrg</th>
         <th>D: cost</th><th>P: cost</th><th>Delta Cost</th>
+        <th>D: CalcRev</th><th>P: revenue</th><th>Delta CRev</th>
+        <th>D: CalcCost</th><th>P: cost</th><th>Delta CCost</th>
         <th>D: qty</th><th>P: qty</th><th>Delta Qty</th>
     </tr>"""
 
     for period in all_periods:
         dp = dp_map.get(period, {})
         pp = pp_map.get(period, {})
+        href = links.get(period)
         html += f"<tr><td><strong>{period}</strong></td>"
 
         pairs = [
@@ -455,6 +510,8 @@ def _render_cross_period_table(deal_periods: list[dict], pos_periods: list[dict]
             (dp.get("sum_revenue", 0), pp.get("sum_revenue", 0)),
             (dp.get("sum_margin", 0), pp.get("sum_margin", 0)),
             (dp.get("sum_cost", 0), pp.get("sum_cost", 0)),
+            (dp.get("sum_calc_revenue", 0), pp.get("sum_revenue", 0)),
+            (dp.get("sum_calc_cost", 0), pp.get("sum_cost", 0)),
             (dp.get("sum_quantity", 0), pp.get("sum_quantity", 0)),
         ]
         for d_val, p_val in pairs:
@@ -463,10 +520,261 @@ def _render_cross_period_table(deal_periods: list[dict], pos_periods: list[dict]
             delta = d - p
             cls = _delta_cls(delta)
             html += f"<td>{_fmt(d)}</td><td>{_fmt(p)}</td>"
-            html += f'<td class="delta-cell {cls}">{_fmt(delta)}</td>'
+            if delta != 0 and href:
+                html += (
+                    f'<td class="delta-cell {cls}">'
+                    f'<a href="{href}" target="_blank">{_fmt(delta)}</a></td>'
+                )
+            else:
+                html += f'<td class="delta-cell {cls}">{_fmt(delta)}</td>'
         html += "</tr>"
     html += "</table>"
     return html
+
+
+# ---------------------------------------------------------------------------
+# Detail drill-down file generation
+# ---------------------------------------------------------------------------
+
+def _safe_filename(period: str) -> str:
+    """Convert period name to safe filename component."""
+    return re.sub(r"[^\w]", "_", period.strip())
+
+
+DETAIL_CSS = """
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: #f4f6f9; color: #333; padding: 20px;
+    }
+    h1 { font-size: 22px; margin-bottom: 6px; color: #1a1a2e; }
+    h2 { font-size: 17px; margin: 24px 0 10px; color: #16213e;
+         border-bottom: 2px solid #0f3460; padding-bottom: 4px; }
+    .meta { font-size: 12px; color: #666; margin-bottom: 16px; }
+    .back-link { font-size: 13px; margin-bottom: 16px; }
+    .back-link a { color: #3498db; text-decoration: none; }
+    .back-link a:hover { text-decoration: underline; }
+    .summary { font-size: 13px; margin-bottom: 16px; color: #555; }
+    table {
+        width: 100%; border-collapse: collapse; font-size: 12px;
+        background: #fff; border-radius: 6px; overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 20px;
+    }
+    th {
+        background: #1a1a2e; color: #fff; padding: 8px 10px;
+        text-align: left; font-weight: 600; white-space: nowrap;
+    }
+    td { padding: 6px 10px; border-bottom: 1px solid #eee; white-space: nowrap; }
+    tr:hover td { background: #f0f4ff; }
+    tr.deal-header td {
+        background: #e8ecf1; font-weight: 700;
+        border-top: 2px solid #1a1a2e;
+    }
+    tr.subtotal td {
+        background: #f5f6fa; font-weight: 600; font-style: italic;
+        border-bottom: 2px solid #ccc;
+    }
+    .ok { color: #27ae60; }
+    .neg { color: #e74c3c; font-weight: 700; }
+    .pos { color: #27ae60; }
+    .delta-cell { font-weight: 600; }
+</style>
+"""
+
+
+def _generate_detail_html(
+    period: str,
+    deals: list[dict],
+    positions_by_deal: dict[str, list[dict]],
+    dashboard_filename: str,
+) -> str:
+    """Generate detail HTML page for a single period (or ALL)."""
+    title = f"Detail: {period}" if period != "ALL" else "Detail: All Periods"
+    summary_text = f"{len(deals)} deals with discrepancies"
+
+    html = f"""<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
+<title>{title}</title>{DETAIL_CSS}</head><body>
+<h1>{title}</h1>
+<div class="back-link"><a href="{dashboard_filename}" target="_blank">&larr; Back to Dashboard</a></div>
+<div class="summary">{summary_text}</div>
+"""
+
+    pos_cols = ["#", "Product", "Supplier", "Qty", "Revenue", "Margin", "Cost"]
+    deal_cols = [
+        "deal_key", "client", "D:Rev", "P:Rev", "dRev",
+        "D:Mrg", "P:Mrg", "dMrg", "D:Cost", "P:Cost", "dCost",
+        "D:Qty", "P:Qty", "dQty",
+    ]
+
+    current_period = None
+    for deal in deals:
+        dp = deal.get("period_full_name", "?")
+        if dp != current_period:
+            if current_period is not None:
+                html += "</table>"
+            current_period = dp
+            html += f"<h2>{dp}</h2>"
+            html += "<table><tr>"
+            for col in deal_cols:
+                html += f"<th>{col}</th>"
+            html += "</tr>"
+
+        d_rev = Decimal(str(deal.get("d_revenue") or 0))
+        p_rev = Decimal(str(deal.get("p_revenue") or 0))
+        d_mrg = Decimal(str(deal.get("d_margin") or 0))
+        p_mrg = Decimal(str(deal.get("p_margin") or 0))
+        d_cost = Decimal(str(deal.get("d_cost") or 0))
+        p_cost = Decimal(str(deal.get("p_cost") or 0))
+        d_qty = Decimal(str(deal.get("d_quantity") or 0))
+        p_qty = Decimal(str(deal.get("p_quantity") or 0))
+
+        deltas = [
+            ("rev", d_rev, p_rev),
+            ("mrg", d_mrg, p_mrg),
+            ("cost", d_cost, p_cost),
+            ("qty", d_qty, p_qty),
+        ]
+
+        html += '<tr class="deal-header">'
+        html += f"<td>{deal.get('deal_key', '?')}</td>"
+        html += f"<td>{deal.get('client_name', '?')}</td>"
+        for _, d_val, p_val in deltas:
+            delta = d_val - p_val
+            cls = _delta_cls(delta)
+            html += f"<td>{_fmt(d_val)}</td><td>{_fmt(p_val)}</td>"
+            html += f'<td class="delta-cell {cls}">{_fmt(delta)}</td>'
+        html += "</tr>"
+
+        deal_id_str = str(deal.get("deal_id", ""))
+        deal_positions = positions_by_deal.get(deal_id_str, [])
+
+        if deal_positions:
+            # Position header aligned: #->col0, Product->col1, Supplier->col2,
+            # Revenue->col3(P:Rev), Margin->col6(P:Mrg),
+            # Cost->col9(P:Cost), Qty->col12(P:Qty)
+            html += "<tr>"
+            html += "<td><strong>#</strong></td>"
+            html += "<td><strong>Product</strong></td>"
+            html += "<td><strong>Supplier</strong></td>"
+            html += "<td><strong>Revenue</strong></td>"
+            html += "<td colspan='2'></td>"
+            html += "<td><strong>Margin</strong></td>"
+            html += "<td colspan='2'></td>"
+            html += "<td><strong>Cost</strong></td>"
+            html += "<td colspan='2'></td>"
+            html += "<td><strong>Qty</strong></td>"
+            html += "<td></td>"
+            html += "</tr>"
+
+            sub_qty = Decimal("0")
+            sub_rev = Decimal("0")
+            sub_mrg = Decimal("0")
+            sub_cost = Decimal("0")
+
+            for pos in deal_positions:
+                qty = Decimal(str(pos.get("quantity") or 0))
+                rev = Decimal(str(pos.get("revenue_amount") or 0))
+                mrg = Decimal(str(pos.get("margin_amount") or 0))
+                cost = Decimal(str(pos.get("cost_amount") or 0))
+                sub_qty += qty
+                sub_rev += rev
+                sub_mrg += mrg
+                sub_cost += cost
+
+                html += "<tr>"
+                html += f"<td>{pos.get('position_number', '')}</td>"
+                html += f"<td>{pos.get('product_name', '')}</td>"
+                html += f"<td>{pos.get('supplier_name', '')}</td>"
+                html += f"<td>{_fmt(rev)}</td>"
+                html += "<td colspan='2'></td>"
+                html += f"<td>{_fmt(mrg)}</td>"
+                html += "<td colspan='2'></td>"
+                html += f"<td>{_fmt(cost)}</td>"
+                html += "<td colspan='2'></td>"
+                html += f"<td>{_fmt(qty)}</td>"
+                html += "<td></td>"
+                html += "</tr>"
+
+            html += '<tr class="subtotal">'
+            html += "<td colspan='3'>SUBTOTAL</td>"
+            html += f"<td>{_fmt(sub_rev)}</td>"
+            html += "<td colspan='2'></td>"
+            html += f"<td>{_fmt(sub_mrg)}</td>"
+            html += "<td colspan='2'></td>"
+            html += f"<td>{_fmt(sub_cost)}</td>"
+            html += "<td colspan='2'></td>"
+            html += f"<td>{_fmt(sub_qty)}</td>"
+            html += "<td></td>"
+            html += "</tr>"
+
+    if current_period is not None:
+        html += "</table>"
+
+    html += "</body></html>"
+    return html
+
+
+def generate_detail_files(
+    conn,
+    details_dir: Path,
+    dashboard_filename: str,
+) -> dict[str, str]:
+    """Generate detail HTML files for each period with discrepancies.
+
+    Args:
+        conn: DB connection for live queries.
+        details_dir: Directory to write detail files into.
+        dashboard_filename: Name of main dashboard file (for back-link).
+
+    Returns:
+        Mapping {normalized_period: relative_filename} for linking.
+    """
+    from db_snapshot_service import collect_discrepant_deals, collect_positions_for_deals
+
+    logger.info("Collecting discrepant deals for drill-down...")
+    deals = collect_discrepant_deals(conn)
+    if not deals:
+        logger.info("No discrepancies found -- no detail files generated.")
+        return {}
+
+    deal_ids = [d["deal_id"] for d in deals]
+    logger.info("Found %d discrepant deals, collecting positions...", len(deals))
+    positions = collect_positions_for_deals(conn, deal_ids)
+
+    positions_by_deal: dict[str, list[dict]] = defaultdict(list)
+    for p in positions:
+        positions_by_deal[str(p["deal_id"])].append(p)
+
+    deals_by_period: dict[str, list[dict]] = defaultdict(list)
+    for d in deals:
+        deals_by_period[d["period_full_name"]].append(d)
+
+    details_dir.mkdir(parents=True, exist_ok=True)
+    details_subdir = details_dir.name
+    period_links: dict[str, str] = {}
+
+    for period, period_deals in sorted(deals_by_period.items()):
+        safe_name = _safe_filename(period)
+        filename = f"detail_{safe_name}.html"
+        html = _generate_detail_html(
+            period, period_deals, positions_by_deal,
+            f"../{dashboard_filename}",
+        )
+        (details_dir / filename).write_text(html, encoding="utf-8")
+        norm_key = _normalize_period_key(period)
+        period_links[norm_key] = f"{details_subdir}/{filename}"
+        logger.info("  Detail file: %s (%d deals)", filename, len(period_deals))
+
+    all_html = _generate_detail_html(
+        "ALL", deals, positions_by_deal,
+        f"../{dashboard_filename}",
+    )
+    (details_dir / "detail_ALL.html").write_text(all_html, encoding="utf-8")
+    period_links["__ALL__"] = f"{details_subdir}/detail_ALL.html"
+    logger.info("  Detail file: detail_ALL.html (%d deals total)", len(deals))
+
+    return period_links
 
 
 # ---------------------------------------------------------------------------
@@ -530,10 +838,13 @@ def _render_compare_financials(snap_a: dict, snap_b: dict) -> str:
 # Full page assembly
 # ---------------------------------------------------------------------------
 
-def generate_latest_html(snap: dict) -> str:
+def generate_latest_html(
+    snap: dict, period_links: dict[str, str] | None = None,
+) -> str:
     """Generate full HTML page for a single snapshot."""
     label = snap.get("label", "?")
     created = snap.get("created_at", "?")
+    links = period_links or {}
 
     html = f"""<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
 <title>DB Dashboard -- {label}</title>{CSS}</head><body>
@@ -545,39 +856,51 @@ def generate_latest_html(snap: dict) -> str:
 {_render_overview_cards(snap)}
 
 <h2>2. Financial Totals (deals vs positions)</h2>
-{_render_financial_table(snap)}
+{_render_financial_table(snap, period_links=links)}
 
 <h2>3. Data Health</h2>
 {_render_health(snap)}
 
 <h2>4A. Deals by Period</h2>
-{_render_deal_periods_table(snap.get('deal_periods', []))}
+{_render_deal_periods_table(snap.get('deal_periods', []), period_links=links)}
 
 <h2>4B. Positions by Period</h2>
 {_render_position_periods_table(snap.get('position_periods', []))}
 
 <h2>4C. Cross-compare: Deals vs Positions by Period</h2>
-{_render_cross_period_table(snap.get('deal_periods', []), snap.get('position_periods', []))}
+{_render_cross_period_table(
+    snap.get('deal_periods', []),
+    snap.get('position_periods', []),
+    period_links=links,
+)}
 
 </body></html>"""
     return html
 
 
-def generate_compare_html(snap_a: dict, snap_b: dict) -> str:
+def generate_compare_html(
+    snap_a: dict,
+    snap_b: dict,
+    file_a: str | None = None,
+    file_b: str | None = None,
+) -> str:
     """Generate full HTML page comparing two snapshots."""
     la = snap_a.get("label", "?")
     lb = snap_b.get("label", "?")
+
+    label_a = f'<a href="{file_a}" target="_blank">A: {la}</a>' if file_a else f"A: {la}"
+    label_b = f'<a href="{file_b}" target="_blank">B: {lb}</a>' if file_b else f"B: {lb}"
 
     html = f"""<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
 <title>DB Dashboard Compare -- {la} vs {lb}</title>{CSS}</head><body>
 <h1>DB Dashboard -- Compare</h1>
 <div class="compare-header">
     <div class="snap-badge">
-        <div class="snap-label">A: {la}</div>
+        <div class="snap-label">{label_a}</div>
         <div class="snap-meta">#{snap_a.get('id')} | {snap_a.get('created_at')}</div>
     </div>
     <div class="snap-badge">
-        <div class="snap-label">B: {lb}</div>
+        <div class="snap-label">{label_b}</div>
         <div class="snap-meta">#{snap_b.get('id')} | {snap_b.get('created_at')}</div>
     </div>
 </div>
@@ -650,6 +973,9 @@ def main() -> int:
 
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     engine = get_sync_engine()
+    period_links: dict[str, str] = {}
+    details_dir: Path | None = None
+    out_name = ""
 
     try:
         with engine.connect() as conn:
@@ -660,14 +986,53 @@ def main() -> int:
                 print(f"Found {len(snaps)} snapshots.")
 
             elif args.mode == "compare":
-                snap_a = load_snapshot(conn, snapshot_id=args.id1, label=args.label1)
-                snap_b = load_snapshot(conn, snapshot_id=args.id2, label=args.label2)
+                has_explicit = any([args.id1, args.id2, args.label1, args.label2])
+                if has_explicit:
+                    snap_a = load_snapshot(conn, snapshot_id=args.id1, label=args.label1)
+                    snap_b = load_snapshot(conn, snapshot_id=args.id2, label=args.label2)
+                else:
+                    rows = conn.execute(
+                        text(
+                            "SELECT id FROM db_snapshots "
+                            "ORDER BY created_at DESC LIMIT 2"
+                        )
+                    ).fetchall()
+                    if len(rows) < 2:
+                        logger.error(
+                            "Need at least 2 snapshots for compare without args, "
+                            "found %d.", len(rows),
+                        )
+                        return 1
+                    snap_b = load_snapshot(conn, snapshot_id=rows[0][0])
+                    snap_a = load_snapshot(conn, snapshot_id=rows[1][0])
+                    logger.info(
+                        "Auto-compare: A=#%s (%s) vs B=#%s (%s)",
+                        snap_a.get("id"), snap_a.get("label"),
+                        snap_b.get("id"), snap_b.get("label"),
+                    )
                 if not snap_a or not snap_b:
                     logger.error("Could not load one or both snapshots for comparison.")
                     return 1
-                html = generate_compare_html(snap_a, snap_b)
-                la = snap_a.get("label", snap_a.get("id"))
-                lb = snap_b.get("label", snap_b.get("id"))
+
+                # Generate individual dashboards for each snapshot
+                id_a = snap_a.get("id")
+                id_b = snap_b.get("id")
+                file_a = f"dashboard_snap_{id_a}.html"
+                file_b = f"dashboard_snap_{id_b}.html"
+
+                for snap, fname in [(snap_a, file_a), (snap_b, file_b)]:
+                    sid = snap.get("id")
+                    det_dir = REPORTS_DIR / f"dashboard_snap_{sid}_details"
+                    links = generate_detail_files(conn, det_dir, fname)
+                    snap_html = generate_latest_html(snap, period_links=links)
+                    (REPORTS_DIR / fname).write_text(snap_html, encoding="utf-8")
+                    logger.info("Individual dashboard: %s", fname)
+
+                la = snap_a.get("label", id_a)
+                lb = snap_b.get("label", id_b)
+                html = generate_compare_html(
+                    snap_a, snap_b, file_a=file_a, file_b=file_b,
+                )
                 out_name = f"dashboard_compare_{la}_vs_{lb}.html"
 
             else:
@@ -675,10 +1040,13 @@ def main() -> int:
                 if not snap:
                     logger.error("No snapshots found in database.")
                     return 1
-                html = generate_latest_html(snap)
-                out_name = (
-                    f"dashboard_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
+                ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+                out_name = f"dashboard_{ts}.html"
+                details_dir = REPORTS_DIR / f"dashboard_{ts}_details"
+                period_links = generate_detail_files(
+                    conn, details_dir, out_name,
                 )
+                html = generate_latest_html(snap, period_links=period_links)
 
     except Exception:
         logger.exception("Failed to generate dashboard")
@@ -691,7 +1059,12 @@ def main() -> int:
     out_path.write_text(html, encoding="utf-8")
 
     print(f"\nDashboard generated: {out_path}")
-    print(f"Open in browser: file:///{out_path.resolve()}")
+    if period_links:
+        print(f"Detail files: {details_dir}/")
+
+    file_uri = out_path.resolve().as_uri()
+    print(f"Open in browser: {file_uri}")
+    webbrowser.open(file_uri)
     return 0
 
 

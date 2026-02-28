@@ -419,6 +419,83 @@ def collect_health_checks(conn: Connection) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Drill-down detail collectors (used by generate_dashboard for detail files)
+# ---------------------------------------------------------------------------
+
+def collect_discrepant_deals(conn: Connection) -> list[dict]:
+    """Collect deals where totals differ from aggregated position sums.
+
+    Returns list of dicts with deal-level fields and aggregated position sums,
+    sorted by period_full_name, deal_key.
+    """
+    sql = text("""
+        SELECT
+            d.id                            AS deal_id,
+            d.deal_key,
+            d.client_name,
+            d.period_full_name,
+            d.total_revenue_amount          AS d_revenue,
+            d.total_margin_amount           AS d_margin,
+            d.total_cost_amount             AS d_cost,
+            d.total_quantity                AS d_quantity,
+            d.has_totals_error,
+            d.items_count,
+            COALESCE(SUM(p.revenue_amount), 0) AS p_revenue,
+            COALESCE(SUM(p.margin_amount), 0)  AS p_margin,
+            COALESCE(SUM(p.cost_amount), 0)    AS p_cost,
+            COALESCE(SUM(p.quantity), 0)       AS p_quantity,
+            COUNT(p.id)                        AS p_count
+        FROM read_deals d
+        LEFT JOIN read_positions p ON p.deal_id = d.id
+        GROUP BY d.id, d.deal_key, d.client_name, d.period_full_name,
+                 d.total_revenue_amount, d.total_margin_amount,
+                 d.total_cost_amount, d.total_quantity,
+                 d.has_totals_error, d.items_count
+        HAVING
+            COALESCE(d.total_revenue_amount, 0)
+                != COALESCE(SUM(p.revenue_amount), 0)
+            OR COALESCE(d.total_margin_amount, 0)
+                != COALESCE(SUM(p.margin_amount), 0)
+            OR COALESCE(d.total_cost_amount, 0)
+                != COALESCE(SUM(p.cost_amount), 0)
+            OR COALESCE(d.total_quantity, 0)
+                != COALESCE(SUM(p.quantity), 0)
+        ORDER BY d.period_full_name, d.deal_key
+    """)
+    rows = conn.execute(sql).mappings().all()
+    return [dict(r) for r in rows]
+
+
+def collect_positions_for_deals(
+    conn: Connection, deal_ids: list,
+) -> list[dict]:
+    """Collect positions for given deal IDs.
+
+    Returns list of dicts with position-level fields,
+    sorted by deal_key, position_number.
+    """
+    if not deal_ids:
+        return []
+    sql = text("""
+        SELECT
+            p.deal_id,
+            p.deal_key,
+            p.position_number,
+            p.product_name,
+            p.supplier_name,
+            p.quantity,
+            p.revenue_amount,
+            p.margin_amount,
+            p.cost_amount
+        FROM read_positions p
+        WHERE p.deal_id = ANY(:deal_ids)
+        ORDER BY p.deal_key, p.position_number
+    """)
+    rows = conn.execute(sql, {"deal_ids": deal_ids}).mappings().all()
+    return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
 # Snapshot creation
 # ---------------------------------------------------------------------------
 
