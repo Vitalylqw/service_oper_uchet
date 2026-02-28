@@ -38,6 +38,14 @@
    - Система полностью совместима с упрощенной схемой
    - Стабильная работа без ошибок
 
+7. **DB Dashboard -- мониторинг состояния БД**
+   - 3 таблицы снимков (db_snapshots, db_snapshot_deal_periods, db_snapshot_position_periods)
+   - Миграция 0005 применена
+   - Сервис сбора метрик с 14 health-проверками целостности
+   - HTML-генератор дашборда (режимы: latest, compare, list)
+   - Workflow "до/после" для тестирования (--before / --after)
+   - Скрипты: create_db_snapshot.py, generate_dashboard.py, run_dashboard_check.py
+
 ### 🔄 В РАБОТЕ (0%)
 
 ### 📋 ПЛАНИРУЕТСЯ (0%)
@@ -45,6 +53,13 @@
 ---
 
 ## 🚀 Последние достижения
+
+### 28 февраля 2026 - DB Dashboard для мониторинга состояния БД
+- Созданы 3 таблицы снимков (миграция 0005): db_snapshots, db_snapshot_deal_periods, db_snapshot_position_periods
+- Реализован сервис сбора метрик (db_snapshot_service.py) с 14 проверками целостности
+- HTML-генератор дашборда с 3 режимами: latest, compare (до/после), list
+- Обёртка run_dashboard_check.py для workflow --before/--after
+- Первый снимок: 15 deals, 84 positions, 2 периода, 4 health issues обнаружены
 
 ### 28 февраля 2026 - Восстановление синхронизации после регрессии контракта моделей
 - Исправлен `read_model_builder` под обязательные поля `Deal/DealItem`
@@ -95,6 +110,7 @@
 - **Change Detector**: Определение изменений
 - **Position Sync**: Синхронизация позиций
 - **Sync Orchestrator**: Координация синхронизации
+- **DB Dashboard**: Мониторинг состояния БД, снимки, сравнение до/после
 
 ---
 

@@ -1,0 +1,126 @@
+<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
+<title>DB Dashboard Compare -- before_compare_test vs after_compare_test</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: #f4f6f9; color: #333; padding: 20px;
+    }
+    h1 { font-size: 22px; margin-bottom: 6px; color: #1a1a2e; }
+    h2 { font-size: 17px; margin: 24px 0 10px; color: #16213e;
+         border-bottom: 2px solid #0f3460; padding-bottom: 4px; }
+    h3 { font-size: 14px; margin: 16px 0 6px; color: #1a1a2e; }
+    .meta { font-size: 12px; color: #666; margin-bottom: 16px; }
+    .cards { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+    .card {
+        background: #fff; border-radius: 8px; padding: 14px 18px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.08); min-width: 160px; flex: 1;
+    }
+    .card .lbl { font-size: 11px; color: #888; text-transform: uppercase;
+                 letter-spacing: 0.5px; }
+    .card .val { font-size: 22px; font-weight: 700; margin-top: 4px; }
+    table {
+        width: 100%; border-collapse: collapse; font-size: 12px;
+        background: #fff; border-radius: 6px; overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 16px;
+    }
+    th {
+        background: #1a1a2e; color: #fff; padding: 8px 10px;
+        text-align: left; font-weight: 600; white-space: nowrap;
+    }
+    td { padding: 6px 10px; border-bottom: 1px solid #eee; white-space: nowrap; }
+    tr:nth-child(even) td { background: #fafbfc; }
+    tr:hover td { background: #f0f4ff; }
+    tr.totals td { font-weight: 700; background: #e8ecf1; border-top: 2px solid #1a1a2e; }
+    .ok { color: #27ae60; }
+    .warn { color: #e67e22; }
+    .fail { color: #e74c3c; font-weight: 700; }
+    .info { color: #3498db; }
+    .pos { color: #27ae60; }
+    .neg { color: #e74c3c; }
+    .health-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 10px; margin-bottom: 16px;
+    }
+    .health-item {
+        background: #fff; border-radius: 6px; padding: 10px 14px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        border-left: 4px solid #ddd;
+    }
+    .health-item.ok { border-left-color: #27ae60; }
+    .health-item.warn { border-left-color: #e67e22; }
+    .health-item.fail { border-left-color: #e74c3c; }
+    .health-item.info { border-left-color: #3498db; }
+    .health-item .title { font-weight: 600; font-size: 12px; margin-bottom: 4px; }
+    .health-item .detail { font-size: 11px; color: #555; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+    .delta-cell { font-weight: 600; }
+    .compare-header { display: flex; gap: 20px; margin-bottom: 12px; flex-wrap: wrap; }
+    .snap-badge {
+        background: #fff; border-radius: 6px; padding: 10px 16px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06); flex: 1; min-width: 280px;
+    }
+    .snap-badge .snap-label { font-weight: 700; font-size: 15px; }
+    .snap-badge .snap-meta { font-size: 11px; color: #666; margin-top: 2px; }
+</style>
+</head><body>
+<h1>DB Dashboard -- Compare</h1>
+<div class="compare-header">
+    <div class="snap-badge">
+        <div class="snap-label">A: before_compare_test</div>
+        <div class="snap-meta">#3 | 2026-02-28 21:15:09.341271+03:00</div>
+    </div>
+    <div class="snap-badge">
+        <div class="snap-label">B: after_compare_test</div>
+        <div class="snap-meta">#4 | 2026-02-28 21:15:15.610950+03:00</div>
+    </div>
+</div>
+
+<h2>1. Overview Comparison</h2>
+<table><tr><th>Metric</th><th>Snapshot A</th><th>Snapshot B</th><th>Delta</th></tr><tr><td>Deals rows</td><td>15</td><td>15</td><td class="delta-cell ok">0</td></tr><tr><td>Positions rows</td><td>84</td><td>84</td><td class="delta-cell ok">0</td></tr><tr><td>Unique deal_key (D)</td><td>15</td><td>15</td><td class="delta-cell ok">0</td></tr><tr><td>Unique deal_key (P)</td><td>15</td><td>15</td><td class="delta-cell ok">0</td></tr><tr><td>Unique clients (D)</td><td>12</td><td>12</td><td class="delta-cell ok">0</td></tr><tr><td>Unique clients (P)</td><td>12</td><td>12</td><td class="delta-cell ok">0</td></tr><tr><td>Products</td><td>72</td><td>72</td><td class="delta-cell ok">0</td></tr><tr><td>Suppliers</td><td>41</td><td>41</td><td class="delta-cell ok">0</td></tr></table>
+
+<h2>2. Financial Totals Comparison</h2>
+<table><tr><th>Metric</th><th>Snapshot A</th><th>Snapshot B</th><th>Delta</th></tr><tr><td>D: Revenue</td><td>684 257.80</td><td>684 257.80</td><td class="delta-cell ok">0</td></tr><tr><td>D: Margin</td><td>234 151.76</td><td>234 151.76</td><td class="delta-cell ok">0</td></tr><tr><td>D: Cost</td><td>450 106.04</td><td>450 106.04</td><td class="delta-cell ok">0</td></tr><tr><td>D: Kickback</td><td>451.98</td><td>451.98</td><td class="delta-cell ok">0</td></tr><tr><td>D: Calc Revenue</td><td>686 777.80</td><td>686 777.80</td><td class="delta-cell ok">0</td></tr><tr><td>D: Calc Margin</td><td>236 666.23</td><td>236 666.23</td><td class="delta-cell ok">0</td></tr><tr><td>D: Calc Cost</td><td>450 111.57</td><td>450 111.57</td><td class="delta-cell ok">0</td></tr><tr><td>D: Quantity</td><td>13 413</td><td>13 413</td><td class="delta-cell ok">0</td></tr><tr><td>D: has_error</td><td>7</td><td>7</td><td class="delta-cell ok">0</td></tr><tr><td>P: Revenue</td><td>686 777.80</td><td>686 777.80</td><td class="delta-cell ok">0</td></tr><tr><td>P: Margin</td><td>236 666.23</td><td>236 666.23</td><td class="delta-cell ok">0</td></tr><tr><td>P: Cost</td><td>450 111.57</td><td>450 111.57</td><td class="delta-cell ok">0</td></tr><tr><td>P: Quantity</td><td>13 413</td><td>13 413</td><td class="delta-cell ok">0</td></tr></table>
+
+<h2>3A. Data Health -- Snapshot A (before_compare_test)</h2>
+<div class="health-grid"><div class="health-item ok"><div class="title">[OK] Cross: deal_key (deals vs positions)</div><div class="detail">deals: 15 | delta: 0 | positions: 15</div></div><div class="health-item warn"><div class="title">[WARN] Cross: SUM cost</div><div class="detail">deals: 450106.04 | delta: -5.53 | positions: 450111.57</div></div><div class="health-item warn"><div class="title">[WARN] Cross: SUM margin</div><div class="detail">deals: 234151.76 | delta: -2514.47 | positions: 236666.23</div></div><div class="health-item ok"><div class="title">[OK] Orphan positions</div><div class="detail">count: 0</div></div><div class="health-item ok"><div class="title">[OK] Cross: client_name (deals vs positions)</div><div class="detail">deals: 12 | delta: 0 | positions: 12</div></div><div class="health-item warn"><div class="title">[WARN] Cross: SUM revenue</div><div class="detail">deals: 684257.80 | delta: -2520.00 | positions: 686777.80</div></div><div class="health-item ok"><div class="title">[OK] Cross: SUM quantity</div><div class="detail">deals: 13413.000 | delta: 0.000 | positions: 13413.000</div></div><div class="health-item ok"><div class="title">[OK] items_count vs actual positions</div><div class="detail">count: 0</div></div><div class="health-item ok"><div class="title">[OK] Positions: rows vs unique hash_key</div><div class="detail">delta: 0 | total: 84 | unique: 84</div></div><div class="health-item info"><div class="title">[INFO] calc_* vs total_* mismatch</div><div class="detail">count: 7</div></div><div class="health-item ok"><div class="title">[OK] Deals: rows vs unique deal_key</div><div class="detail">delta: 0 | total: 15 | unique: 15</div></div><div class="health-item ok"><div class="title">[OK] Deals: rows vs unique hash_key</div><div class="detail">delta: 0 | total: 15 | unique: 15</div></div><div class="health-item warn"><div class="title">[WARN] has_totals_error count</div><div class="detail">count: 7</div></div><div class="health-item ok"><div class="title">[OK] Deals without positions</div><div class="detail">count: 0</div></div></div>
+
+<h2>3B. Data Health -- Snapshot B (after_compare_test)</h2>
+<div class="health-grid"><div class="health-item ok"><div class="title">[OK] Cross: deal_key (deals vs positions)</div><div class="detail">deals: 15 | delta: 0 | positions: 15</div></div><div class="health-item warn"><div class="title">[WARN] Cross: SUM cost</div><div class="detail">deals: 450106.04 | delta: -5.53 | positions: 450111.57</div></div><div class="health-item warn"><div class="title">[WARN] Cross: SUM margin</div><div class="detail">deals: 234151.76 | delta: -2514.47 | positions: 236666.23</div></div><div class="health-item ok"><div class="title">[OK] Orphan positions</div><div class="detail">count: 0</div></div><div class="health-item ok"><div class="title">[OK] Cross: client_name (deals vs positions)</div><div class="detail">deals: 12 | delta: 0 | positions: 12</div></div><div class="health-item warn"><div class="title">[WARN] Cross: SUM revenue</div><div class="detail">deals: 684257.80 | delta: -2520.00 | positions: 686777.80</div></div><div class="health-item ok"><div class="title">[OK] Cross: SUM quantity</div><div class="detail">deals: 13413.000 | delta: 0.000 | positions: 13413.000</div></div><div class="health-item ok"><div class="title">[OK] items_count vs actual positions</div><div class="detail">count: 0</div></div><div class="health-item ok"><div class="title">[OK] Positions: rows vs unique hash_key</div><div class="detail">delta: 0 | total: 84 | unique: 84</div></div><div class="health-item info"><div class="title">[INFO] calc_* vs total_* mismatch</div><div class="detail">count: 7</div></div><div class="health-item ok"><div class="title">[OK] Deals: rows vs unique deal_key</div><div class="detail">delta: 0 | total: 15 | unique: 15</div></div><div class="health-item ok"><div class="title">[OK] Deals: rows vs unique hash_key</div><div class="detail">delta: 0 | total: 15 | unique: 15</div></div><div class="health-item warn"><div class="title">[WARN] has_totals_error count</div><div class="detail">count: 7</div></div><div class="health-item ok"><div class="title">[OK] Deals without positions</div><div class="detail">count: 0</div></div></div>
+
+<h2>4A. Deals by Period -- Snapshot A (before_compare_test)</h2>
+<table><tr><th>Period</th><th>Rows</th><th>Uniq DK</th><th>Uniq HK</th><th>Delta DK-HK</th><th>Uniq Client</th><th>Revenue</th><th>Margin</th><th>Cost</th><th>Kickback</th><th>Calc Rev</th><th>Calc Mrg</th><th>Calc Cost</th><th>Items</th><th>Quantity</th><th>Errors</th></tr><tr><td><strong>Июнь 2025</strong></td><td>11</td><td>11</td><td>11</td><td class="ok">0</td><td>9</td><td>263 496.80</td><td>64 376.95</td><td>199 119.85</td><td>451.98</td><td>266 016.80</td><td>66 894.07</td><td>199 122.73</td><td>48</td><td>7 202</td><td class="fail">3</td></tr><tr><td><strong>Май 2025</strong></td><td>4</td><td>4</td><td>4</td><td class="ok">0</td><td>3</td><td>420 761</td><td>169 774.81</td><td>250 986.19</td><td>0</td><td>420 761</td><td>169 772.16</td><td>250 988.84</td><td>36</td><td>6 211</td><td class="fail">4</td></tr><tr class="totals"><td><strong>TOTAL</strong></td><td>15</td><td>15</td><td>15</td><td class="ok">0</td><td>12</td><td>684 257.80</td><td>234 151.76</td><td>450 106.04</td><td>451.98</td><td>686 777.80</td><td>236 666.23</td><td>450 111.57</td><td>84</td><td>13 413</td><td class="fail">7</td></tr></table>
+
+<h2>4A. Deals by Period -- Snapshot B (after_compare_test)</h2>
+<table><tr><th>Period</th><th>Rows</th><th>Uniq DK</th><th>Uniq HK</th><th>Delta DK-HK</th><th>Uniq Client</th><th>Revenue</th><th>Margin</th><th>Cost</th><th>Kickback</th><th>Calc Rev</th><th>Calc Mrg</th><th>Calc Cost</th><th>Items</th><th>Quantity</th><th>Errors</th></tr><tr><td><strong>Июнь 2025</strong></td><td>11</td><td>11</td><td>11</td><td class="ok">0</td><td>9</td><td>263 496.80</td><td>64 376.95</td><td>199 119.85</td><td>451.98</td><td>266 016.80</td><td>66 894.07</td><td>199 122.73</td><td>48</td><td>7 202</td><td class="fail">3</td></tr><tr><td><strong>Май 2025</strong></td><td>4</td><td>4</td><td>4</td><td class="ok">0</td><td>3</td><td>420 761</td><td>169 774.81</td><td>250 986.19</td><td>0</td><td>420 761</td><td>169 772.16</td><td>250 988.84</td><td>36</td><td>6 211</td><td class="fail">4</td></tr><tr class="totals"><td><strong>TOTAL</strong></td><td>15</td><td>15</td><td>15</td><td class="ok">0</td><td>12</td><td>684 257.80</td><td>234 151.76</td><td>450 106.04</td><td>451.98</td><td>686 777.80</td><td>236 666.23</td><td>450 111.57</td><td>84</td><td>13 413</td><td class="fail">7</td></tr></table>
+
+<h2>4B. Positions by Period -- Snapshot A (before_compare_test)</h2>
+<table><tr><th>Period</th><th>Rows</th><th>Uniq HK</th><th>Delta R-HK</th><th>Uniq DK</th><th>Uniq Client</th><th>Uniq Product</th><th>Uniq Supplier</th><th>Quantity</th><th>Revenue</th><th>Margin</th><th>Cost</th></tr><tr><td><strong>Июнь.2025</strong></td><td>48</td><td>48</td><td class="ok">0</td><td>11</td><td>9</td><td>46</td><td>29</td><td>7 202</td><td>266 016.80</td><td>66 894.07</td><td>199 122.73</td></tr><tr><td><strong>Май.2025</strong></td><td>36</td><td>36</td><td class="ok">0</td><td>4</td><td>3</td><td>28</td><td>18</td><td>6 211</td><td>420 761</td><td>169 772.16</td><td>250 988.84</td></tr><tr class="totals"><td><strong>TOTAL</strong></td><td>84</td><td>84</td><td class="ok">0</td><td>15</td><td>12</td><td>74</td><td>47</td><td>13 413</td><td>686 777.80</td><td>236 666.23</td><td>450 111.57</td></tr></table>
+
+<h2>4B. Positions by Period -- Snapshot B (after_compare_test)</h2>
+<table><tr><th>Period</th><th>Rows</th><th>Uniq HK</th><th>Delta R-HK</th><th>Uniq DK</th><th>Uniq Client</th><th>Uniq Product</th><th>Uniq Supplier</th><th>Quantity</th><th>Revenue</th><th>Margin</th><th>Cost</th></tr><tr><td><strong>Июнь.2025</strong></td><td>48</td><td>48</td><td class="ok">0</td><td>11</td><td>9</td><td>46</td><td>29</td><td>7 202</td><td>266 016.80</td><td>66 894.07</td><td>199 122.73</td></tr><tr><td><strong>Май.2025</strong></td><td>36</td><td>36</td><td class="ok">0</td><td>4</td><td>3</td><td>28</td><td>18</td><td>6 211</td><td>420 761</td><td>169 772.16</td><td>250 988.84</td></tr><tr class="totals"><td><strong>TOTAL</strong></td><td>84</td><td>84</td><td class="ok">0</td><td>15</td><td>12</td><td>74</td><td>47</td><td>13 413</td><td>686 777.80</td><td>236 666.23</td><td>450 111.57</td></tr></table>
+
+<h2>4C. Cross-compare: Deals vs Positions -- Snapshot A (before_compare_test)</h2>
+<table><tr>
+        <th>Period</th>
+        <th>D: deal_key</th><th>P: deal_key</th><th>Delta DK</th>
+        <th>D: client</th><th>P: client</th><th>Delta Cl</th>
+        <th>D: revenue</th><th>P: revenue</th><th>Delta Rev</th>
+        <th>D: margin</th><th>P: margin</th><th>Delta Mrg</th>
+        <th>D: cost</th><th>P: cost</th><th>Delta Cost</th>
+        <th>D: qty</th><th>P: qty</th><th>Delta Qty</th>
+    </tr><tr><td><strong>Июнь 2025</strong></td><td>11</td><td>0</td><td class="delta-cell pos">11</td><td>9</td><td>0</td><td class="delta-cell pos">9</td><td>263 496.80</td><td>0</td><td class="delta-cell pos">263 496.80</td><td>64 376.95</td><td>0</td><td class="delta-cell pos">64 376.95</td><td>199 119.85</td><td>0</td><td class="delta-cell pos">199 119.85</td><td>7 202</td><td>0</td><td class="delta-cell pos">7 202</td></tr><tr><td><strong>Июнь.2025</strong></td><td>0</td><td>11</td><td class="delta-cell neg">-11</td><td>0</td><td>9</td><td class="delta-cell neg">-9</td><td>0</td><td>266 016.80</td><td class="delta-cell neg">-266 016.80</td><td>0</td><td>66 894.07</td><td class="delta-cell neg">-66 894.07</td><td>0</td><td>199 122.73</td><td class="delta-cell neg">-199 122.73</td><td>0</td><td>7 202</td><td class="delta-cell neg">-7 202</td></tr><tr><td><strong>Май 2025</strong></td><td>4</td><td>0</td><td class="delta-cell pos">4</td><td>3</td><td>0</td><td class="delta-cell pos">3</td><td>420 761</td><td>0</td><td class="delta-cell pos">420 761</td><td>169 774.81</td><td>0</td><td class="delta-cell pos">169 774.81</td><td>250 986.19</td><td>0</td><td class="delta-cell pos">250 986.19</td><td>6 211</td><td>0</td><td class="delta-cell pos">6 211</td></tr><tr><td><strong>Май.2025</strong></td><td>0</td><td>4</td><td class="delta-cell neg">-4</td><td>0</td><td>3</td><td class="delta-cell neg">-3</td><td>0</td><td>420 761</td><td class="delta-cell neg">-420 761</td><td>0</td><td>169 772.16</td><td class="delta-cell neg">-169 772.16</td><td>0</td><td>250 988.84</td><td class="delta-cell neg">-250 988.84</td><td>0</td><td>6 211</td><td class="delta-cell neg">-6 211</td></tr></table>
+
+<h2>4C. Cross-compare: Deals vs Positions -- Snapshot B (after_compare_test)</h2>
+<table><tr>
+        <th>Period</th>
+        <th>D: deal_key</th><th>P: deal_key</th><th>Delta DK</th>
+        <th>D: client</th><th>P: client</th><th>Delta Cl</th>
+        <th>D: revenue</th><th>P: revenue</th><th>Delta Rev</th>
+        <th>D: margin</th><th>P: margin</th><th>Delta Mrg</th>
+        <th>D: cost</th><th>P: cost</th><th>Delta Cost</th>
+        <th>D: qty</th><th>P: qty</th><th>Delta Qty</th>
+    </tr><tr><td><strong>Июнь 2025</strong></td><td>11</td><td>0</td><td class="delta-cell pos">11</td><td>9</td><td>0</td><td class="delta-cell pos">9</td><td>263 496.80</td><td>0</td><td class="delta-cell pos">263 496.80</td><td>64 376.95</td><td>0</td><td class="delta-cell pos">64 376.95</td><td>199 119.85</td><td>0</td><td class="delta-cell pos">199 119.85</td><td>7 202</td><td>0</td><td class="delta-cell pos">7 202</td></tr><tr><td><strong>Июнь.2025</strong></td><td>0</td><td>11</td><td class="delta-cell neg">-11</td><td>0</td><td>9</td><td class="delta-cell neg">-9</td><td>0</td><td>266 016.80</td><td class="delta-cell neg">-266 016.80</td><td>0</td><td>66 894.07</td><td class="delta-cell neg">-66 894.07</td><td>0</td><td>199 122.73</td><td class="delta-cell neg">-199 122.73</td><td>0</td><td>7 202</td><td class="delta-cell neg">-7 202</td></tr><tr><td><strong>Май 2025</strong></td><td>4</td><td>0</td><td class="delta-cell pos">4</td><td>3</td><td>0</td><td class="delta-cell pos">3</td><td>420 761</td><td>0</td><td class="delta-cell pos">420 761</td><td>169 774.81</td><td>0</td><td class="delta-cell pos">169 774.81</td><td>250 986.19</td><td>0</td><td class="delta-cell pos">250 986.19</td><td>6 211</td><td>0</td><td class="delta-cell pos">6 211</td></tr><tr><td><strong>Май.2025</strong></td><td>0</td><td>4</td><td class="delta-cell neg">-4</td><td>0</td><td>3</td><td class="delta-cell neg">-3</td><td>0</td><td>420 761</td><td class="delta-cell neg">-420 761</td><td>0</td><td>169 772.16</td><td class="delta-cell neg">-169 772.16</td><td>0</td><td>250 988.84</td><td class="delta-cell neg">-250 988.84</td><td>0</td><td>6 211</td><td class="delta-cell neg">-6 211</td></tr></table>
+
+</body></html>

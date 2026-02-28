@@ -381,6 +381,161 @@ class ReadModelStats(Base):
     )
 
 
+class DbSnapshot(Base):
+    """
+    Database state snapshot for dashboard monitoring.
+
+    Stores aggregated metrics from read_deals and read_positions at a point in time.
+    Health checks stored as JSONB for flexibility.
+    """
+
+    __tablename__ = "db_snapshots"
+
+    id: Mapped[int] = mapped_column(
+        Integer().with_variant(BigInteger(), "postgresql"),
+        primary_key=True,
+        autoincrement=True,
+    )
+    label: Mapped[str] = mapped_column(String(200), nullable=True)
+    source: Mapped[str] = mapped_column(String(50), nullable=False, server_default="manual")
+
+    # read_deals aggregates
+    deals_total_rows: Mapped[int] = mapped_column(Integer, server_default="0")
+    deals_unique_deal_key: Mapped[int] = mapped_column(Integer, server_default="0")
+    deals_unique_hash_key: Mapped[int] = mapped_column(Integer, server_default="0")
+    deals_unique_client: Mapped[int] = mapped_column(Integer, server_default="0")
+    deals_unique_period: Mapped[int] = mapped_column(Integer, server_default="0")
+    deals_sum_revenue: Mapped[Decimal] = mapped_column(Numeric(18, 2), server_default="0")
+    deals_sum_margin: Mapped[Decimal] = mapped_column(Numeric(18, 2), server_default="0")
+    deals_sum_cost: Mapped[Decimal] = mapped_column(Numeric(18, 2), server_default="0")
+    deals_sum_kickback: Mapped[Decimal] = mapped_column(Numeric(18, 2), server_default="0")
+    deals_sum_calc_revenue: Mapped[Decimal] = mapped_column(
+        Numeric(18, 2), server_default="0"
+    )
+    deals_sum_calc_margin: Mapped[Decimal] = mapped_column(
+        Numeric(18, 2), server_default="0"
+    )
+    deals_sum_calc_cost: Mapped[Decimal] = mapped_column(
+        Numeric(18, 2), server_default="0"
+    )
+    deals_sum_items_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    deals_sum_quantity: Mapped[Decimal] = mapped_column(
+        Numeric(18, 3), server_default="0"
+    )
+    deals_has_error_count: Mapped[int] = mapped_column(Integer, server_default="0")
+
+    # read_positions aggregates
+    pos_total_rows: Mapped[int] = mapped_column(Integer, server_default="0")
+    pos_unique_deal_key: Mapped[int] = mapped_column(Integer, server_default="0")
+    pos_unique_hash_key: Mapped[int] = mapped_column(Integer, server_default="0")
+    pos_unique_client: Mapped[int] = mapped_column(Integer, server_default="0")
+    pos_unique_product: Mapped[int] = mapped_column(Integer, server_default="0")
+    pos_unique_supplier: Mapped[int] = mapped_column(Integer, server_default="0")
+    pos_unique_period: Mapped[int] = mapped_column(Integer, server_default="0")
+    pos_sum_quantity: Mapped[Decimal] = mapped_column(
+        Numeric(18, 3), server_default="0"
+    )
+    pos_sum_revenue: Mapped[Decimal] = mapped_column(Numeric(18, 2), server_default="0")
+    pos_sum_margin: Mapped[Decimal] = mapped_column(Numeric(18, 5), server_default="0")
+    pos_sum_cost: Mapped[Decimal] = mapped_column(Numeric(18, 2), server_default="0")
+
+    # Health checks (flexible JSONB)
+    health_checks: Mapped[dict] = mapped_column(JSONType(), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=func.now()
+    )
+
+    __table_args__ = (
+        Index("ix_db_snapshots_label", "label"),
+        Index("ix_db_snapshots_created_at", "created_at"),
+    )
+
+
+class DbSnapshotDealPeriod(Base):
+    """
+    Snapshot breakdown: read_deals metrics grouped by period_full_name.
+
+    Linked to parent DbSnapshot via snapshot_id with CASCADE delete.
+    """
+
+    __tablename__ = "db_snapshot_deal_periods"
+
+    id: Mapped[int] = mapped_column(
+        Integer().with_variant(BigInteger(), "postgresql"),
+        primary_key=True,
+        autoincrement=True,
+    )
+    snapshot_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("db_snapshots.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    period_full_name: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    rows_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    unique_deal_key: Mapped[int] = mapped_column(Integer, server_default="0")
+    unique_hash_key: Mapped[int] = mapped_column(Integer, server_default="0")
+    delta_dk_hk: Mapped[int] = mapped_column(Integer, server_default="0")
+    unique_client: Mapped[int] = mapped_column(Integer, server_default="0")
+    sum_revenue: Mapped[Decimal] = mapped_column(Numeric(18, 2), server_default="0")
+    sum_margin: Mapped[Decimal] = mapped_column(Numeric(18, 2), server_default="0")
+    sum_cost: Mapped[Decimal] = mapped_column(Numeric(18, 2), server_default="0")
+    sum_kickback: Mapped[Decimal] = mapped_column(Numeric(18, 2), server_default="0")
+    sum_calc_revenue: Mapped[Decimal] = mapped_column(
+        Numeric(18, 2), server_default="0"
+    )
+    sum_calc_margin: Mapped[Decimal] = mapped_column(
+        Numeric(18, 2), server_default="0"
+    )
+    sum_calc_cost: Mapped[Decimal] = mapped_column(Numeric(18, 2), server_default="0")
+    sum_items_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    sum_quantity: Mapped[Decimal] = mapped_column(Numeric(18, 3), server_default="0")
+    has_error_count: Mapped[int] = mapped_column(Integer, server_default="0")
+
+    __table_args__ = (
+        Index("ix_snap_deal_periods_sid", "snapshot_id"),
+    )
+
+
+class DbSnapshotPositionPeriod(Base):
+    """
+    Snapshot breakdown: read_positions metrics grouped by period_month+period_year.
+
+    Linked to parent DbSnapshot via snapshot_id with CASCADE delete.
+    """
+
+    __tablename__ = "db_snapshot_position_periods"
+
+    id: Mapped[int] = mapped_column(
+        Integer().with_variant(BigInteger(), "postgresql"),
+        primary_key=True,
+        autoincrement=True,
+    )
+    snapshot_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("db_snapshots.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    period_key: Mapped[str] = mapped_column(String(50), nullable=False)
+
+    rows_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    unique_hash_key: Mapped[int] = mapped_column(Integer, server_default="0")
+    delta_rows_hk: Mapped[int] = mapped_column(Integer, server_default="0")
+    unique_deal_key: Mapped[int] = mapped_column(Integer, server_default="0")
+    unique_client: Mapped[int] = mapped_column(Integer, server_default="0")
+    unique_product: Mapped[int] = mapped_column(Integer, server_default="0")
+    unique_supplier: Mapped[int] = mapped_column(Integer, server_default="0")
+    sum_quantity: Mapped[Decimal] = mapped_column(Numeric(18, 3), server_default="0")
+    sum_revenue: Mapped[Decimal] = mapped_column(Numeric(18, 2), server_default="0")
+    sum_margin: Mapped[Decimal] = mapped_column(Numeric(18, 5), server_default="0")
+    sum_cost: Mapped[Decimal] = mapped_column(Numeric(18, 2), server_default="0")
+
+    __table_args__ = (
+        Index("ix_snap_pos_periods_sid", "snapshot_id"),
+    )
+
+
 class SyncSessionModel(Base):
     """
     Model for sync session tracking.
