@@ -186,6 +186,7 @@ Temporary Items
 .apdisk
 
 # Project specific
+dashboard/reports/
 *.xlsx
 *.xls
 !Data_source_excel.xlsx  # Keep the source file
