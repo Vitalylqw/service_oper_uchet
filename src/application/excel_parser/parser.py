@@ -480,7 +480,7 @@ class ExcelParserService:
 
                 iter_values = values_ws.iter_rows(values_only=True) if values_ws is not None else None
                 for row_idx, row in enumerate(worksheet.iter_rows(), start=1):
-                    value_row = next(iter_values) if iter_values is not None else None
+                    value_row = next(iter_values, None) if iter_values is not None else None
                     row_values = []
                     for col_idx, cell in enumerate(row, start=1):
                         cached_value = None

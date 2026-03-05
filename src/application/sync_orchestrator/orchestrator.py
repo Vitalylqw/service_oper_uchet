@@ -16,11 +16,11 @@ from loguru import logger
 
 from domain.interfaces import EventStore, SyncSessionRepository
 from domain.models import SyncSession, SyncType
+from infrastructure.workers.read_model_builder import ReadModelBuilder
 
 from ..change_detector import ChangeDetectorService
 from ..excel_parser import ExcelParserService
 from .models import SyncConfiguration, SyncResult, SyncSummary
-from infrastructure.workers.read_model_builder import ReadModelBuilder
 
 
 class SyncOrchestratorService:
@@ -113,7 +113,7 @@ class SyncOrchestratorService:
             change_start = time.time()
 
             # For new simplified logic, we don't use period months anymore
-            # Change detection will use the target periods from config if partial sync  
+            # Change detection will use the target periods from config if partial sync
             result.change_detection_result = await self.change_detector.detect_changes(
                 result.parse_result.deals, sync_period_months=0  # Not used in new logic
             )
@@ -368,222 +368,144 @@ class SyncOrchestratorService:
         logger.debug(f"Created {len(events)} events for full sync")
         return events
 
-    async def _create_incremental_sync_events(self, result: SyncResult) -> list[dict[str, Any]]:
-        """Create events for incremental synchronization."""
-        events = []
+    def _build_deal_with_positions_event(
+        self,
+        deal: Any,
+        change_type: str,
+        sync_session_id: str,
+        sync_type: str,
+    ) -> dict[str, Any]:
+        """Build DealWithPositionsCreated event for atomic deal processing.
+
+        Args:
+            deal: Deal domain object with items.
+            change_type: INSERT or UPDATE.
+            sync_session_id: Current sync session identifier.
+            sync_type: Sync type (full/incremental).
+
+        Returns:
+            Event dict ready for event_store.append_events().
+        """
+        items_data = []
+        for item in deal.items:
+            items_data.append({
+                "item_id": str(item.id),
+                "product_name": item.product_name,
+                "supplier_name": item.supplier_name,
+                "pickup_date": item.pickup_date,
+                "quantity": str(item.quantity) if item.quantity else None,
+                "position_number": item.position_number,
+                "prices": {
+                    "purchase": (
+                        str(item.purchase_price.amount)
+                        if item.purchase_price else None
+                    ),
+                    "sale": (
+                        str(item.sale_price.amount)
+                        if item.sale_price else None
+                    ),
+                    "revenue": (
+                        str(item.revenue.amount) if item.revenue else None
+                    ),
+                    "margin": (
+                        str(item.margin.amount) if item.margin else None
+                    ),
+                    "cost": (
+                        str(item.cost.amount) if item.cost else None
+                    ),
+                },
+            })
+
+        return {
+            "aggregate_id": deal.id,
+            "event_type": "DealWithPositionsCreated",
+            "event_data": {
+                "deal": {
+                    "deal_id": str(deal.id),
+                    "deal_key": deal.deal_key,
+                    "client_name": deal.client_name,
+                    "invoice_info": deal.invoice_info,
+                    "invoice_number": deal.invoice_number,
+                    "invoice_date": deal.invoice_date,
+                    "period": {
+                        "month": deal.period.month,
+                        "year": deal.period.year,
+                        "full_name": deal.period.full_name,
+                    },
+                    "is_shipped": (
+                        deal.is_shipped.value if deal.is_shipped else None
+                    ),
+                    "is_paid": (
+                        deal.is_paid.value if deal.is_paid else None
+                    ),
+                    "upd_number": deal.upd_number,
+                    "seller": deal.seller,
+                    "totals": {
+                        "revenue": (
+                            str(deal.total_revenue.amount)
+                            if deal.total_revenue else None
+                        ),
+                        "margin": (
+                            str(deal.total_margin.amount)
+                            if deal.total_margin else None
+                        ),
+                        "cost": (
+                            str(deal.total_cost.amount)
+                            if deal.total_cost else None
+                        ),
+                        "kickback": (
+                            str(deal.kickback_amount.amount)
+                            if deal.kickback_amount else None
+                        ),
+                    },
+                },
+                "items": items_data,
+            },
+            "metadata": {
+                "sync_session_id": sync_session_id,
+                "sync_type": sync_type,
+                "change_type": change_type,
+                "source": "excel_sync",
+            },
+        }
+
+    async def _create_incremental_sync_events(
+        self, result: SyncResult
+    ) -> list[dict[str, Any]]:
+        """Create events for incremental synchronization.
+
+        Uses atomic deal processing:
+        - deal INSERT/UPDATE -> DealWithPositionsCreated (full deal rewrite)
+        - deal DELETE -> DealDeleted
+        - deal_item changes are covered by deal-level events (skipped)
+        """
+        events: list[dict[str, Any]] = []
 
         if not result.change_detection_result:
             return events
 
-        # Process insertions
         for change in result.change_detection_result.insertions:
             if change.entity_type.value == "deal" and change.new_entity:
-                deal = change.new_entity
-                event = {
-                    "aggregate_id": deal.id,
-                    "event_type": "DealCreated",
-                    "event_data": {
-                        "deal_id": str(deal.id),
-                        "deal_key": deal.deal_key,
-                        "client_name": deal.client_name,
-                        "invoice_info": deal.invoice_info,
-                        "invoice_number": deal.invoice_number,
-                        "invoice_date": deal.invoice_date,
-                        "period": {
-                            "month": deal.period.month,
-                            "year": deal.period.year,
-                            "full_name": deal.period.full_name,
-                        },
-                        "is_shipped": deal.is_shipped.value if deal.is_shipped else None,
-                        "is_paid": deal.is_paid.value if deal.is_paid else None,
-                        "upd_number": deal.upd_number,
-                        "seller": deal.seller,
-                        "totals": {
-                            "revenue": str(deal.total_revenue.amount) if deal.total_revenue else None,
-                            "margin": str(deal.total_margin.amount) if deal.total_margin else None,
-                            "cost": str(deal.total_cost.amount) if deal.total_cost else None,
-                            "kickback": str(deal.kickback_amount.amount) if deal.kickback_amount else None,
-                        },
-                    },
-                    "metadata": {
-                        "sync_session_id": result.sync_session_id,
-                        "sync_type": result.sync_type,
-                        "change_type": "INSERT",
-                        "source": "excel_sync",
-                    },
-                }
-                events.append(event)
-                
-                # Create DealItemAdded events for each item in new deal
-                for item in deal.items:
-                    item_event = {
-                        "aggregate_id": deal.id,
-                        "event_type": "DealItemAdded",
-                        "event_data": {
-                            "deal_id": str(deal.id),
-                            "item_id": str(item.id),
-                            "product_name": item.product_name,
-                            "supplier_name": item.supplier_name,
-                            "pickup_date": item.pickup_date,
-                            "quantity": str(item.quantity) if item.quantity else None,
-                            "position_number": item.position_number,
-                            "prices": {
-                                "purchase": str(item.purchase_price.amount)
-                                if item.purchase_price
-                                else None,
-                                "sale": str(item.sale_price.amount)
-                                if item.sale_price
-                                else None,
-                                "revenue": str(item.revenue.amount)
-                                if item.revenue
-                                else None,
-                                "margin": str(item.margin.amount)
-                                if item.margin
-                                else None,
-                                "cost": str(item.cost.amount)
-                                if item.cost
-                                else None,
-                            },
-                        },
-                        "metadata": {
-                            "sync_session_id": result.sync_session_id,
-                            "sync_type": result.sync_type,
-                            "change_type": "INSERT",
-                            "source": "excel_sync",
-                        },
-                    }
-                    events.append(item_event)
-            
-            elif change.entity_type.value == "deal_item" and change.new_entity:
-                # Handle individual DealItem insertions
-                item = change.new_entity
-                deal_id = item.deal_id  # This should be set by change detector
-                
-                item_event = {
-                    "aggregate_id": deal_id,
-                    "event_type": "DealItemAdded", 
-                    "event_data": {
-                        "deal_id": str(deal_id),
-                        "item_id": str(item.id),
-                        "product_name": item.product_name,
-                        "supplier_name": item.supplier_name,
-                        "pickup_date": item.pickup_date,
-                        "quantity": str(item.quantity) if item.quantity else None,
-                        "position_number": item.position_number,
-                        "prices": {
-                            "purchase": str(item.purchase_price.amount)
-                            if item.purchase_price
-                            else None,
-                            "sale": str(item.sale_price.amount)
-                            if item.sale_price
-                            else None,
-                            "revenue": str(item.revenue.amount)
-                            if item.revenue
-                            else None,
-                            "margin": str(item.margin.amount)
-                            if item.margin
-                            else None,
-                            "cost": str(item.cost.amount)
-                            if item.cost
-                            else None,
-                        },
-                    },
-                    "metadata": {
-                        "sync_session_id": result.sync_session_id,
-                        "sync_type": result.sync_type,
-                        "change_type": "INSERT",
-                        "source": "excel_sync",
-                    },
-                }
-                events.append(item_event)
+                events.append(self._build_deal_with_positions_event(
+                    deal=change.new_entity,
+                    change_type="INSERT",
+                    sync_session_id=result.sync_session_id,
+                    sync_type=result.sync_type,
+                ))
 
-        # Process updates
         for change in result.change_detection_result.updates:
             if change.entity_type.value == "deal" and change.new_entity:
-                deal = change.new_entity
-                event = {
-                    "aggregate_id": deal.id,
-                    "event_type": "DealUpdated",
-                    "event_data": {
-                        "deal_id": str(deal.id),
-                        "deal_key": deal.deal_key,
-                        "field_changes": change.field_changes,
-                        # Include required fields for backward compatibility
-                        "client_name": deal.client_name,
-                        "invoice_info": deal.invoice_info,
-                        "period": {
-                            "month": deal.period.month,
-                            "year": deal.period.year,
-                            "full_name": deal.period.full_name,
-                        },
-                        "is_shipped": deal.is_shipped.value if deal.is_shipped else None,
-                        "is_paid": deal.is_paid.value if deal.is_paid else None,
-                        "upd_number": deal.upd_number,
-                        "seller": deal.seller,
-                        "total_revenue": str(deal.total_revenue.amount) if deal.total_revenue else None,
-                        "total_margin": str(deal.total_margin.amount) if deal.total_margin else None,
-                        "total_cost": str(deal.total_cost.amount) if deal.total_cost else None,
-                        "kickback_amount": str(deal.kickback_amount.amount) if deal.kickback_amount else None,
-                    },
-                    "metadata": {
-                        "sync_session_id": result.sync_session_id,
-                        "sync_type": result.sync_type,
-                        "change_type": "UPDATE",
-                        "source": "excel_sync",
-                    },
-                }
-                events.append(event)
-            
-            elif change.entity_type.value == "deal_item" and change.new_entity:
-                # Handle individual DealItem updates
-                item = change.new_entity
-                deal_id = item.deal_id
-                
-                item_event = {
-                    "aggregate_id": deal_id,
-                    "event_type": "DealItemUpdated",
-                    "event_data": {
-                        "deal_id": str(deal_id),
-                        "item_id": str(item.id),
-                        "field_changes": change.field_changes,
-                        # Include current item data for read model updates
-                        "product_name": item.product_name,
-                        "supplier_name": item.supplier_name,
-                        "pickup_date": item.pickup_date,
-                        "quantity": str(item.quantity) if item.quantity else None,
-                        "position_number": item.position_number,
-                        "prices": {
-                            "purchase": str(item.purchase_price.amount)
-                            if item.purchase_price
-                            else None,
-                            "sale": str(item.sale_price.amount)
-                            if item.sale_price
-                            else None,
-                            "revenue": str(item.revenue.amount)
-                            if item.revenue
-                            else None,
-                            "margin": str(item.margin.amount)
-                            if item.margin
-                            else None,
-                            "cost": str(item.cost.amount)
-                            if item.cost
-                            else None,
-                        },
-                    },
-                    "metadata": {
-                        "sync_session_id": result.sync_session_id,
-                        "sync_type": result.sync_type,
-                        "change_type": "UPDATE",
-                        "source": "excel_sync",
-                    },
-                }
-                events.append(item_event)
+                events.append(self._build_deal_with_positions_event(
+                    deal=change.new_entity,
+                    change_type="UPDATE",
+                    sync_session_id=result.sync_session_id,
+                    sync_type=result.sync_type,
+                ))
 
-        # Process deletions
         for change in result.change_detection_result.deletions:
             if change.entity_type.value == "deal" and change.old_entity:
                 deal = change.old_entity
-                event = {
+                events.append({
                     "aggregate_id": deal.id,
                     "event_type": "DealDeleted",
                     "event_data": {
@@ -597,8 +519,7 @@ class SyncOrchestratorService:
                         "change_type": "DELETE",
                         "source": "excel_sync",
                     },
-                }
-                events.append(event)
+                })
 
         logger.debug(f"Created {len(events)} events for incremental sync")
         return events

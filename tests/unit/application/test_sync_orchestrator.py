@@ -417,7 +417,9 @@ class TestSyncOrchestratorService:
 
         # Mock event creation
         orchestrator._create_incremental_sync_events = AsyncMock(
-            return_value=[{"event_type": "DealUpdated", "aggregate_id": uuid.uuid4()}]
+            return_value=[
+                {"event_type": "DealWithPositionsCreated", "aggregate_id": uuid.uuid4()}
+            ]
         )
 
         # Act
@@ -520,6 +522,256 @@ class TestSyncOrchestratorService:
         item_event = events[1]
         assert item_event["event_type"] == "DealItemAdded"
         assert item_event["aggregate_id"] == deal.id
+
+    async def test_create_incremental_events_deal_insert(self, orchestrator):
+        """Test that deal insertions produce DealWithPositionsCreated events."""
+        from decimal import Decimal
+
+        from src.application.change_detector.models import (
+            ChangeDetectionResult,
+            EntityChange,
+            EntityType,
+        )
+        from src.application.sync_orchestrator.models import SyncSummary
+        from src.domain.models import Deal, DealItem
+        from src.domain.value_objects import Money, Period
+
+        period = Period(month="Январь", year="2024", full_name="Январь 2024")
+        deal_id = uuid.uuid4()
+        deal = Deal(
+            client_name="Test Client",
+            invoice_info="Inv 1",
+            period=period,
+            period_month="Январь",
+            period_year="2024",
+            seller="Seller A",
+        )
+        deal.set_id(deal_id)
+        deal.total_revenue = Money(amount=Decimal("1000.00"))
+
+        item = DealItem(
+            product_name="Product A",
+            client_name="Test Client",
+            period_month="Январь",
+            period_year="2024",
+            seller="Seller A",
+            invoice_info="Inv 1",
+            position_number=1,
+        )
+        item.set_id(uuid.uuid4())
+        item.sale_price = Money(amount=Decimal("500.00"))
+        deal.add_item(item)
+
+        change = EntityChange(
+            entity_type=EntityType.DEAL,
+            change_type="INSERT",
+            entity_key=deal.deal_key,
+            new_entity=deal,
+        )
+        change_result = ChangeDetectionResult(
+            total_excel_deals=1,
+            total_db_deals=0,
+            total_excel_items=1,
+            total_db_items=0,
+        )
+        change_result.insertions.append(change)
+
+        summary = SyncSummary(
+            started_at=datetime.now(),
+            file_path="test.xlsx",
+            file_hash="abc",
+        )
+        result = SyncResult(
+            sync_session_id="test-session",
+            sync_type="incremental",
+            summary=summary,
+            change_detection_result=change_result,
+        )
+
+        events = await orchestrator._create_incremental_sync_events(result)
+
+        assert len(events) == 1
+        ev = events[0]
+        assert ev["event_type"] == "DealWithPositionsCreated"
+        assert ev["aggregate_id"] == deal.id
+        assert ev["event_data"]["deal"]["deal_key"] == deal.deal_key
+        assert len(ev["event_data"]["items"]) == 1
+        assert ev["metadata"]["change_type"] == "INSERT"
+
+    async def test_create_incremental_events_deal_update(self, orchestrator):
+        """Test that deal updates produce DealWithPositionsCreated events."""
+        from decimal import Decimal
+
+        from src.application.change_detector.models import (
+            ChangeDetectionResult,
+            EntityChange,
+            EntityType,
+        )
+        from src.application.sync_orchestrator.models import SyncSummary
+        from src.domain.models import Deal, DealItem
+        from src.domain.value_objects import Money, Period
+
+        period = Period(month="Март", year="2024", full_name="Март 2024")
+        deal = Deal(
+            client_name="Client B",
+            invoice_info="Inv 2",
+            period=period,
+            period_month="Март",
+            period_year="2024",
+            seller="Seller B",
+        )
+        deal.set_id(uuid.uuid4())
+        deal.total_revenue = Money(amount=Decimal("2000.00"))
+
+        item = DealItem(
+            product_name="Product B",
+            client_name="Client B",
+            period_month="Март",
+            period_year="2024",
+            seller="Seller B",
+            invoice_info="Inv 2",
+            position_number=1,
+        )
+        item.set_id(uuid.uuid4())
+        deal.add_item(item)
+
+        change = EntityChange(
+            entity_type=EntityType.DEAL,
+            change_type="UPDATE",
+            entity_key=deal.deal_key,
+            new_entity=deal,
+        )
+        change_result = ChangeDetectionResult(
+            total_excel_deals=1,
+            total_db_deals=1,
+            total_excel_items=1,
+            total_db_items=1,
+        )
+        change_result.updates.append(change)
+
+        summary = SyncSummary(
+            started_at=datetime.now(),
+            file_path="test.xlsx",
+            file_hash="abc",
+        )
+        result = SyncResult(
+            sync_session_id="s2",
+            sync_type="incremental",
+            summary=summary,
+            change_detection_result=change_result,
+        )
+
+        events = await orchestrator._create_incremental_sync_events(result)
+
+        assert len(events) == 1
+        assert events[0]["event_type"] == "DealWithPositionsCreated"
+        assert events[0]["metadata"]["change_type"] == "UPDATE"
+
+    async def test_create_incremental_events_deal_delete(self, orchestrator):
+        """Test that deal deletions produce DealDeleted events."""
+        from src.application.change_detector.models import (
+            ChangeDetectionResult,
+            EntityChange,
+            EntityType,
+        )
+        from src.application.sync_orchestrator.models import SyncSummary
+        from src.domain.models import Deal
+        from src.domain.value_objects import Period
+
+        period = Period(month="Февраль", year="2024", full_name="Февраль 2024")
+        deal = Deal(
+            client_name="Client C",
+            invoice_info="Inv 3",
+            period=period,
+            period_month="Февраль",
+            period_year="2024",
+            seller="Seller C",
+        )
+        deal.set_id(uuid.uuid4())
+
+        change = EntityChange(
+            entity_type=EntityType.DEAL,
+            change_type="DELETE",
+            entity_key=deal.deal_key,
+            old_entity=deal,
+        )
+        change_result = ChangeDetectionResult(
+            total_excel_deals=0,
+            total_db_deals=1,
+            total_excel_items=0,
+            total_db_items=0,
+        )
+        change_result.deletions.append(change)
+
+        summary = SyncSummary(
+            started_at=datetime.now(),
+            file_path="test.xlsx",
+            file_hash="abc",
+        )
+        result = SyncResult(
+            sync_session_id="s3",
+            sync_type="incremental",
+            summary=summary,
+            change_detection_result=change_result,
+        )
+
+        events = await orchestrator._create_incremental_sync_events(result)
+
+        assert len(events) == 1
+        assert events[0]["event_type"] == "DealDeleted"
+        assert events[0]["event_data"]["deal_id"] == str(deal.id)
+        assert events[0]["metadata"]["change_type"] == "DELETE"
+
+    async def test_create_incremental_events_item_changes_skipped(self, orchestrator):
+        """Test that deal_item level changes are skipped (covered by deal-level)."""
+        from src.application.change_detector.models import (
+            ChangeDetectionResult,
+            EntityChange,
+            EntityType,
+        )
+        from src.application.sync_orchestrator.models import SyncSummary
+        from src.domain.models import DealItem
+
+        item = DealItem(
+            product_name="Product X",
+            client_name="Client X",
+            period_month="Январь",
+            period_year="2024",
+            seller="Seller X",
+            invoice_info="Inv X",
+            position_number=1,
+        )
+        item.set_id(uuid.uuid4())
+
+        change = EntityChange(
+            entity_type=EntityType.DEAL_ITEM,
+            change_type="INSERT",
+            entity_key="item_key",
+            new_entity=item,
+        )
+        change_result = ChangeDetectionResult(
+            total_excel_deals=1,
+            total_db_deals=1,
+            total_excel_items=2,
+            total_db_items=1,
+        )
+        change_result.insertions.append(change)
+
+        summary = SyncSummary(
+            started_at=datetime.now(),
+            file_path="test.xlsx",
+            file_hash="abc",
+        )
+        result = SyncResult(
+            sync_session_id="s4",
+            sync_type="incremental",
+            summary=summary,
+            change_detection_result=change_result,
+        )
+
+        events = await orchestrator._create_incremental_sync_events(result)
+
+        assert len(events) == 0
 
     async def test_get_sync_history(self, orchestrator, mock_sync_session_repository):
         """Test getting sync history."""

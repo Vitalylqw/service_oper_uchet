@@ -25,8 +25,8 @@ from ..database.models import (
     ReadModelPosition,
     ReadModelStats,
 )
-from .simple_position_sync import SimplePositionSync
 from .deferred_event_queue import DeferredEventQueue
+from .simple_position_sync import SimplePositionSync
 
 
 class ReadModelBuilder:
@@ -35,7 +35,7 @@ class ReadModelBuilder:
 
     Processes events from Event Store and updates corresponding read models
     for efficient querying in CQRS architecture.
-    
+
     Implements hybrid approach: primary processing with deferred event handling
     for events that cannot be processed immediately.
     """
@@ -44,7 +44,7 @@ class ReadModelBuilder:
         """Initialize read model builder with dependencies."""
         self.session = session
         self.event_store = event_store
-        
+
         # Helper for mapping Status enum to DB string values
         from domain.value_objects.common import Status
         self._status_map = {
@@ -57,7 +57,7 @@ class ReadModelBuilder:
             Status.FAILED: "failed",
         }
         self.deferred_queue = DeferredEventQueue(max_retries=3)
-        
+
         # Simplified position synchronization logic (no versioning)
         self.position_sync = SimplePositionSync(session)
 
@@ -92,24 +92,24 @@ class ReadModelBuilder:
         try:
             # 1. Process main events
             main_processed = await self._process_main_events(limit)
-            
+
             # 2. Process deferred events
             deferred_processed = await self.deferred_queue.process_deferred_events(
                 self._process_single_event
             )
-            
+
             if auto_commit:
                 await self.session.commit()
-            
+
             total_processed = main_processed + deferred_processed
-            
+
             # Log queue status
             queue_status = self.deferred_queue.get_queue_status()
             logger.info(
                 f"Processed {main_processed} main events + {deferred_processed} deferred events "
                 f"(queue size: {queue_status['queue_size']})"
             )
-            
+
             return total_processed
 
         except Exception as e:
@@ -230,7 +230,9 @@ class ReadModelBuilder:
         # Отмечаем событие как обработанное
         try:
             from datetime import datetime as _dt
+
             from sqlalchemy import update as _update
+
             from ..database.models import EventStoreModel as _ESM
             await self.session.execute(
                 _update(_ESM).where(_ESM.event_id == event["event_id"]).values(processed_at=_dt.utcnow())
@@ -281,45 +283,37 @@ class ReadModelBuilder:
     async def _sync_deal_with_positions(
         self, event_data: dict[str, Any], full_event: dict[str, Any]
     ) -> None:
-        """
-        Synchronize deal with all its positions using simplified logic.
-        
-        NEW SIMPLIFIED implementation without versioning:
-        - Current state only in read_positions
-        - Simple UPSERT/DELETE operations
-        - History preserved in event_store
+        """Atomic deal synchronization: DELETE deal (cascade) + INSERT deal + INSERT positions.
+
+        SimplePositionSync handles the full rewrite cycle.
+        _upsert_deal_read_model() is NOT called -- deal is inserted inside sync.
         """
         try:
-            # Extract deal and items data from event
             deal_data = event_data.get("deal", event_data)
             items_data = event_data.get("items", [])
-            
-            logger.info(f"🔄 Starting deal synchronization: {deal_data.get('deal_key', 'UNKNOWN')} with {len(items_data)} positions")
-            
-            # Create Deal object from event data
+
+            logger.info(
+                f"Starting atomic deal sync: "
+                f"{deal_data.get('deal_key', 'UNKNOWN')} "
+                f"with {len(items_data)} positions"
+            )
+
             deal = await self._create_deal_object_from_event(deal_data, items_data)
-            
-            # Create or update deal read model first
-            await self._upsert_deal_read_model(deal, full_event)
-            
-            # Get deal context for position denormalization
+
             deal_context = {
                 "deal_key": deal.deal_key,
                 "client_name": deal.client_name,
                 "period_month": deal.period.month,
                 "period_year": deal.period.year,
             }
-            
-            # SIMPLIFIED LOGIC: Synchronize positions at deal level without versioning
+
             sync_session_id = full_event.get("metadata", {}).get("sync_session_id")
             sync_stats = await self.position_sync.sync_deal_positions(
                 deal, deal_context, sync_session_id
             )
-            
-            # Recalculate totals for the deal
+
             await self._recalculate_totals(deal.id)
-            
-            # Create audit entry for deal synchronization
+
             await self._create_audit_entry(
                 entity_type="deal_sync",
                 entity_id=deal.id,
@@ -329,9 +323,11 @@ class ReadModelBuilder:
                 sync_session_id=sync_session_id,
                 additional_data=sync_stats,
             )
-            
-            logger.info(f"✅ Deal synchronization completed: {deal.deal_key} - {sync_stats}")
-            
+
+            logger.info(
+                f"Atomic deal sync completed: {deal.deal_key} - {sync_stats}"
+            )
+
         except Exception as e:
             logger.error(f"Failed to synchronize deal with positions: {e}")
             raise
@@ -341,8 +337,8 @@ class ReadModelBuilder:
     ) -> Deal:
         """Create Deal object from event data with all items."""
         from domain.models import Deal
-        from domain.value_objects import Period, Money, SignedMoney
-        
+        from domain.value_objects import Money, Period, SignedMoney
+
         # Extract and create period
         period_data = deal_data.get("period", {})
         try:
@@ -358,14 +354,14 @@ class ReadModelBuilder:
         except Exception as e:
             logger.warning(f"Failed to create period from data {period_data}: {e}, using default")
             period = Period(month="Январь", year="2025", full_name="Январь 2025")
-        
+
         # Extract totals
         totals = deal_data.get("totals", {})
         total_revenue = Money(amount=Decimal(totals["revenue"])) if totals.get("revenue") else None
         total_margin = SignedMoney(amount=Decimal(totals["margin"])) if totals.get("margin") else None
         total_cost = Money(amount=Decimal(totals["cost"])) if totals.get("cost") else None
         kickback_amount = Money(amount=Decimal(totals["kickback"])) if totals.get("kickback") else None
-        
+
         deal_id = uuid.UUID(deal_data["deal_id"])
         deal_key = deal_data["deal_key"]
         client_name = deal_data["client_name"]
@@ -424,7 +420,7 @@ class ReadModelBuilder:
         """Create DealItem object from event data."""
         from domain.models import DealItem
         from domain.value_objects import Money, SignedMoney
-        
+
         # Extract prices
         prices = item_data.get("prices", {})
         purchase_price = Money(amount=Decimal(prices["purchase"])) if prices.get("purchase") else None
@@ -432,7 +428,7 @@ class ReadModelBuilder:
         revenue = Money(amount=Decimal(prices["revenue"])) if prices.get("revenue") else None
         margin = SignedMoney(amount=Decimal(prices["margin"])) if prices.get("margin") else None
         cost = Money(amount=Decimal(prices["cost"])) if prices.get("cost") else None
-        
+
         item = DealItem(
             deal_id=deal_id,
             deal_key=deal_key,
@@ -494,7 +490,7 @@ class ReadModelBuilder:
             "items_count": len(deal.items),
             "total_quantity": sum(item.quantity or 0 for item in deal.items),
         }
-        
+
         # Use upsert to handle conflicts on deal_key
         stmt = insert(ReadModelDeal).values(**read_deal_data)
         stmt = stmt.on_conflict_do_update(index_elements=["deal_key"], set_=stmt.excluded)
@@ -507,14 +503,14 @@ class ReadModelBuilder:
         try:
             # Handle both formats: event_data.deal and direct event_data
             deal_data = event_data.get("deal", event_data)
-            
+
             # Create a Deal object from the event data
             from domain.models import Deal
-            from domain.value_objects import Period, Money, SignedMoney
-            
+            from domain.value_objects import Money, Period, SignedMoney
+
             # Extract period data
             period_data = deal_data.get("period", {})
-            
+
             # HYBRID APPROACH: Use valid fallback values for periods
             try:
                 if isinstance(period_data, dict) and period_data.get("month") and period_data.get("year"):
@@ -529,19 +525,19 @@ class ReadModelBuilder:
             except Exception as e:
                 logger.warning(f"Failed to create period from data {period_data}: {e}, using default")
                 period = Period(month="Январь", year="2025", full_name="Январь 2025")
-            
+
             # Extract totals data
             totals = deal_data.get("totals", {})
-            
+
             revenue_data = totals.get("revenue")
             total_revenue = Money(amount=Decimal(revenue_data)) if revenue_data else None
-            
+
             margin_data = totals.get("margin")
             total_margin = SignedMoney(amount=Decimal(margin_data)) if margin_data else None
-            
+
             cost_data = totals.get("cost")
             total_cost = Money(amount=Decimal(cost_data)) if cost_data else None
-            
+
             kickback_data = totals.get("kickback")
             kickback_amount = Money(amount=Decimal(kickback_data)) if kickback_data else None
 
@@ -634,25 +630,25 @@ class ReadModelBuilder:
         """Update existing deal read model."""
         try:
             deal_id = uuid.UUID(event_data.get("deal_id"))
-            
+
             # Get existing deal from read model
             query = select(ReadModelDeal).where(ReadModelDeal.id == deal_id)
             result = await self.session.execute(query)
             existing_deal = result.scalar_one_or_none()
-            
+
             if not existing_deal:
                 logger.warning(f"Deal {deal_id} not found in read model, skipping update")
                 return
-            
+
             # Get changes from event
             changes = event_data.get("field_changes", {})
             if not changes:
                 logger.debug(f"No field changes for deal {deal_id}, skipping update")
                 return
-            
+
             # Build update data based on changes
             update_data = {}
-            
+
             for field_name, change_data in changes.items():
                 new_value = change_data.get("new_value")
                 if new_value is not None:
@@ -703,25 +699,25 @@ class ReadModelBuilder:
                             update_data["period_month"] = new_value.month
                             update_data["period_year"] = new_value.year
                             update_data["period_full_name"] = str(new_value)
-            
+
             if not update_data:
                 logger.debug(f"No valid field changes for deal {deal_id}, skipping update")
                 return
-            
+
             update_data["updated_at"] = func.now()
-            
+
             # Execute update
             stmt = update(ReadModelDeal).where(ReadModelDeal.id == deal_id).values(**update_data)
             await self.session.execute(stmt)
-            
+
             # Recalculate totals if any total amounts were changed
             financial_fields_changed = any(
-                field in update_data 
+                field in update_data
                 for field in ["total_revenue_amount", "total_margin_amount", "total_cost_amount"]
             )
             if financial_fields_changed:
                 await self._recalculate_totals(deal_id)
-            
+
             # Create audit entries for each changed field
             for field_name, change_data in changes.items():
                 await self._create_audit_entry(
@@ -745,12 +741,21 @@ class ReadModelBuilder:
     async def _delete_deal_read_model(
         self, event_data: dict[str, Any], full_event: dict[str, Any]
     ) -> None:
-        """Hard delete deal read model (cascade to positions via FK)."""
+        """Hard delete deal read model with explicit position cleanup.
+
+        Positions are deleted explicitly first; FK CASCADE remains as safety net.
+        """
         try:
             deal_id = uuid.UUID(event_data.get("deal_id"))
             deal_key = event_data.get("deal_key", "")
 
-            # Hard delete from read_deals; positions removed by FK cascade
+            # Explicit position deletion (FK CASCADE is safety net only)
+            await self.session.execute(
+                delete(ReadModelPosition).where(
+                    ReadModelPosition.deal_id == deal_id
+                )
+            )
+
             await self.session.execute(
                 delete(ReadModelDeal).where(ReadModelDeal.id == deal_id)
             )
@@ -873,7 +878,7 @@ class ReadModelBuilder:
 
             # NEW LOGIC: Use version-based approach to prevent duplication
             # When same hash_key exists but with different deal_id, we need to handle it properly
-            
+
             # Step 1: Check if there's already a position with this hash_key
             existing_active = await self.session.execute(
                 select(ReadModelPosition)
@@ -882,21 +887,21 @@ class ReadModelBuilder:
                 )
             )
             existing_position = existing_active.scalar_one_or_none()
-            
+
             if existing_position:
                 # Step 2: If position exists and it's the same deal_id - update it
                 if existing_position.deal_id == read_position_data["deal_id"]:
                     # Same deal, same position - just update
                     update_data = {k: v for k, v in read_position_data.items() if k not in ["id", "hash_key"]}
 
-                    
+
                     stmt = (
                         update(ReadModelPosition)
                         .where(ReadModelPosition.id == existing_position.id)
                         .values(**update_data)
                     )
                     await self.session.execute(stmt)
-                    
+
                 else:
                     # Step 3: Different deal_id with same hash_key - delete conflicting position
                     # Hard delete old position (new simplified logic)
@@ -904,18 +909,18 @@ class ReadModelBuilder:
                         delete(ReadModelPosition)
                         .where(ReadModelPosition.id == existing_position.id)
                     )
-                    
+
                     # Create new position with incremented version
 
 
-                    
+
                     stmt = insert(ReadModelPosition).values(**read_position_data)
                     await self.session.execute(stmt)
             else:
                 # Step 4: No existing active position - create new one
 
 
-                
+
                 stmt = insert(ReadModelPosition).values(**read_position_data)
                 await self.session.execute(stmt)
 
@@ -1012,17 +1017,17 @@ class ReadModelBuilder:
 
             # NEW UPDATE LOGIC: Handle hash_key changes with versioning
             new_hash_key = str(item.hash_key)
-            
+
             # Get current position
             current_position = await self.session.execute(
                 select(ReadModelPosition).where(ReadModelPosition.id == item.id)
             )
             current = current_position.scalar_one_or_none()
-            
+
             if not current:
                 logger.warning(f"Position {item.id} not found for update")
                 return
-                
+
             if current.hash_key == new_hash_key:
                 # Hash didn't change - simple update
                 update_data = {
@@ -1041,14 +1046,14 @@ class ReadModelBuilder:
                     "period_year": deal_context.get("period_year", ""),
 
                 }
-                
+
                 stmt = (
                     update(ReadModelPosition)
                     .where(ReadModelPosition.id == item.id)
                     .values(**update_data)
                 )
                 await self.session.execute(stmt)
-                
+
             else:
                 # Hash changed - delete old position and create new one
                 # Step 1: Delete current position (simplified logic)
@@ -1056,7 +1061,7 @@ class ReadModelBuilder:
                     delete(ReadModelPosition)
                     .where(ReadModelPosition.id == item.id)
                 )
-                
+
                 # Step 2: Check if new hash_key already exists
                 existing_new = await self.session.execute(
                     select(ReadModelPosition)
@@ -1065,14 +1070,14 @@ class ReadModelBuilder:
                     )
                 )
                 existing_new_position = existing_new.scalar_one_or_none()
-                
+
                 if existing_new_position:
                     # Delete conflicting position (simplified logic)
                     await self.session.execute(
                         delete(ReadModelPosition)
                         .where(ReadModelPosition.id == existing_new_position.id)
                     )
-                
+
                 # Step 3: Create new position with updated hash
                 new_position_data = {
                     "id": item.id,  # Keep same ID to maintain entity identity
@@ -1095,7 +1100,7 @@ class ReadModelBuilder:
 
 
                 }
-                
+
                 stmt = insert(ReadModelPosition).values(**new_position_data)
                 await self.session.execute(stmt)
 
@@ -1263,7 +1268,8 @@ class ReadModelBuilder:
     async def _recalculate_totals(self, deal_id: uuid.UUID) -> None:
         """Recalculate aggregated totals and detect mismatches for a deal."""
         from decimal import Decimal
-        from sqlalchemy import select, func, update
+
+        from sqlalchemy import func, select, update
 
         # 1. Collect aggregates from positions
         result = await self.session.execute(
@@ -1333,7 +1339,7 @@ class ReadModelBuilder:
             else:
                 logger.debug(f"Audit entry: {entity_type} {entity_id} {change_type}")
             return
-            
+
             audit_entry = ReadModelAudit(
                 entity_type=entity_type,
                 entity_id=entity_id,
