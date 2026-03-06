@@ -54,6 +54,13 @@
 
 ## 🚀 Последние достижения
 
+### 6 марта 2026 - Safe decimal parsing и валидаторы обрезки строк
+- Рефакторинг Excel parser: `_safe_decimal()` для всех числовых полей (revenue, margin, cost, quantity, prices)
+- Добавлены валидаторы обрезки строк в Deal/DealItem по max_length из модели
+- upd_number: max_length 50 -> 100, исправлена опечатка
+- Расширены unit-тесты для parser и domain models
+- Commit: feat(parser): add safe decimal parsing and string truncation validators
+
 ### 28 февраля 2026 - DB Dashboard для мониторинга состояния БД
 - Созданы 3 таблицы снимков (миграция 0005): db_snapshots, db_snapshot_deal_periods, db_snapshot_position_periods
 - Реализован сервис сбора метрик (db_snapshot_service.py) с 14 проверками целостности

@@ -6,6 +6,34 @@
 
 ---
 
+## 2026-03-06 - Safe decimal parsing и валидаторы обрезки строк
+
+### Цель:
+Повысить надёжность парсера Excel и доменных моделей при некорректных/длинных данных.
+
+### Выполненные действия:
+1. **Excel parser (parser.py)**:
+   - Рефакторинг парсинга числовых полей через `_safe_decimal()` вместо прямого `Decimal(str(val))`
+   - Применено к: total_revenue, total_margin, total_cost, kickback_amount, quantity, purchase_price, sale_price, margin
+   - Снижение риска InvalidOperation при формулах, ошибках, пустых ячейках
+2. **Domain models (deal.py)**:
+   - Добавлена функция `_truncate_to_field_max()` — единый источник max_length из Field/StringConstraints
+   - Валидаторы обрезки строк для Deal и DealItem (product_name, supplier_name, client_name, period_month, period_year, seller, invoice_info, deal_key, upd_number, invoice_number)
+   - Логирование предупреждений при обрезке
+   - upd_number: max_length 50 -> 100, исправлена опечатка в описании
+3. **Тесты**:
+   - Расширены test_excel_parser (безопасный парсинг decimal)
+   - Расширены test_models (валидаторы обрезки строк)
+
+### Результат:
+- Commit b08b238: feat(parser): add safe decimal parsing and string truncation validators
+- 5 файлов: parser.py, deal.py, conftest.py, test_excel_parser.py, test_models.py
+
+### Зачем:
+Предотвратить падение парсера на некорректных Excel-данных и ошибки БД при превышении max_length строковых полей.
+
+---
+
 ## 2026-02-28 - DB Dashboard: мониторинг состояния БД
 
 ### Цель:
