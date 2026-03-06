@@ -39,6 +39,7 @@ from excel_audit.excel_reader import (  # noqa: E402
 )
 from excel_audit.health_checker import run_health_check  # noqa: E402
 from excel_audit.html_generator import render_full_report  # noqa: E402
+from period_utils import sort_period_items  # noqa: E402
 from sqlalchemy import create_engine  # noqa: E402
 
 from infrastructure.database.connection import DatabaseConfig  # noqa: E402
@@ -168,6 +169,7 @@ def main() -> int:
         logger.error("No matching periods found. Available: %s", list(all_periods.keys()))
         return 1
 
+    periods_map = dict(sort_period_items(periods_map.items()))
     logger.info("Periods to analyse: %s", list(periods_map.keys()))
 
     # ---- Step 2: Health check ----

@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
 
+from period_utils import period_sort_key
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
@@ -213,6 +214,7 @@ def collect_deals_by_period(conn: Connection) -> list[DealPeriodRow]:
             sum_quantity=_dec(r["sum_quantity"]),
             has_error_count=r["has_error_count"],
         ))
+    result.sort(key=lambda r: period_sort_key(r.period_full_name), reverse=True)
     return result
 
 
@@ -253,6 +255,7 @@ def collect_positions_by_period(conn: Connection) -> list[PositionPeriodRow]:
             sum_margin=_dec(r["sum_margin"]),
             sum_cost=_dec(r["sum_cost"]),
         ))
+    result.sort(key=lambda r: period_sort_key(r.period_key), reverse=True)
     return result
 
 

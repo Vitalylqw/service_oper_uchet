@@ -31,8 +31,10 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT / "dashboard"))
 
-from sqlalchemy import create_engine, text
-from infrastructure.database.connection import DatabaseConfig
+from period_utils import sort_period_dicts, sort_period_items, sort_periods  # noqa: E402
+from sqlalchemy import create_engine, text  # noqa: E402
+
+from infrastructure.database.connection import DatabaseConfig  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -77,26 +79,32 @@ def load_snapshot(conn, snapshot_id: int | None = None, label: str | None = None
     snap = dict(row)
     sid = snap["id"]
 
-    snap["deal_periods"] = [
-        dict(r)
-        for r in conn.execute(
-            text(
-                "SELECT * FROM db_snapshot_deal_periods "
-                "WHERE snapshot_id = :sid ORDER BY period_full_name"
-            ),
-            {"sid": sid},
-        ).mappings().all()
-    ]
-    snap["position_periods"] = [
-        dict(r)
-        for r in conn.execute(
-            text(
-                "SELECT * FROM db_snapshot_position_periods "
-                "WHERE snapshot_id = :sid ORDER BY period_key"
-            ),
-            {"sid": sid},
-        ).mappings().all()
-    ]
+    snap["deal_periods"] = sort_period_dicts(
+        [
+            dict(r)
+            for r in conn.execute(
+                text(
+                    "SELECT * FROM db_snapshot_deal_periods "
+                    "WHERE snapshot_id = :sid"
+                ),
+                {"sid": sid},
+            ).mappings().all()
+        ],
+        period_field="period_full_name",
+    )
+    snap["position_periods"] = sort_period_dicts(
+        [
+            dict(r)
+            for r in conn.execute(
+                text(
+                    "SELECT * FROM db_snapshot_position_periods "
+                    "WHERE snapshot_id = :sid"
+                ),
+                {"sid": sid},
+            ).mappings().all()
+        ],
+        period_field="period_key",
+    )
 
     if isinstance(snap.get("health_checks"), str):
         snap["health_checks"] = json.loads(snap["health_checks"])
@@ -482,7 +490,7 @@ def _render_cross_period_table(
     pp_map = {_normalize_period_key(p["period_key"]): p for p in pos_periods}
     links = period_links or {}
 
-    all_periods = sorted(set(dp_map.keys()) | set(pp_map.keys()))
+    all_periods = sort_periods(set(dp_map.keys()) | set(pp_map.keys()))
     if not all_periods:
         return "<p>No period data to compare.</p>"
 
@@ -754,7 +762,7 @@ def generate_detail_files(
     details_subdir = details_dir.name
     period_links: dict[str, str] = {}
 
-    for period, period_deals in sorted(deals_by_period.items()):
+    for period, period_deals in sort_period_items(deals_by_period.items()):
         safe_name = _safe_filename(period)
         filename = f"detail_{safe_name}.html"
         html = _generate_detail_html(
