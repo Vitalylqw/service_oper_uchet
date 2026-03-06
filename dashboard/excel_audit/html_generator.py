@@ -175,7 +175,7 @@ _CSS = """
   tbody tr:nth-child(even) { background: #f7f9fc; }
   tbody tr:hover { background: #eef2f7; }
   td { padding: 7px 12px; border-bottom: 1px solid #ecf0f1; vertical-align: middle; }
-  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
   /* ---- status badges ---- */
   .badge {
@@ -328,7 +328,7 @@ def _render_duplicates(report: PeriodHealthReport) -> str:
     )
     return (
         '<div class="tbl-wrap"><table>'
-        "<thead><tr><th>deal_key</th><th>Кол-во вхождений</th></tr></thead>"
+        "<thead><tr><th>deal_key</th><th class='num'>Кол-во вхождений</th></tr></thead>"
         f"<tbody>{rows}</tbody></table></div>"
     )
 
@@ -361,8 +361,8 @@ def _render_totals_issues(
         '<div class="tbl-wrap"><table>'
         "<thead><tr>"
         "<th>deal_key</th><th>Поле</th>"
-        "<th>Значение мастер-строки</th><th>Сумма позиций</th>"
-        "<th>Δ</th><th>Уровень</th>"
+        "<th class='num'>Значение мастер-строки</th><th class='num'>Сумма позиций</th>"
+        "<th class='num'>Δ</th><th>Уровень</th>"
         "</tr></thead>"
         f"<tbody>{''.join(rows)}</tbody></table></div>"
     )
@@ -454,7 +454,7 @@ def _render_aggregates_table(
 
     return (
         '<div class="tbl-wrap"><table class="agg-table">'
-        "<thead><tr><th>Метрика</th><th>Excel</th><th>БД</th><th>Δ</th><th>Δ%</th></tr></thead>"
+        "<thead><tr><th>Метрика</th><th class='num'>Excel</th><th class='num'>БД</th><th class='num'>Δ</th><th class='num'>Δ%</th></tr></thead>"
         f"<tbody>{''.join(rows)}</tbody></table></div>"
     )
 
@@ -474,7 +474,7 @@ def _render_one_side_table(deals: list[OnlySideDeal], side: str) -> str:
     return (
         '<div class="tbl-wrap"><table>'
         "<thead><tr><th>deal_key</th>"
-        "<th>Выручка</th><th>Маржа</th><th>Себестоимость</th></tr></thead>"
+        "<th class='num'>Выручка</th><th class='num'>Маржа</th><th class='num'>Себестоимость</th></tr></thead>"
         f"<tbody>{rows}</tbody></table></div>"
     )
 
@@ -516,9 +516,9 @@ def _render_diffs_table(
         '<div class="tbl-wrap"><table>'
         "<thead><tr>"
         "<th>deal_key</th>"
-        "<th>Выручка Excel</th><th>Выручка БД</th><th>Δ Выручка</th>"
-        "<th>Маржа Excel</th><th>Маржа БД</th><th>Δ Маржа</th>"
-        "<th>Себест. Excel</th><th>Себест. БД</th><th>Δ Себест.</th>"
+        "<th class='num'>Выручка Excel</th><th class='num'>Выручка БД</th><th class='num'>Δ Выручка</th>"
+        "<th class='num'>Маржа Excel</th><th class='num'>Маржа БД</th><th class='num'>Δ Маржа</th>"
+        "<th class='num'>Себест. Excel</th><th class='num'>Себест. БД</th><th class='num'>Δ Себест.</th>"
         "</tr></thead>"
         f"<tbody>{''.join(rows)}</tbody></table></div>"
     )
