@@ -32,6 +32,31 @@ THRESHOLD_DECIMAL = Decimal("0.01")
 logger = logging.getLogger(__name__)
 
 
+def _truncate_to_field_max(cls: type, field_name: str, value: str | None) -> str | None:
+    """Truncate string to field's max_length from model definition. Single source of truth.
+
+    Supports both Field(max_length=X) and StringConstraints(max_length=X).
+    """
+    if value is None:
+        return None
+    if isinstance(value, str) and not value.strip():
+        return value
+    field_info = cls.model_fields.get(field_name)
+    if not field_info:
+        return value
+    for meta in field_info.metadata:
+        max_len = getattr(meta, "max_length", None)
+        if max_len is not None:
+            if len(value) > max_len:
+                logger.warning(
+                    "Field %s.%s truncated from %d to %d chars",
+                    cls.__name__, field_name, len(value), max_len,
+                )
+                return value[:max_len]
+            break
+    return value
+
+
 class DealItem(BaseModel):
     """Deal item representing a single product position within a deal.
 
@@ -197,6 +222,23 @@ class DealItem(BaseModel):
             "deal_key": deal_key,
         }
         return HashKey.from_dict(data)
+
+    # ---------------------------- Validators (truncation first) ----------------------------
+    @field_validator(
+        "product_name",
+        "supplier_name",
+        "client_name",
+        "period_month",
+        "period_year",
+        "seller",
+        "invoice_info",
+        "deal_key",
+        mode="before",
+    )
+    @classmethod
+    def _truncate_deal_item_str_fields(cls, v: str | None, info: Any) -> str | None:
+        """Truncate string fields to max_length from model definition."""
+        return _truncate_to_field_max(cls, info.field_name, v)
 
     @field_validator("supplier_name", mode="before")
     @classmethod
@@ -621,8 +663,8 @@ class Deal(BaseModel):
     invoice_date: Optional[str] = Field(None, description="Дата счета")
     upd_number: Optional[str] = Field(
         None,
-        max_length=50,
-        description="Инфрмацие о счете на продажу",
+        max_length=100,
+        description="Инфрмация о счете на продажу",
     )
 
     # Статусы
@@ -942,6 +984,22 @@ class Deal(BaseModel):
                 "must create a new Deal entity."
             )
         return self
+
+    # ---------------------------- Validators (truncation first) ----------------------------
+    @field_validator(
+        "upd_number",
+        "invoice_number",
+        "period_month",
+        "period_year",
+        "client_name",
+        "invoice_info",
+        "seller",
+        mode="before",
+    )
+    @classmethod
+    def _truncate_deal_str_fields(cls, v: str | None, info: Any) -> str | None:
+        """Truncate string fields to max_length from model definition."""
+        return _truncate_to_field_max(cls, info.field_name, v)
 
     # ---------------------------- Validators (Money/Status) ----------------------------
     @field_validator('total_revenue', 'total_cost', 'kickback_amount', mode='before')

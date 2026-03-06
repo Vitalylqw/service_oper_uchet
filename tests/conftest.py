@@ -73,6 +73,8 @@ def sample_deal(sample_period: Period) -> Deal:
         is_shipped=Status.SHIPPED,
         is_paid=Status.PAID,
         period=sample_period,
+        period_month=sample_period.month,
+        period_year=sample_period.year,
     )
 
 

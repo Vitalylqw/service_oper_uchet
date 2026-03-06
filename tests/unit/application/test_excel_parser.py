@@ -8,6 +8,7 @@ import pandas as pd
 import pytest
 
 from src.application.excel_parser import ExcelParserService, ParseResult
+from src.domain.builders.deal_builder import DealBuilder
 from src.domain.models.sync_session import SyncSession, SyncType
 from src.domain.value_objects import Period
 
@@ -111,6 +112,18 @@ class TestExcelParserService:
         assert parser_service._safe_pickup_date("июнь") == "июнь"
         assert parser_service._safe_pickup_date(None) == ""
 
+    def test_safe_decimal(self, parser_service):
+        """Test _safe_decimal: valid numbers -> Decimal, non-numeric -> None."""
+        assert parser_service._safe_decimal(1500.50) == Decimal("1500.50")
+        assert parser_service._safe_decimal(0) == Decimal("0")
+        assert parser_service._safe_decimal(Decimal("100.5")) == Decimal("100.5")
+        assert parser_service._safe_decimal(None) is None
+        assert parser_service._safe_decimal("") is None
+        assert parser_service._safe_decimal("   ") is None
+        assert parser_service._safe_decimal("N/A") is None
+        assert parser_service._safe_decimal("#DIV/0!") is None
+        assert parser_service._safe_decimal("—") is None
+
     @pytest.mark.asyncio
     async def test_parse_file_nonexistent(self, parser_service, sample_sync_session):
         """Test parsing non-existent file."""
@@ -183,7 +196,13 @@ class TestExcelParserService:
     @pytest.mark.asyncio
     async def test_create_item_from_row(self, parser_service):
         """Test item creation from row."""
-        # Create test row data for item
+        period = Period(month="Май", year="2025", full_name="Май 2025")
+        builder = DealBuilder(period=period)
+        builder.client_name = "Test"
+        builder.invoice_info = "123"
+        builder.seller = "Seller"
+        deal = builder.build()
+
         row_data = {
             "col_0": "",  # Empty client (detail row)
             "col_1": "Тестовый товар",
@@ -201,7 +220,7 @@ class TestExcelParserService:
         row = pd.Series(row_data)
         columns = list(row_data.keys())
 
-        item = await parser_service._create_item_from_row(row, columns)
+        item = await parser_service._create_item_from_row(row, columns, deal=deal)
 
         assert item is not None
         assert item.product_name == "Тестовый товар"
@@ -226,6 +245,66 @@ class TestExcelParserService:
         item = await parser_service._create_item_from_row(row, columns)
 
         assert item is None  # Should return None for empty product name
+
+    @pytest.mark.asyncio
+    async def test_create_deal_from_row_with_non_numeric(self, parser_service):
+        """Deal with revenue_val='N/A' is created, total_revenue is None, no exception."""
+        period = Period(month="Май", year="2025", full_name="Май 2025")
+        row_data = {
+            "col_0": "Тест Клиент",
+            "col_1": "12345 от 01.05.2025",
+            "col_2": "да",
+            "col_3": "УПД-001",
+            "col_4": "да",
+            "col_5": "N/A",  # Non-numeric revenue
+            "col_6": 500.00,
+            "col_7": "Продавец",
+            "col_8": 1000.00,
+            "col_9": 0,
+        }
+        row = pd.Series(row_data)
+        columns = list(row_data.keys())
+
+        deal = await parser_service._create_deal_from_row(row, columns, period)
+
+        assert deal.client_name == "Тест Клиент"
+        assert deal.seller == "Продавец"
+        assert deal.total_revenue is None
+        assert deal.total_cost.amount == Decimal("1000.00")
+
+    @pytest.mark.asyncio
+    async def test_create_item_from_row_with_non_numeric(self, parser_service):
+        """Item with purchase_val='N/A', quantity='10': quantity=10, purchase_price=None."""
+        period = Period(month="Май", year="2025", full_name="Май 2025")
+        builder = DealBuilder(period=period)
+        builder.client_name = "Test"
+        builder.invoice_info = "123"
+        builder.seller = "Seller"
+        deal = builder.build()
+
+        row_data = {
+            "col_0": "",
+            "col_1": "Товар с N/A ценой",
+            "col_2": "10",  # Valid quantity
+            "col_3": "N/A",  # Non-numeric purchase price
+            "col_4": 150.00,
+            "col_5": 1500.00,
+            "col_6": 500.00,
+            "col_7": "",
+            "col_8": 1000.00,
+            "col_9": "Поставщик",
+            "col_10": 15,
+        }
+        row = pd.Series(row_data)
+        columns = list(row_data.keys())
+
+        item = await parser_service._create_item_from_row(row, columns, deal=deal)
+
+        assert item is not None
+        assert item.product_name == "Товар с N/A ценой"
+        assert item.quantity == Decimal("10")
+        assert item.purchase_price is None
+        assert item.sale_price.amount == Decimal("150.00")
 
     def test_find_header_row(self, parser_service):
         """Test header row detection."""

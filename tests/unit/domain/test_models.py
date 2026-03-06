@@ -57,12 +57,28 @@ class TestDealItem:
 
     def test_deal_item_validation_product_name(self):
         """Test DealItem validation for product name."""
-        item = DealItem(product_name="  Test Product  ")
+        item = DealItem(
+            product_name="  Test Product  ",
+            client_name="Client",
+            period_month="январь",
+            period_year="2025",
+            seller="Seller",
+            invoice_info="123",
+            position_number=1,
+        )
         assert item.product_name == "Test Product"  # Should be trimmed
 
     def test_deal_item_minimal_creation(self):
         """Test DealItem creation with minimal data."""
-        item = DealItem(product_name="Minimal Product")
+        item = DealItem(
+            product_name="Minimal Product",
+            client_name="Client",
+            period_month="январь",
+            period_year="2025",
+            seller="Seller",
+            invoice_info="123",
+            position_number=1,
+        )
         assert item.product_name == "Minimal Product"
         assert item.supplier_name is None
         assert item.quantity is None
@@ -137,18 +153,141 @@ class TestDeal:
     def test_deal_validation_client_name(self, sample_period):
         """Test Deal validation for client name."""
         deal = Deal(
-            client_name="  Test Client  ", invoice_info="123 от 01.01.2025", period=sample_period
+            client_name="  Test Client  ",
+            invoice_info="123 от 01.01.2025",
+            seller="Seller",
+            period=sample_period,
+            period_month=sample_period.month,
+            period_year=sample_period.year,
         )
         assert deal.client_name == "Test Client"  # Should be trimmed
 
     def test_deal_minimal_creation(self, sample_period):
         """Test Deal creation with minimal required data."""
-        deal = Deal(client_name="Minimal Client", invoice_info="123", period=sample_period)
+        deal = Deal(
+            client_name="Minimal Client",
+            invoice_info="123",
+            seller="Seller",
+            period=sample_period,
+            period_month=sample_period.month,
+            period_year=sample_period.year,
+        )
         assert deal.client_name == "Minimal Client"
         assert deal.invoice_info == "123"
         assert deal.period == sample_period
         assert isinstance(deal.id, UUID)
         assert len(deal.items) == 0
+
+    def test_deal_upd_number_truncated_to_100(self, sample_period):
+        """Test Deal upd_number truncated from 150 to 100 chars."""
+        long_upd = "x" * 150
+        deal = Deal(
+            client_name="Client",
+            invoice_info="123",
+            seller="Seller",
+            period=sample_period,
+            period_month=sample_period.month,
+            period_year=sample_period.year,
+            upd_number=long_upd,
+        )
+        assert deal.upd_number is not None
+        assert len(deal.upd_number) == 100
+        assert deal.upd_number == "x" * 100
+
+    def test_deal_invoice_number_truncated_to_50(self, sample_period):
+        """Test Deal invoice_number truncated from 60 to 50 chars."""
+        long_inv = "n" * 60
+        deal = Deal(
+            client_name="Client",
+            invoice_info="123",
+            seller="Seller",
+            period=sample_period,
+            period_month=sample_period.month,
+            period_year=sample_period.year,
+            invoice_number=long_inv,
+        )
+        assert deal.invoice_number is not None
+        assert len(deal.invoice_number) == 50
+
+    def test_deal_client_name_truncated_to_100(self, sample_period):
+        """Test Deal client_name (StringConstraints) truncated from 150 to 100 chars."""
+        long_name = "c" * 150
+        deal = Deal(
+            client_name=long_name,
+            invoice_info="123",
+            seller="Seller",
+            period=sample_period,
+            period_month=sample_period.month,
+            period_year=sample_period.year,
+        )
+        assert len(deal.client_name) == 100
+        assert deal.client_name == "c" * 100
+
+
+@pytest.mark.unit
+class TestDealItemTruncation:
+    """Tests for DealItem string truncation."""
+
+    def test_deal_item_product_name_truncated_to_500(self):
+        """Test DealItem product_name truncated from 600 to 500 chars."""
+        long_name = "p" * 600
+        item = DealItem(
+            product_name=long_name,
+            client_name="Client",
+            period_month="январь",
+            period_year="2025",
+            seller="Seller",
+            invoice_info="123",
+            position_number=1,
+        )
+        assert len(item.product_name) == 500
+        assert item.product_name == "p" * 500
+
+    def test_deal_item_supplier_name_truncated_to_100(self):
+        """Test DealItem supplier_name truncated from 150 to 100 chars."""
+        long_supplier = "s" * 150
+        item = DealItem(
+            product_name="Product",
+            supplier_name=long_supplier,
+            client_name="Client",
+            period_month="январь",
+            period_year="2025",
+            seller="Seller",
+            invoice_info="123",
+            position_number=1,
+        )
+        assert item.supplier_name is not None
+        assert len(item.supplier_name) == 100
+
+
+@pytest.mark.unit
+class TestTruncateHelper:
+    """Tests for _truncate_to_field_max helper."""
+
+    def test_helper_returns_none_for_none(self):
+        """Test helper returns None for None input."""
+        from src.domain.models.deal import Deal, _truncate_to_field_max
+
+        result = _truncate_to_field_max(Deal, "upd_number", None)
+        assert result is None
+
+    def test_helper_returns_value_unchanged_when_within_limit(self):
+        """Test helper returns value unchanged when within max_length."""
+        from src.domain.models.deal import Deal, _truncate_to_field_max
+
+        short = "short"
+        result = _truncate_to_field_max(Deal, "upd_number", short)
+        assert result == short
+
+    def test_helper_truncates_when_over_limit(self):
+        """Test helper truncates when value exceeds max_length."""
+        from src.domain.models.deal import Deal, _truncate_to_field_max
+
+        long_val = "x" * 150
+        result = _truncate_to_field_max(Deal, "upd_number", long_val)
+        assert result is not None
+        assert len(result) == 100
+        assert result == "x" * 100
 
 
 @pytest.mark.unit

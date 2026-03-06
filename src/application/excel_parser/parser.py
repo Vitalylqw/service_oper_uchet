@@ -12,6 +12,7 @@ import re
 from decimal import Decimal, InvalidOperation
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -837,26 +838,30 @@ class ExcelParserService:
 
             if len(columns) > 5:
                 revenue_val = safe_get(5)
-                if revenue_val is not None:
-                    builder.total_revenue = Money(amount=Decimal(str(revenue_val)))
+                d = self._safe_decimal(revenue_val)
+                if d is not None:
+                    builder.total_revenue = Money(amount=d)
 
             if len(columns) > 6:
                 margin_val = safe_get(6)
-                if margin_val is not None:
-                    builder.total_margin = SignedMoney(amount=Decimal(str(margin_val)))
+                d = self._safe_decimal(margin_val)
+                if d is not None:
+                    builder.total_margin = SignedMoney(amount=d)
 
             if len(columns) > 7:
                 builder.seller = self._safe_string(safe_get(7))
 
             if len(columns) > 8:
                 cost_val = safe_get(8)
-                if cost_val is not None:
-                    builder.total_cost = Money(amount=Decimal(str(cost_val)))
+                d = self._safe_decimal(cost_val)
+                if d is not None:
+                    builder.total_cost = Money(amount=d)
 
             if len(columns) > 9:
                 kickback_val = safe_get(9)
-                if kickback_val is not None:
-                    builder.kickback_amount = Money(amount=Decimal(str(kickback_val)))
+                d = self._safe_decimal(kickback_val)
+                if d is not None:
+                    builder.kickback_amount = Money(amount=d)
 
         except Exception as e:
             warning_msg = f"Warning parsing optional fields for deal '{client_name}': {str(e)}"
@@ -910,61 +915,39 @@ class ExcelParserService:
         try:
             # Quantity
             if len(columns) > 2:
-                qty_val = safe_get(2)
-                if qty_val is not None:
-                    item.quantity = Decimal(str(qty_val))
+                d = self._safe_decimal(safe_get(2))
+                if d is not None:
+                    item.quantity = d
 
             # Purchase price
             if len(columns) > 3:
-                purchase_val = safe_get(3)
-                if purchase_val is not None:
-                    # Convert to Decimal preserving precision from Excel
-                    # If value is already Decimal (preserved from Excel), use it directly
-                    # Otherwise convert from float/int/string
-                    if isinstance(purchase_val, Decimal):
-                        purchase_decimal = purchase_val
-                    elif isinstance(purchase_val, (int, float)):
-                        # For float values from pandas, convert to Decimal
-                        # Note: if pandas converted Decimal to float64, precision may be lost
-                        purchase_decimal = Decimal(str(purchase_val))
-                    else:
-                        purchase_decimal = Decimal(str(purchase_val))
-                    item.purchase_price = Money5(amount=purchase_decimal)
+                d = self._safe_decimal(safe_get(3))
+                if d is not None:
+                    item.purchase_price = Money5(amount=d)
 
             # Sale price
             if len(columns) > 4:
-                sale_val = safe_get(4)
-                if sale_val is not None:
-                    item.sale_price = Money(amount=Decimal(str(sale_val)))
+                d = self._safe_decimal(safe_get(4))
+                if d is not None:
+                    item.sale_price = Money(amount=d)
 
             # Revenue
             if len(columns) > 5:
-                revenue_val = safe_get(5)
-                if revenue_val is not None:
-                    item.revenue = Money(amount=Decimal(str(revenue_val)))
+                d = self._safe_decimal(safe_get(5))
+                if d is not None:
+                    item.revenue = Money(amount=d)
 
             # Margin
             if len(columns) > 6:
-                margin_val = safe_get(6)
-                if margin_val is not None:
-                    # Convert to Decimal preserving precision from Excel
-                    # If value is already Decimal (preserved from Excel), use it directly
-                    # Otherwise convert from float/int/string
-                    if isinstance(margin_val, Decimal):
-                        margin_decimal = margin_val
-                    elif isinstance(margin_val, (int, float)):
-                        # For float values from pandas, convert to Decimal
-                        # Note: if pandas converted Decimal to float64, precision may be lost
-                        margin_decimal = Decimal(str(margin_val))
-                    else:
-                        margin_decimal = Decimal(str(margin_val))
-                    item.margin = SignedMoney5(amount=margin_decimal)
+                d = self._safe_decimal(safe_get(6))
+                if d is not None:
+                    item.margin = SignedMoney5(amount=d)
 
             # Cost
             if len(columns) > 8:
-                cost_val = safe_get(8)
-                if cost_val is not None:
-                    item.cost = Money(amount=Decimal(str(cost_val)))
+                d = self._safe_decimal(safe_get(8))
+                if d is not None:
+                    item.cost = Money(amount=d)
 
             # Supplier
             if len(columns) > 9:
@@ -997,6 +980,23 @@ class ExcelParserService:
         if pd.isna(value) or value is None:
             return ""
         return str(value).strip()
+
+    @staticmethod
+    def _safe_decimal(value: Any) -> Decimal | None:
+        """Convert value to Decimal; return None if not a valid number.
+
+        Used to avoid ConversionSyntax on non-numeric Excel values (N/A, #DIV/0!, etc).
+        """
+        if value is None:
+            return None
+        if isinstance(value, Decimal):
+            return value
+        if isinstance(value, str) and not value.strip():
+            return None
+        try:
+            return Decimal(str(value))
+        except (ValueError, TypeError, InvalidOperation):
+            return None
 
     @staticmethod
     def _safe_pickup_date(value) -> str:
