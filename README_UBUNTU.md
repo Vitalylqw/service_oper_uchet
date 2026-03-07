@@ -24,10 +24,9 @@ cd service_oper_uchet
 2. Выберите "Reopen in Container" когда появится предложение
 3. Дождитесь создания контейнера
 
-### 4. Запуск backend
+### 4. Запуск (скрипты синхронизации)
 ```bash
-# В dev-container терминале
-./scripts/services/start_backend.sh
+# В dev-container терминале — скрипты из scripts/ или точка входа приложения
 ```
 
 ## Ручной запуск компонентов
@@ -37,20 +36,11 @@ cd service_oper_uchet
 ./scripts/services/start_from_host.sh
 ```
 
-### Backend API
-```bash
-./scripts/services/start_backend.sh
-```
-
 ## Доступные сервисы
-- **API**: http://localhost:8000
 - **Database**: localhost:5432
 
 ## Остановка сервисов
 ```bash
-# Остановить backend
-pkill -f "uvicorn.*main:app"
-
 # Остановить БД
 docker-compose -f docker-compose.db.yml down
 ```

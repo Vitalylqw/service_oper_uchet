@@ -2,33 +2,27 @@
 
 ## Описание и цель проекта
 Система учета операций для парсинга Excel файлов и загрузки данных в PostgreSQL. Проект включает:
-- FastAPI backend с DDD архитектурой
-- React frontend с TypeScript
-- PostgreSQL база данных
+- DDD-архитектура (domain, application, infrastructure)
+- PostgreSQL (и SQLite для разработки) база данных
 - Система парсинга Excel с валидацией
-- API для управления данными
+- Event Sourcing, CQRS, read-модели
 
 ## Архитектура проекта
 - **Domain Layer** (`src/domain/`) - бизнес-логика и модели
 - **Application Layer** (`src/application/`) - сервисы и use cases
-- **Infrastructure Layer** (`src/infrastructure/`) - БД, внешние сервисы
-- **Presentation Layer** (`src/presentation/`) - API и веб-интерфейс
+- **Infrastructure Layer** (`src/infrastructure/`) - БД, воркеры, репозитории
 
 ## Технологический стек
-- **Backend**: Python 3.12, FastAPI, SQLAlchemy, Alembic
-- **Frontend**: React 18, TypeScript, Vite, TanStack Query
-- **Database**: PostgreSQL 16
-- **Dev Environment**: Dev Container, Docker Compose
+- **Backend**: Python 3.9+, SQLAlchemy, Alembic, loguru
+- **Database**: PostgreSQL 16 / SQLite
+- **Dev Environment**: Dev Container, Docker Compose (БД)
 
 ## Структура проекта
 ```
 src/
 ├── domain/          # Бизнес-модели и логика
 ├── application/     # Сервисы и use cases
-├── infrastructure/  # БД, внешние API
-└── presentation/    # API и веб-интерфейс
-    ├── api/        # FastAPI endpoints
-    └── web/        # React приложение
+├── infrastructure/  # БД, воркеры, репозитории
 ```
 
 ## Среда разработки (Dev Container + Remote-SSH)

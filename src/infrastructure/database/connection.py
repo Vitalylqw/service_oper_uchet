@@ -217,24 +217,6 @@ _db_config = DatabaseConfig()
 _db_manager = DatabaseManager(_db_config)
 
 
-async def get_database_session() -> AsyncGenerator[AsyncSession, None]:
-    """
-    Dependency for getting database session in FastAPI.
-
-    Usage in FastAPI:
-        @app.get("/deals")
-        async def get_deals(db: AsyncSession = Depends(get_database_session)):
-            # Use db session
-    """
-    async with _db_manager.get_async_session() as session:
-        yield session
-
-
-async def get_database_manager() -> DatabaseManager:
-    """Get global database manager instance."""
-    return _db_manager
-
-
 async def init_database() -> None:
     """Initialize database connection and test connectivity."""
     logger.info("Initializing database connection...")

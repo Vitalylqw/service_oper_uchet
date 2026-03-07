@@ -11,14 +11,13 @@ Contains:
 Технологии: PostgreSQL 16, SQLAlchemy 2.0, asyncpg
 """
 
-from .connection import DatabaseConfig, get_database_session
+from .connection import DatabaseConfig
 from .event_store import EventStoreImplementation
 from .models import Base
 from .repositories import DealRepositoryImplementation, SyncSessionRepositoryImplementation
 
 __all__ = [
     "DatabaseConfig",
-    "get_database_session",
     "EventStoreImplementation",
     "Base",
     "DealRepositoryImplementation",

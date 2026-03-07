@@ -12,12 +12,9 @@
 
 | Компонент | Технология | Версия | Назначение |
 |-----------|------------|--------|------------|
-| **Backend** | FastAPI | 0.104+ | REST API сервер |
 | **Database** | PostgreSQL/SQLite | 16+/3.35+ | Хранение данных |
-| **Frontend** | React + TypeScript | 18+ | Веб-интерфейс |
-| **Build Tool** | Vite | 5.0+ | Сборка фронтенда |
-| **Testing** | pytest + Vitest | 7.4+ | Тестирование |
-| **Linting** | Ruff + ESLint | 0.1+ | Анализ кода |
+| **Testing** | pytest | 7.4+ | Тестирование |
+| **Linting** | Ruff | 0.1+ | Анализ кода |
 | **Architecture** | DDD + Event Sourcing | - | Архитектурные паттерны |
 
 ### Архитектурные слои
@@ -39,9 +36,6 @@ src/
 │   ├── file_system/     # Работа с файлами
 │   ├── scheduler/       # Планировщик задач
 │   └── workers/         # Фоновые воркеры
-└── presentation/        # Пользовательские интерфейсы
-    ├── api/            # REST API (FastAPI)
-    └── web/            # Web UI (React)
 ```
 
 ---
@@ -53,9 +47,6 @@ src/
 ```bash
 # Python 3.9+
 python --version
-
-# Node.js 18+
-node --version
 
 # Git
 git --version
@@ -87,19 +78,6 @@ pip install -r requirements.txt
 
 # Установка dev зависимостей
 pip install -e ".[dev]"
-```
-
-#### Frontend (React)
-
-```bash
-# Переход в папку фронтенда
-cd src/presentation/web
-
-# Установка зависимостей
-npm install
-
-# Проверка установки
-npm run build
 ```
 
 ### Конфигурация
@@ -178,22 +156,6 @@ python -m pytest -m "e2e"
 python -m pytest -m "slow"
 ```
 
-#### Frontend тесты
-
-```bash
-# Переход в папку фронтенда
-cd src/presentation/web
-
-# Запуск тестов
-npm test
-
-# Запуск тестов в watch режиме
-npm run test:watch
-
-# Запуск тестов с покрытием
-npm run test:coverage
-```
-
 ### Написание тестов
 
 #### Unit тесты (Python)
@@ -221,13 +183,13 @@ class TestExcelParserService:
 
 ```python
 import pytest
-from src.infrastructure.database.connection import get_database_session
+from src.infrastructure.database.connection import _db_manager
 
 class TestDatabaseIntegration:
     @pytest.mark.asyncio
     async def test_deal_repository_crud(self, test_database):
         # Arrange
-        async with get_database_session() as session:
+        async with _db_manager.get_async_session() as session:
             repository = DealRepository(session)
             
             # Act
@@ -241,31 +203,6 @@ class TestDatabaseIntegration:
             # Assert
             retrieved = await repository.get_by_id("TEST-001")
             assert retrieved.client_name == "Test Client"
-```
-
-#### Frontend тесты (React)
-
-```typescript
-import { render, screen } from '@testing-library/react';
-import { DealsTable } from '../DealsTable';
-
-describe('DealsTable', () => {
-  it('renders deals correctly', () => {
-    const mockDeals = [
-      {
-        id: 1,
-        deal_id: 'DEAL-001',
-        client_name: 'Test Client',
-        revenue: 100000
-      }
-    ];
-
-    render(<DealsTable deals={mockDeals} />);
-    
-    expect(screen.getByText('Test Client')).toBeInTheDocument();
-    expect(screen.getByText('DEAL-001')).toBeInTheDocument();
-  });
-});
 ```
 
 ---
@@ -293,28 +230,6 @@ class DealService:
         return await self.parser.parse_file(file_path)
 ```
 
-#### TypeScript (ESLint + Prettier)
-
-```typescript
-// ✅ Правильно
-interface Deal {
-  id: number;
-  dealId: string;
-  clientName: string;
-  revenue: number;
-  margin: number;
-}
-
-const DealCard: React.FC<{ deal: Deal }> = ({ deal }) => {
-  return (
-    <div className="deal-card">
-      <h3>{deal.clientName}</h3>
-      <p>Revenue: ${deal.revenue.toLocaleString()}</p>
-    </div>
-  );
-};
-```
-
 ### Линтинг и форматирование
 
 #### Backend
@@ -331,22 +246,6 @@ black .
 
 # Проверка типов
 mypy src/
-```
-
-#### Frontend
-
-```bash
-# Переход в папку фронтенда
-cd src/presentation/web
-
-# Проверка кода
-npm run lint
-
-# Автоматическое исправление
-npm run lint:fix
-
-# Форматирование
-npm run format
 ```
 
 ### Git workflow
@@ -659,9 +558,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/ ./src/
 COPY pyproject.toml .
 
-EXPOSE 8000
-
-CMD ["uvicorn", "src.presentation.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Точка входа: скрипт синхронизации или планировщик
+CMD ["python", "-m", "src.application.sync_orchestrator"]
 ```
 
 #### docker-compose.yml
@@ -670,10 +568,8 @@ CMD ["uvicorn", "src.presentation.api.main:app", "--host", "0.0.0.0", "--port", 
 version: '3.8'
 
 services:
-  api:
+  app:
     build: .
-    ports:
-      - "8000:8000"
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
@@ -695,13 +591,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
-  frontend:
-    build: ./src/presentation/web
-    ports:
-      - "3000:3000"
-    depends_on:
-      - api
 
 volumes:
   postgres_data:
@@ -759,26 +648,14 @@ class StructuredLogger:
 
 ### Метрики
 
-#### Prometheus метрики
+Логирование метрик синхронизации через loguru (см. раздел Логирование выше). При необходимости можно добавить экспорт в Prometheus или другую систему мониторинга.
 
 ```python
-from prometheus_client import Counter, Histogram, Gauge
-
-# Метрики
-sync_requests_total = Counter('sync_requests_total', 'Total sync requests')
-sync_duration_seconds = Histogram('sync_duration_seconds', 'Sync duration')
-active_sync_sessions = Gauge('active_sync_sessions', 'Active sync sessions')
-
-# Использование в коде
-@sync_requests_total.count_exceptions()
-@sync_duration_seconds.time()
+# Пример: логирование метрик синхронизации
 async def sync_excel_file(file_path: str) -> SyncResult:
-    active_sync_sessions.inc()
-    try:
-        result = await process_file(file_path)
-        return result
-    finally:
-        active_sync_sessions.dec()
+    result = await process_file(file_path)
+    logger.info("Sync completed", path=file_path, deals_count=len(result.deals))
+    return result
 ```
 
 ---
@@ -810,8 +687,8 @@ pip install -r requirements.txt
 python scripts/database/create_schema.py
 python scripts/database/init_database.py
 
-# Запуск
-gunicorn src.presentation.api.main:app --bind 0.0.0.0:8000 --workers 4
+# Запуск (скрипт синхронизации или планировщик)
+python -m your_entry_script
 ```
 
 #### Systemd сервис
@@ -819,7 +696,7 @@ gunicorn src.presentation.api.main:app --bind 0.0.0.0:8000 --workers 4
 ```ini
 # /etc/systemd/system/service-oper-uchet.service
 [Unit]
-Description=Service Oper Uchet API
+Description=Service Oper Uchet (sync)
 After=network.target postgresql.service
 
 [Service]
@@ -828,7 +705,7 @@ User=service-oper-uchet
 Group=service-oper-uchet
 WorkingDirectory=/opt/service-oper-uchet
 Environment=PATH=/opt/service-oper-uchet/venv/bin
-ExecStart=/opt/service-oper-uchet/venv/bin/gunicorn src.presentation.api.main:app --bind 0.0.0.0:8000 --workers 4
+ExecStart=/opt/service-oper-uchet/venv/bin/python -m your_entry_script
 Restart=always
 
 [Install]
@@ -862,58 +739,6 @@ server {
 ---
 
 ## 🔧 ОТЛАДКА И ДИАГНОСТИКА
-
-### Отладка API
-
-#### Логирование запросов
-
-```python
-from fastapi import Request
-import time
-
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    start_time = time.time()
-    
-    response = await call_next(request)
-    
-    process_time = time.time() - start_time
-    logger.info(
-        f"{request.method} {request.url.path} - {response.status_code} - {process_time:.3f}s"
-    )
-    
-    return response
-```
-
-#### Health checks
-
-```python
-from fastapi import APIRouter
-from src.infrastructure.database.connection import get_database_session
-
-router = APIRouter()
-
-@router.get("/health")
-async def health_check():
-    """Проверка состояния системы."""
-    try:
-        # Проверка БД
-        async with get_database_session() as session:
-            await session.execute("SELECT 1")
-        
-        return {
-            "status": "healthy",
-            "database": "connected",
-            "timestamp": datetime.utcnow().isoformat()
-        }
-    except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        return {
-            "status": "unhealthy",
-            "error": str(e),
-            "timestamp": datetime.utcnow().isoformat()
-        }
-```
 
 ### Профилирование
 
@@ -952,16 +777,11 @@ async def slow_function():
 
 ```bash
 # Запуск в режиме разработки
-python -m uvicorn src.presentation.api.main:app --reload
-
-# Запуск фронтенда
-cd src/presentation/web && npm run dev
-
 # Проверка кода
 ruff check . && black . --check && mypy src/
 
 # Запуск всех тестов
-python -m pytest && cd src/presentation/web && npm test
+python -m pytest
 
 # Создание миграции
 alembic revision --autogenerate -m "Add new field"
@@ -972,8 +792,6 @@ alembic upgrade head
 
 ### Полезные ссылки
 
-- **[FastAPI Documentation](https://fastapi.tiangolo.com/)** - документация FastAPI
-- **[React Documentation](https://react.dev/)** - документация React
 - **[Event Sourcing](https://martinfowler.com/eaaDev/EventSourcing.html)** - паттерн Event Sourcing
 - **[CQRS](https://martinfowler.com/bliki/CQRS.html)** - паттерн CQRS
 - **[DDD](https://martinfowler.com/bliki/DomainDrivenDesign.html)** - Domain Driven Design

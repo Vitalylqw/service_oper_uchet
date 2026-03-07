@@ -6,6 +6,22 @@
 
 ---
 
+## 2026-03-07 - Удаление UI и API (presentation layer)
+
+### Цель:
+Упростить проект: оставить только ядро синхронизации Excel -> event_store -> read_models. Убрать FastAPI REST API и React SPA.
+
+### Выполненные действия:
+1. Удалены: `src/presentation/` (api + web), `tests/unit/presentation/`, `tests/integration/test_e2e_api.py`, `docs/API_DOCUMENTATION.md`, `docs/USER_GUIDE.md`.
+2. Обновлены: `src/__init__.py`, `src/infrastructure/database/__init__.py` и `connection.py` (убраны get_database_session, get_database_manager).
+3. Зависимости: из pyproject.toml и requirements.txt убраны fastapi, uvicorn, python-multipart, python-jose, passlib, prometheus-client, httpx (dev).
+4. Документация: docs/README.md, DEVELOPMENT_GUIDE.md, корневой README.md, README_UBUNTU.md, project_progress/PROJECT_OVERVIEW.md — убраны упоминания API/UI, обновлена структура и команды.
+
+### Результат:
+Проект без веб-интерфейса и REST API; фокус на синхронизации и dashboard-скриптах в `dashboard/`.
+
+---
+
 ## 2026-03-06 - Safe decimal parsing и валидаторы обрезки строк
 
 ### Цель:

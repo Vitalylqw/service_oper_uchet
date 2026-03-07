@@ -5,7 +5,6 @@ Service Oper Uchet - система синхронизации данных Exce
 - domain: предметная область
 - application: бизнес-логика
 - infrastructure: внешние интеграции
-- presentation: API и UI
 """
 
 __version__ = "0.1.0"

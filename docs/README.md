@@ -15,10 +15,8 @@
 
 - 🔄 **Умная синхронизация**: полная и инкрементальная синхронизация с настраиваемыми периодами
 - 🛡️ **Продвинутая валидация**: контроль структуры Excel, финансовая сверка, обнаружение сдвигов данных
-- 📊 **Веб-интерфейс**: современный React UI для просмотра, поиска и управления данными
 - 📈 **Мониторинг**: dashboard с аналитикой, системой предупреждений и отчетами
-- 🧪 **Высокое покрытие тестами**: 367 тестов (100% success rate)
-- 🔐 **Enterprise-безопасность**: JWT аутентификация, ролевая модель, аудит всех операций
+- 🧪 **Высокое покрытие тестами**: unit и integration тесты
 - ⚡ **Высокая производительность**: поддержка файлов до 50MB, обработка 1000+ сделок
 
 ---
@@ -31,8 +29,6 @@
 |----------|----------|-----------|
 | **[PROJECT_DOCUMENTATION_MASTER.md](PROJECT_DOCUMENTATION_MASTER.md)** | Полная документация проекта | Все пользователи |
 | **[PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md)** | Быстрый старт для разработчиков | Новые разработчики |
-| **[API_DOCUMENTATION.md](API_DOCUMENTATION.md)** | REST API документация | Разработчики, интеграторы |
-| **[USER_GUIDE.md](USER_GUIDE.md)** | Руководство пользователя | Конечные пользователи |
 | **[DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md)** | Руководство разработчика | Разработчики, DevOps |
 | **[DATABASE_DESIGN.md](DATABASE_DESIGN.md)** | Архитектура базы данных | Архитекторы, DBA |
 | **[SYNC_FLOW.md](../project_progress/SYNC_FLOW.md)** | Полный поток синхронизации (Excel → Events → Read Models) | Разработчики |
@@ -72,16 +68,6 @@
 2. **[DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md)** - настройка окружения разработки
 3. **[PROJECT_DOCUMENTATION_MASTER.md](PROJECT_DOCUMENTATION_MASTER.md)** - полная документация
 
-### Для конечных пользователей
-
-1. **[USER_GUIDE.md](USER_GUIDE.md)** - руководство по использованию системы
-2. **[API_DOCUMENTATION.md](API_DOCUMENTATION.md)** - если нужен API доступ
-
-### Для интеграторов
-
-1. **[API_DOCUMENTATION.md](API_DOCUMENTATION.md)** - полная документация API
-2. **[DATABASE_DESIGN.md](DATABASE_DESIGN.md)** - структура базы данных
-
 ---
 
 ## 📊 ТЕКУЩЕЕ СОСТОЯНИЕ ПРОЕКТА
@@ -90,24 +76,18 @@
 
 - **Sprint 0**: Фундамент (DDD архитектура, доменные модели)
 - **Sprint 1**: Core Business Logic (Event Sourcing, CQRS, все сервисы)
-- **Sprint 2.1**: FastAPI + Auth (REST API, JWT, RBAC)
-- **Sprint 2.2**: React Dashboard (современный UI, TypeScript)
-
-### 🔄 Активный Sprint 2.3: Real Integration
+### Текущее состояние
 
 - ✅ **Database Setup** - SQLite + PostgreSQL поддержка
-- 🔄 **Mock Services Replacement** - замена на реальные сервисы (в работе)
+- ✅ **Core sync** - парсинг Excel, event store, read models
 
 ### 📈 Статистика
 
 | Метрика | Значение | Статус |
 |---------|----------|---------|
-| **Общие тесты** | 367/367 | ✅ 100% success |
-| **Unit тесты** | 344 | ✅ Стабильны |
-| **Integration тесты** | 17 | ✅ Стабильны |
-| **E2E тесты** | 6 | ✅ Стабильны |
-| **Время выполнения тестов** | ~3.5 мин | ✅ Оптимально |
-| **Code Quality** | Ruff + TypeScript | ✅ Excellent |
+| **Unit тесты** | domain, application, infrastructure | ✅ |
+| **Integration тесты** | с БД | ✅ |
+| **Code Quality** | Ruff | ✅ |
 | **Архитектура** | DDD + Event Sourcing | ✅ Modern |
 
 ---
@@ -133,20 +113,15 @@ src/
 │   ├── file_system/     # Работа с файлами
 │   ├── scheduler/       # Планировщик задач
 │   └── workers/         # Фоновые воркеры
-└── presentation/        # Пользовательские интерфейсы
-    ├── api/            # REST API (FastAPI)
-    └── web/            # Web UI (React + TypeScript)
 ```
 
 ### Технический стек
 
 | Компонент | Технология | Версия |
 |-----------|------------|--------|
-| **Backend** | FastAPI | 0.104+ |
 | **Database** | PostgreSQL/SQLite | 16+/3.35+ |
-| **Frontend** | React + TypeScript | 18+ |
-| **Testing** | pytest + Vitest | 7.4+ |
-| **Linting** | Ruff + ESLint | 0.1+ |
+| **Testing** | pytest | 7.4+ |
+| **Linting** | Ruff | 0.1+ |
 
 ---
 
@@ -163,10 +138,8 @@ src/
 
 ### Тестовая пирамида
 
-- **Unit тесты (70%)** - 344 теста, быстрые тесты с моками (~15 сек)
-- **Integration тесты (20%)** - 17 тестов, тесты с реальной БД (~1 мин)
-- **E2E тесты (10%)** - 6 тестов, полный пайплайн через HTTP API (~2 мин)
-
+- **Unit тесты** - domain, application, infrastructure
+- **Integration тесты** - с реальной БД
 ### Запуск тестов
 
 ```bash
@@ -179,8 +152,6 @@ python -m pytest -m "unit"
 # Интеграционные тесты
 python -m pytest -m "integration"
 
-# E2E тесты
-python -m pytest -m "e2e"
 ```
 
 ---
@@ -192,13 +163,11 @@ python -m pytest -m "e2e"
 1. **Поле invoice_date в БД** - varchar вместо DATE
    - Изменить структуру данных
    - Обновить логику загрузки
-   - Привести в соответствие API и frontend
 
 2. **Несоответствие seller/saller** - привести к единому виду
 
 3. **Удаление currency_amount полей** - упростить модель данных
 
-4. **Вкладка синхронизации** - исправить функциональность
 
 ### Улучшения
 
@@ -206,7 +175,6 @@ python -m pytest -m "e2e"
 - Автоматизация развертывания (Docker)
 - CI/CD pipeline
 - Расширенный мониторинг
-- Документация API (OpenAPI)
 
 ---
 

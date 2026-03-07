@@ -33,8 +33,6 @@ dependencies = [
     "pandas>=2.0.0",
     "numpy>=1.24.0",
     "openpyxl>=3.1.0",
-    "fastapi>=0.104.0",
-    "uvicorn[standard]>=0.24.0",
     "pydantic>=2.0.0",
     "pydantic[email]>=2.0.0",  # For EmailStr support
     "sqlalchemy>=2.0.0",
@@ -46,13 +44,9 @@ dependencies = [
     "APScheduler>=3.10.0",  # For scheduling
     "pydantic-settings>=2.0.0",
     "loguru>=0.7.0",
-    "prometheus-client>=0.19.0",  # For metrics
     "tenacity>=8.2.0",  # For retry logic
     "aiofiles>=23.0.0",  # For async file operations
     "aiohttp>=3.9.0",  # For HTTP client
-    "python-multipart>=0.0.6",  # For form data
-    "python-jose[cryptography]>=3.3.0",  # For JWT tokens
-    "passlib[bcrypt]>=1.7.4",  # For password hashing
     "psutil>=5.9.0",  # For system metrics monitoring
 ]
 
@@ -64,7 +58,6 @@ dev = [
     "black>=23.0.0",
     "mypy>=1.6.0",
     "types-requests>=2.31.0",
-    "httpx>=0.25.0",  # For FastAPI TestClient
 ]
 ml = [
     "scikit-learn>=1.3.0",
@@ -170,6 +163,7 @@ asyncio_mode = "auto"
 testpaths = [
     "tests",
 ]
+norecursedirs = ["outdated code", ".git", "venv", ".venv", "build", "dist"]
 python_files = [
     "test_*.py",
     "*_test.py",
