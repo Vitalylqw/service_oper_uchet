@@ -1,3 +1,5 @@
+> Historical document. Preserved for project memory. Do not use as the current source of truth.
+
 # Реализация вычисления формул Excel
 
 **Дата:** 12 октября 2025  

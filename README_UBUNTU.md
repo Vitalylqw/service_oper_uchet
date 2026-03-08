@@ -1,71 +1,67 @@
-# Service Oper Uchet - Ubuntu Setup
+# Ubuntu setup
+
+## Назначение
+
+Краткая памятка для запуска проекта на Ubuntu или внутри dev-container.
 
 ## Требования
+
 - Ubuntu 20.04+
-- Docker и Docker Compose
-- Cursor IDE с dev-container расширением
+- Docker
+- Python 3.9+
 
-## Быстрый старт
+## Базовый запуск
 
-### 1. Клонирование и запуск
+### 1. Установить зависимости Python
+
 ```bash
-git clone <repository-url>
-cd service_oper_uchet
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+pip install -e ".[dev]"
 ```
 
-### 2. Запуск базы данных
+### 2. Поднять PostgreSQL
+
 ```bash
-# Создать сеть и запустить PostgreSQL
-./scripts/services/start_from_host.sh
+docker network create devnet
+docker-compose -f docker-compose.db.yml up -d
 ```
 
-### 3. Запуск через dev-container
-1. Откройте проект в Cursor
-2. Выберите "Reopen in Container" когда появится предложение
-3. Дождитесь создания контейнера
+### 3. Применить миграции
 
-### 4. Запуск (скрипты синхронизации)
 ```bash
-# В dev-container терминале — скрипты из scripts/ или точка входа приложения
+alembic upgrade head
 ```
 
-## Ручной запуск компонентов
+### 4. Проверить БД
 
-### База данных
 ```bash
-./scripts/services/start_from_host.sh
+python scripts/test/test_postgres_connection.py
 ```
 
-## Доступные сервисы
-- **Database**: localhost:5432
+## Проверка sync flow
 
-## Остановка сервисов
 ```bash
-# Остановить БД
+python scripts/test/test_excel_parsing.py
+python scripts/test/test_sync_integration.py --sync-type full --log-level INFO
+```
+
+## Snapshot и dashboard
+
+```bash
+python dashboard/create_db_snapshot.py --label ubuntu_check
+python dashboard/generate_dashboard.py --mode latest
+```
+
+## Остановка
+
+```bash
 docker-compose -f docker-compose.db.yml down
 ```
 
-## Устранение проблем
+## Что важно
 
-### Порт занят
-```bash
-sudo lsof -i :8000  # Проверить что использует порт
-sudo kill -9 <PID>  # Остановить процесс
-```
-
-### Проблемы с Docker
-```bash
-docker system prune  # Очистить неиспользуемые ресурсы
-docker-compose -f docker-compose.db.yml down  # Остановить БД
-```
-
-### Проблемы с зависимостями
-```bash
-# Python
-pip install -r requirements.txt
-```
-
-## Архитектура
-- **Dev-container**: только Python/FastAPI backend
-- **База данных**: отдельный PostgreSQL контейнер
-- **Web-часть**: пока не реализована (бэкенд в разработке)
+- для БД проект ориентируется на `config.env`;
+- этот файл не описывает UI/API, потому что они не входят в текущий scope проекта;
+- подробные инструкции по разработке находятся в `docs/DEVELOPMENT_GUIDE.md`.

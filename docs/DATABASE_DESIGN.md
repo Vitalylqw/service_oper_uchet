@@ -1,227 +1,187 @@
-# 🗄️ АРХИТЕКТУРА БАЗЫ ДАННЫХ SERVICE_OPER_UCHET
+# Архитектура базы данных
 
-> **Версия**: 1.1  
-> **Дата обновления**: 27 ноября 2025  
-> **Архитектура**: Event Sourcing + CQRS  
-> **Поддерживаемые БД**: PostgreSQL, SQLite
+## Назначение
 
----
+База данных поддерживает два контура:
 
-## 🎯 ОБЗОР АРХИТЕКТУРЫ
+- history/write-side через `event_store`;
+- current/read-side через `read_deals` и `read_positions`.
 
-Система использует **Event Sourcing** и **CQRS** (Command Query Responsibility Segregation) для обеспечения:
+Дополнительно в схеме есть технические таблицы для аудита, агрегатов и snapshot-контроля.
 
-- 🔄 **Полной истории изменений** - все изменения сохраняются как события
-- ⚡ **Высокой производительности** - разделение операций чтения и записи
-- 📊 **Аналитики и отчетности** - денормализованные read models
-- 🔍 **Аудита и трассировки** - полная история всех операций
+## Основная схема
 
-### Архитектурные принципы
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Event Store   │    │  Read Models    │    │   API Layer     │
-│   (Write Side)  │    │   (Read Side)   │    │  (Presentation) │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Domain        │    │   Read Model    │    │   FastAPI       │
-│   Events        │    │   Builder       │    │   Endpoints     │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+```text
+Excel
+  -> event_store
+  -> read_deals
+  -> read_positions
+  -> read_stats
+  -> db_snapshots
 ```
 
----
+## Ключевые таблицы
 
-## 📊 СХЕМА БАЗЫ ДАННЫХ
+### `event_store`
 
-### Основные таблицы (обновлено)
+Назначение:
 
-```sql
--- Event Store (Event Sourcing)
-CREATE TABLE event_store (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    event_type VARCHAR(100) NOT NULL,
-    aggregate_id VARCHAR(100) NOT NULL,
-    event_data JSONB NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    version INTEGER DEFAULT 1
-);
+- хранить историю событий синхронизации;
+- обеспечивать последовательную обработку через `sequence_number`;
+- позволять повторно строить read-модели.
 
--- Read Models (CQRS)
--- Read Models (CQRS)
-CREATE TABLE read_deals (
-    id UUID PRIMARY KEY,
-    deal_key VARCHAR(255) UNIQUE NOT NULL,
-    hash_key CHAR(32) NOT NULL,
-    client_name VARCHAR(500) NOT NULL,
-    invoice_info VARCHAR(500) NOT NULL,
-    invoice_number VARCHAR(100),
-    invoice_date VARCHAR(20),
-    period_month VARCHAR(20) NOT NULL,
-    period_year  VARCHAR(4)  NOT NULL,
-    period_full_name VARCHAR(100) NOT NULL,
-    is_shipped VARCHAR(20),
-    is_paid    VARCHAR(20),
-    upd_number VARCHAR(100),
-    seller     VARCHAR(300),
-    total_revenue_amount NUMERIC(15,2),
-    total_margin_amount  NUMERIC(15,2),
-    total_cost_amount    NUMERIC(15,2),
-    kickback_amount_value NUMERIC(15,2),
-    calc_revenue_amount NUMERIC(15,2) DEFAULT 0 NOT NULL,
-    calc_margin_amount  NUMERIC(15,2) DEFAULT 0 NOT NULL,
-    calc_cost_amount    NUMERIC(15,2) DEFAULT 0 NOT NULL,
-    has_totals_error    BOOLEAN DEFAULT FALSE NOT NULL,
-    items_count   INTEGER DEFAULT 0 NOT NULL,
-    total_quantity NUMERIC(15,3),
-    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
-);
+Ключевые поля:
 
-CREATE TABLE read_positions (
-    id UUID PRIMARY KEY,
-    deal_id UUID NOT NULL REFERENCES read_deals(id) ON DELETE CASCADE,
-    deal_key VARCHAR(255) NOT NULL,
-    position_number INTEGER NOT NULL,
-    hash_key CHAR(32) NOT NULL,
-    product_name VARCHAR(1000) NOT NULL,
-    supplier_name VARCHAR(500),
-    pickup_date   VARCHAR(50),
-    quantity NUMERIC(15,3),
-    purchase_price_amount NUMERIC(18,5),  -- Changed to 5 decimal places precision
-    sale_price_amount     NUMERIC(15,2),
-    revenue_amount        NUMERIC(15,2),
-    margin_amount         NUMERIC(18,5),  -- Changed to 5 decimal places precision
-    cost_amount           NUMERIC(15,2),
-    client_name VARCHAR(500) NOT NULL,
-    period_month VARCHAR(20) NOT NULL,
-    period_year  VARCHAR(4)  NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-    UNIQUE(deal_id, position_number)
-);
+- `event_id`
+- `aggregate_id`
+- `aggregate_type`
+- `event_type`
+- `event_data`
+- `event_metadata`
+- `sequence_number`
+- `processed_at`
 
--- Sync Sessions
-CREATE TABLE sync_sessions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_id VARCHAR(100) UNIQUE NOT NULL,
-    status VARCHAR(50) NOT NULL,
-    file_path VARCHAR(500),
-    file_name VARCHAR(255),
-    file_size INTEGER,
-    total_deals INTEGER DEFAULT 0,
-    total_items INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    started_at TIMESTAMP,
-    completed_at TIMESTAMP,
-    duration_seconds INTEGER,
-    errors JSONB,
-    warnings JSONB
-);
+Особенности:
 
--- Users (для аутентификации)
-CREATE TABLE users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username VARCHAR(100) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(50) NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_login TIMESTAMP
-);
-```
+- события одной сделки упорядочиваются по `(aggregate_id, sequence_number)`;
+- необработанные события определяются как `processed_at IS NULL`.
 
----
+### `read_deals`
 
-## 🔄 EVENT STORE (EVENT SOURCING)
+Назначение:
 
-### Принцип работы
+- хранить актуальное состояние сделки в денормализованном виде;
+- держать declared totals и calculated totals рядом.
 
-Event Store является **единственным источником истины** для всех изменений в системе. Каждое изменение сохраняется как событие с полной информацией о том, что произошло.
+Ключевые поля:
 
-### Структура событий
+- идентификация: `id`, `deal_key`, `hash_key`
+- период: `period_month`, `period_year`, `period_full_name`
+- статусы: `is_shipped`, `is_paid`
+- totals из Excel:
+  - `total_revenue_amount`
+  - `total_margin_amount`
+  - `total_cost_amount`
+  - `kickback_amount_value`
+- calculated totals:
+  - `calc_revenue_amount`
+  - `calc_margin_amount`
+  - `calc_cost_amount`
+- quality flags:
+  - `has_totals_error`
+- агрегаты:
+  - `items_count`
+  - `total_quantity`
 
-```json
-{
-  "event_type": "DealCreated",
-  "aggregate_id": "DEAL-2025-001",
-  "event_data": {
-    "deal_id": "DEAL-2025-001",
-    "client_name": "ООО Рога и Копыта",
-    "invoice_number": "INV-2025-001",
-    "invoice_date": "2025-01-15",
-    "revenue": 150000.00,
-    "margin": 45000.00,
-    "seller": "Иванов И.И.",
-    "items": [
-      {
-        "product_name": "Товар 1",
-        "quantity": 10,
-        "unit_price": 15000.00,
-        "total_price": 150000.00
-      }
-    ]
-  },
-  "created_at": "2025-01-27T10:30:00Z",
-  "version": 1
-}
-```
+### `read_positions`
 
-### Типы событий
+Назначение:
 
-| Тип события | Описание | Данные |
-|-------------|----------|--------|
-| `DealCreated` | Создана новая сделка | Полные данные сделки |
-| `DealUpdated` | Обновлена существующая сделка | Измененные поля |
-| `DealDeleted` | Удалена сделка | ID сделки |
-| `DealItemAdded` | Добавлен товар к сделке | Данные товара |
-| `DealItemUpdated` | Обновлен товар в сделке | Измененные поля товара |
-| `DealItemDeleted` | Удален товар из сделки | ID товара |
-| `SyncSessionStarted` | Начата сессия синхронизации | Данные сессии |
-| `SyncSessionCompleted` | Завершена сессия синхронизации | Результаты |
-| `SyncSessionFailed` | Ошибка в сессии синхронизации | Детали ошибки |
+- хранить текущее состояние позиций сделки;
+- давать быстрый read-side для анализа и сверки.
 
-### Преимущества Event Sourcing
+Ключевые поля:
 
-- 🔍 **Полная история** - можно восстановить состояние на любой момент времени
-- 📊 **Аналитика** - анализ паттернов изменений
-- 🔄 **Воспроизведение** - возможность переиграть события
-- 🛡️ **Аудит** - полная трассировка всех изменений
-- 🔧 **Отладка** - детальная информация о проблемах
+- `id`
+- `deal_id`
+- `deal_key`
+- `position_number`
+- `hash_key`
+- `product_name`
+- `supplier_name`
+- `quantity`
+- `purchase_price_amount`
+- `sale_price_amount`
+- `revenue_amount`
+- `margin_amount`
+- `cost_amount`
 
----
+Ограничения:
 
-## 💰 ТИПЫ ДАННЫХ И ТОЧНОСТЬ
+- `hash_key` уникален;
+- `(deal_id, position_number)` уникальны;
+- `deal_id` связан с `read_deals` через `ON DELETE CASCADE`.
 
-### Денежные поля с разной точностью
+Текущее проектное решение:
 
-Система использует разные типы точности для различных денежных полей:
+- таблица не использует `is_active` и `version`;
+- хранится только актуальное состояние позиции;
+- история изменений уходит в `event_store`.
 
-| Поле | Тип в БД | Точность | Value Object | Использование |
-|------|----------|----------|--------------|---------------|
-| `purchase_price_amount` | `NUMERIC(18,5)` | 5 знаков | `Money5` | Цена закупки в DealItem |
-| `margin_amount` | `NUMERIC(18,5)` | 5 знаков | `SignedMoney5` | Маржа в DealItem |
-| `sale_price_amount` | `NUMERIC(15,2)` | 2 знака | `Money` | Цена продажи |
-| `revenue_amount` | `NUMERIC(15,2)` | 2 знака | `Money` | Выручка |
-| `cost_amount` | `NUMERIC(15,2)` | 2 знака | `Money` | Стоимость закупки |
-| `total_revenue_amount` | `NUMERIC(15,2)` | 2 знака | `Money` | Общая выручка по сделке |
-| `total_margin_amount` | `NUMERIC(15,2)` | 2 знака | `SignedMoney` | Общая маржа по сделке |
+### `sync_sessions`
 
-**Примечание:** Поля `purchase_price_amount` и `margin_amount` имеют повышенную точность (5 знаков) для более точных расчетов и сохранения исходной точности из Excel файлов.
+Назначение:
 
-### Value Objects
+- фиксировать факты запусков синхронизации;
+- хранить статус, путь к файлу, размеры, время и ошибки.
 
-В доменном слое используются следующие value objects:
+### `read_audit`
 
-- **Money** - положительные денежные суммы с точностью 2 знака
-- **Money5** - положительные денежные суммы с точностью 5 знаков (для `purchase_price`)
-- **SignedMoney** - денежные суммы (могут быть отрицательными) с точностью 2 знака
-- **SignedMoney5** - денежные суммы (могут быть отрицательными) с точностью 5 знаков (для `margin`)
+Назначение по схеме:
 
-## 📖 READ MODELS (CQRS)
+- хранить аудит изменений по сделкам и позициям.
 
-### Принцип работы
+Фактический нюанс:
 
-Read Models - это **денормализованные представления** дан
+- модель и таблица существуют;
+- текущая реализация `ReadModelBuilder._create_audit_entry()` не записывает строки в таблицу,
+  поэтому наличие таблицы не означает, что аудит реально заполняется.
+
+### `read_stats`
+
+Назначение по схеме:
+
+- хранить агрегированную статистику по типу, дате и измерению.
+
+Фактический нюанс:
+
+- таблица и модель существуют;
+- обновление реализовано через обработку `SyncSessionCompleted`;
+- нужно отдельно проверять, попадает ли такой event в текущий runtime path.
+
+### `db_snapshots`
+
+Назначение:
+
+- хранить контрольные снимки состояния `read_deals` и `read_positions`;
+- использоваться dashboard-скриптами для сравнения до/после.
+
+Связанные таблицы:
+
+- `db_snapshot_deal_periods`
+- `db_snapshot_position_periods`
+
+Они содержат детализацию snapshot-метрик по периодам.
+
+## Точность денежных полей
+
+### `read_deals`
+
+- `total_*` и `calc_*` хранятся как `NUMERIC(15, 2)`.
+
+### `read_positions`
+
+- `purchase_price_amount` — `NUMERIC(18, 5)`
+- `margin_amount` — `NUMERIC(18, 5)`
+- `sale_price_amount`, `revenue_amount`, `cost_amount` — `NUMERIC(15, 2)`
+- `quantity` — `NUMERIC(15, 3)`
+
+Это соответствует текущей модели проекта: повышенная точность нужна не для всех сумм, а только для
+части полей позиции.
+
+## Поддерживаемые БД
+
+Код модели поддерживает:
+
+- PostgreSQL как основной рабочий вариант;
+- SQLite как fallback для части dev/test сценариев.
+
+Это обеспечивается обертками `GUID` и `JSONType` в `src/infrastructure/database/models.py`.
+
+## Что важно помнить
+
+- каноническая схема определяется не этим документом, а комбинацией:
+  - `src/infrastructure/database/models.py`
+  - `migrations/versions/*.py`
+- старые описания схемы с `users`, API-layer или versioned read positions не считаются актуальными;
+- перед изменением схемы нужно обновлять и миграции, и активную документацию.

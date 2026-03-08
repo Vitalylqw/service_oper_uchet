@@ -1,3 +1,5 @@
+> Historical document. Preserved for project memory. Do not use as the current source of truth.
+
 # МИГРАЦИЯ HASH_KEY ЗАВЕРШЕНА УСПЕШНО ✅
 
 ## Итоговый отчет миграции на hash_key для уникальности позиций

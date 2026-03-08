@@ -1,3 +1,5 @@
+> Historical document. Preserved for project memory. Do not use as the current source of truth.
+
 # ПРАВИЛЬНАЯ ЛОГИКА СИНХРОНИЗАЦИИ ПОЗИЦИЙ РЕАЛИЗОВАНА ✅
 
 ## Итоговый отчет по реализации правильной синхронизации

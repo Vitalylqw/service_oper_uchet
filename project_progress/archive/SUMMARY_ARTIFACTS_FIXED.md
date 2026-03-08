@@ -1,3 +1,5 @@
+> Historical document. Preserved for project memory. Do not use as the current source of truth.
+
 # РЕЗЮМЕ: Исправлены артефакты после упрощения схемы БД ✅
 
 **Дата:** 31 августа 2025  

@@ -1,3 +1,5 @@
+> Historical document. Preserved for project memory. Do not use as the current source of truth.
+
 # Завершена реорганизация миграций
 
 ## Дата: 2025-09-02

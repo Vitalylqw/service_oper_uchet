@@ -1,3 +1,5 @@
+> Historical document. Preserved for project memory. Do not use as the current source of truth.
+
 # МИГРАЦИЯ deal_key: ДОБАВЛЕНИЕ PERIOD
 
 **Дата:** 21 января 2025  

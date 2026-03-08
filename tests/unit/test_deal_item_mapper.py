@@ -6,7 +6,7 @@ from uuid import uuid4
 import pytest
 
 from domain.models import Deal
-from domain.value_objects import Money, Period, SignedMoney
+from domain.value_objects import Money, Money5, Period, SignedMoney5
 from infrastructure.database.models import ReadModelPosition
 from infrastructure.mappers import deal_item_mapper
 
@@ -55,21 +55,25 @@ def test_from_read_position_basic(sample_deal: Deal) -> None:
     assert item.client_name == sample_deal.client_name
     assert item.position_number == 1
     assert item.deal_id == sample_deal.id
-    assert item.purchase_price == Money(amount=Decimal("150.00"))
-    assert item.margin == SignedMoney(amount=Decimal("100.00"))
+    assert item.purchase_price == Money5(amount=Decimal("150.00"))
+    assert item.margin == SignedMoney5(amount=Decimal("100.00"))
 
 
-def test_from_read_position_logs_mismatch(sample_deal: Deal, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_from_read_position_logs_mismatch(
+    sample_deal: Deal, monkeypatch: pytest.MonkeyPatch
+) -> None:
     warnings: list[dict[str, str]] = []
 
     def fake_log(deal_key: str, mismatches: dict[str, tuple[str | None, str | None]]) -> None:
-        warnings.append({
-            "deal_key": deal_key,
-            "details": "; ".join(
-                f"{field}: read='{read_val}' deal='{deal_val}'"
-                for field, (read_val, deal_val) in mismatches.items()
-            ),
-        })
+        warnings.append(
+            {
+                "deal_key": deal_key,
+                "details": "; ".join(
+                    f"{field}: read='{read_val}' deal='{deal_val}'"
+                    for field, (read_val, deal_val) in mismatches.items()
+                ),
+            }
+        )
 
     monkeypatch.setattr(deal_item_mapper, "_log_context_mismatch", fake_log)
 
@@ -120,6 +124,6 @@ def test_from_event(sample_deal: Deal) -> None:
 
     assert item.position_number == 2
     assert item.sale_price == Money(amount=Decimal("150.00"))
-    assert item.margin == SignedMoney(amount=Decimal("250.00"))
+    assert item.margin == SignedMoney5(amount=Decimal("250.00"))
     assert item.client_name == sample_deal.client_name
     assert item.deal_id == sample_deal.id

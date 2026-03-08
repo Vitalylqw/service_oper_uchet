@@ -110,6 +110,7 @@ ignore = [
 "*.txt" = ["ALL"] 
 "*.json" = ["ALL"]
 "scripts/*.py" = ["F401", "F841", "E402", "E722", "B007", "W293"]
+"scripts/**/*.py" = ["F401", "F841", "E402", "E722", "B007", "W293"]
 "tests/**/*.py" = ["F401", "F841", "B007", "E402"]
 "test_db_simple.py" = ["F401"]
 

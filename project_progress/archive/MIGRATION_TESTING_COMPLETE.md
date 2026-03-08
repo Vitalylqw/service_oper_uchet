@@ -1,3 +1,5 @@
+> Historical document. Preserved for project memory. Do not use as the current source of truth.
+
 # Тестирование новой структуры миграций завершено
 
 ## Дата: 2025-09-02

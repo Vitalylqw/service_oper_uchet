@@ -1,224 +1,182 @@
 # Управление базой данных
 
-## Обзор
+## Назначение
 
-Система использует PostgreSQL 16 с Event Sourcing + CQRS архитектурой. База данных содержит:
-- **Event Store** - все изменения данных
-- **Read Models** - денормализованные данные для быстрого чтения
-- **Audit** - история изменений
-- **Statistics** - агрегированные метрики
+Этот документ описывает практическую работу с PostgreSQL в рамках текущего dev-потока проекта:
 
-## Структура базы данных
+- поднятие контейнера;
+- применение миграций;
+- базовые проверки;
+- snapshot/dashboard сценарии;
+- резервное копирование и диагностика.
 
-### Основные таблицы
+## Запуск PostgreSQL
 
-1. **event_store** - Event Sourcing для всех изменений
-2. **read_deals** - Денормализованные данные сделок
-3. **read_positions** - Денормализованные данные позиций
-4. **read_audit** - Аудит изменений
-5. **read_stats** - Статистика и метрики
-6. **sync_sessions** - Сессии синхронизации
-
-### Особенности архитектуры
-
-- **Event Sourcing** - все изменения сохраняются как события
-- **CQRS** - разделение на команды (запись) и запросы (чтение)
-- **Версионность** - автоматическое отслеживание версий
-- **Аудит** - полная история изменений
-- **Индексы** - оптимизированные индексы для производительности
-
-## Управление
-
-### Запуск PostgreSQL
+Создать сеть один раз:
 
 ```bash
-# Windows
-scripts/services/start_postgresql.bat
-
-# Linux/Mac
-docker-compose -f docker-compose.db.yml up -d postgres
+docker network create devnet
 ```
 
-### Остановка PostgreSQL
+Поднять контейнер:
 
 ```bash
-# Windows
-scripts/services/stop_postgresql.bat
+docker-compose -f docker-compose.db.yml up -d
+```
 
-# Linux/Mac
+Остановить контейнер:
+
+```bash
 docker-compose -f docker-compose.db.yml stop postgres
 ```
 
-### Инициализация базы данных
+Полностью остановить compose:
 
 ```bash
-# Windows
-scripts/services/init_database.bat
-
-# Linux/Mac
-python scripts/services/init_database.py
-```
-
-### Проверка состояния
-
-```bash
-# Windows
-scripts/services/check_database.bat
-
-# Linux/Mac
-python scripts/services/check_database.py
-```
-
-## Миграции
-
-### Применение миграций
-
-```bash
-cd migrations
-alembic upgrade head
-```
-
-### Создание новой миграции
-
-```bash
-cd migrations
-alembic revision --autogenerate -m "Description of changes"
-```
-
-### Откат миграций
-
-```bash
-cd migrations
-alembic downgrade -1  # Откат на одну версию назад
-alembic downgrade base  # Откат к началу
+docker-compose -f docker-compose.db.yml down
 ```
 
 ## Конфигурация
 
-### Переменные окружения
+Основная DB-конфигурация читается из `config.env`.
+
+Минимально важные поля:
 
 ```env
-# Тип базы данных
 DB_TYPE=postgresql
-
-# PostgreSQL параметры
 DB_HOST=so_pg
 DB_PORT=5432
 DB_NAME=so_uchet
 DB_USER=so_user
 DB_PASSWORD=so_pass
-
-# Настройки пула соединений
-DB_POOL_SIZE=10
-DB_POOL_MAX_OVERFLOW=20
-DB_POOL_TIMEOUT=30
-DB_POOL_RECYCLE=3600
 ```
 
-### Docker Compose
+Важно:
 
-```yaml
-services:
-  postgres:
-    image: postgres:16
-    container_name: so_pg
-    environment:
-      POSTGRES_DB: so_uchet
-      POSTGRES_USER: so_user
-      POSTGRES_PASSWORD: so_pass
-    ports:
-      - "5432:5432"
-    volumes:
-      - so_pg_data:/var/lib/postgresql/data
-```
+- `DatabaseConfig` сейчас использует `config.env`;
+- часть других подсистем использует `.env`;
+- для операций с БД, миграциями и dashboard ориентируйтесь именно на `config.env`.
 
-## Мониторинг
+## Проверка состояния
 
-### Проверка подключения
+Проверка подключения:
 
 ```bash
-python scripts/services/check_database.py
+python scripts/test/test_postgres_connection.py
 ```
 
-### Логи PostgreSQL
+Проверка состояния контейнера:
 
 ```bash
+docker-compose -f docker-compose.db.yml ps
 docker-compose -f docker-compose.db.yml logs postgres
 ```
 
-### Статистика контейнера
+## Миграции
+
+Применить все миграции:
 
 ```bash
-docker stats so_pg
+alembic upgrade head
 ```
+
+Посмотреть текущую версию:
+
+```bash
+alembic current -v
+```
+
+История миграций:
+
+```bash
+alembic history --verbose
+```
+
+## Базовые SQL-проверки
+
+После sync полезно смотреть:
+
+```sql
+SELECT COUNT(*) FROM event_store;
+SELECT COUNT(*) FROM read_deals;
+SELECT COUNT(*) FROM read_positions;
+SELECT COUNT(*) FROM read_deals WHERE has_totals_error = true;
+SELECT event_type, COUNT(*) FROM event_store GROUP BY event_type ORDER BY event_type;
+```
+
+Если нужно понять состояние snapshot-контуров:
+
+```sql
+SELECT id, label, source, created_at
+FROM db_snapshots
+ORDER BY created_at DESC
+LIMIT 20;
+```
+
+## Snapshot и dashboard
+
+Создать snapshot:
+
+```bash
+python dashboard/create_db_snapshot.py --label manual_check
+```
+
+Сгенерировать dashboard:
+
+```bash
+python dashboard/generate_dashboard.py --mode latest
+```
+
+Сравнение до/после:
+
+```bash
+python dashboard/run_dashboard_check.py --before sync_case
+python dashboard/run_dashboard_check.py --after sync_case
+```
+
+Назначение этих инструментов:
+
+- быстро увидеть расхождения `read_deals` vs `read_positions`;
+- проверить totals и quantity;
+- получить drill-down по периодам и проблемным сделкам.
 
 ## Резервное копирование
 
-### Создание бэкапа
+Создание бэкапа:
 
 ```bash
 docker exec so_pg pg_dump -U so_user so_uchet > backup_$(date +%Y%m%d_%H%M%S).sql
 ```
 
-### Восстановление из бэкапа
+Восстановление:
 
 ```bash
 docker exec -i so_pg psql -U so_user so_uchet < backup_file.sql
 ```
 
-## Устранение неполадок
+## Полная очистка dev-БД
 
-### Проблемы с подключением
-
-1. Проверить статус контейнера: `docker-compose -f docker-compose.db.yml ps`
-2. Проверить логи: `docker-compose -f docker-compose.db.yml logs postgres`
-3. Проверить сеть: `docker network ls`
-
-### Проблемы с миграциями
-
-1. Проверить версию: `alembic current`
-2. Проверить историю: `alembic history`
-3. Принудительно обновить: `alembic upgrade head --sql`
-
-### Очистка данных
+Использовать только если точно нужно пересоздать окружение:
 
 ```bash
-# Остановить контейнер
 docker-compose -f docker-compose.db.yml down
-
-# Удалить volume
 docker volume rm service_oper_uchet_so_pg_data
-
-# Запустить заново
-docker-compose -f docker-compose.db.yml up -d postgres
+docker-compose -f docker-compose.db.yml up -d
+alembic upgrade head
 ```
 
-## Производительность
+## Нюансы текущей схемы
 
-### Настройки PostgreSQL
+- `read_positions` хранит только текущее состояние и не использует `is_active/version`;
+- `read_audit` и `read_stats` существуют в схеме, но их фактическое наполнение нужно проверять по
+  текущему коду, а не по старым документам;
+- `db_snapshots` — это не боевые данные, а технический слой наблюдаемости и проверки.
 
-```sql
--- Увеличить shared_buffers для кэширования
-ALTER SYSTEM SET shared_buffers = '256MB';
+## Когда смотреть этот документ
 
--- Настроить work_mem для операций сортировки
-ALTER SYSTEM SET work_mem = '4MB';
+Используйте этот файл, если вам нужно:
 
--- Перезагрузить конфигурацию
-SELECT pg_reload_conf();
-```
-
-### Мониторинг производительности
-
-```sql
--- Активные соединения
-SELECT * FROM pg_stat_activity WHERE state = 'active';
-
--- Статистика таблиц
-SELECT schemaname, tablename, n_tup_ins, n_tup_upd, n_tup_del 
-FROM pg_stat_user_tables;
-
--- Размер таблиц
-SELECT schemaname, tablename, pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
-FROM pg_tables WHERE schemaname = 'public';
-```
+- поднять БД;
+- быстро проверить состояние данных;
+- сделать snapshot перед экспериментом;
+- понять, какие SQL-проверки являются базовыми для текущего проекта.

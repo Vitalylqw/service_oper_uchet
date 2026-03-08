@@ -1,3 +1,5 @@
+> Historical document. Preserved for project memory. Do not use as the current source of truth.
+
 # ИСПРАВЛЕНЫ АРТЕФАКТЫ ПОСЛЕ УДАЛЕНИЯ ПОЛЕЙ is_active И version ✅
 
 ## Отчет об исправлении артефактов

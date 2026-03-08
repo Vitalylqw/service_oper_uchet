@@ -2,9 +2,9 @@
 Pipeline: sync -> snapshot -> compare dashboard.
 
 Runs sequentially:
-1. testing/scripts/test_sync_integration.py  (full sync)
-2. scripts/services/create_db_snapshot.py     (auto-label)
-3. scripts/services/generate_dashboard.py     (compare last two snapshots)
+1. scripts/test/test_sync_integration.py  (full sync)
+2. dashboard/create_db_snapshot.py        (auto-label)
+3. dashboard/generate_dashboard.py        (compare last two snapshots)
 
 Usage:
     python dashboard/run_sync_snapshot_dashboard.py
@@ -67,13 +67,11 @@ def main() -> int:
     args = parser.parse_args()
 
     python = sys.executable
-    steps_ok = True
-
     # Step 1: Sync
     if not args.skip_sync:
         sync_cmd = [
             python,
-            str(PROJECT_ROOT / "testing" / "scripts" / "test_sync_integration.py"),
+            str(PROJECT_ROOT / "scripts" / "test" / "test_sync_integration.py"),
             "--sync-type", args.sync_type,
         ]
         if not run_step("Synchronization", sync_cmd):

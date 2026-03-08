@@ -1,117 +1,133 @@
-# PostgreSQL Setup Guide
+# PostgreSQL setup
 
-## Обзор
-Проект настроен для работы с PostgreSQL контейнером `so_pg` в сети `devnet`.
+## Назначение
 
-## Конфигурация
+Проект использует PostgreSQL контейнер `so_pg` в сети `devnet` как основной dev/runtime-вариант.
 
-### Файл config.env
-```bash
-# Database Configuration
+## Текущая конфигурация
+
+База данных описана в:
+
+- `docker-compose.db.yml`
+- `config.env`
+
+Минимальные параметры в `config.env`:
+
+```env
 DB_TYPE=postgresql
-DB_HOST=so_pg          # Имя контейнера PostgreSQL
-DB_PORT=5432           # Стандартный порт PostgreSQL
-DB_NAME=so_uchet      # Имя базы данных
-DB_USER=so_user       # Пользователь БД
-DB_PASSWORD=so_pass   # Пароль пользователя
+DB_HOST=so_pg
+DB_PORT=5432
+DB_NAME=so_uchet
+DB_USER=so_user
+DB_PASSWORD=so_pass
 ```
 
-### Docker Compose (docker-compose.db.yml)
-```yaml
-services:
-  postgres:
-    image: postgres:16
-    container_name: so_pg
-    environment:
-      POSTGRES_DB: so_uchet
-      POSTGRES_USER: so_user
-      POSTGRES_PASSWORD: so_pass
-    networks:
-      - devnet
-```
+## Первый запуск
 
-## Подключение
+Создать сеть:
 
-### Автоматическое подключение
-Проект автоматически подключается к PostgreSQL при запуске:
-- Host: `so_pg` (имя контейнера)
-- Port: `5432`
-- Database: `so_uchet`
-- User: `so_user`
-- Password: `so_pass`
-
-### Проверка подключения
 ```bash
-python scripts/test_postgres_connection.py
+docker network create devnet
 ```
 
-## Скрипты управления
+Поднять контейнер:
 
-### Запуск PostgreSQL
 ```bash
-scripts/start_postgres.bat
+docker-compose -f docker-compose.db.yml up -d
 ```
 
-### Остановка PostgreSQL
+Применить миграции:
+
 ```bash
-scripts/stop_postgres.bat
+alembic upgrade head
 ```
 
-### Проверка статуса
+Проверить подключение:
+
 ```bash
-scripts/check_postgres_status.bat
+python scripts/test/test_postgres_connection.py
 ```
 
-## Сетевая конфигурация
+## Повседневные команды
 
-### Dev Container
-- Сеть: `172.18.0.0/16`
-- IP: `172.18.0.3`
-- Gateway: `172.18.0.1`
+Статус:
 
-### PostgreSQL Container
-- Сеть: `devnet` (внешняя)
-- Имя: `so_pg`
-- Порт: `5432`
+```bash
+docker-compose -f docker-compose.db.yml ps
+```
+
+Логи:
+
+```bash
+docker-compose -f docker-compose.db.yml logs postgres
+```
+
+Остановка:
+
+```bash
+docker-compose -f docker-compose.db.yml stop postgres
+```
+
+Полное выключение:
+
+```bash
+docker-compose -f docker-compose.db.yml down
+```
+
+## Проверка рабочего контура
+
+После поднятия PostgreSQL полезно выполнить:
+
+```bash
+python scripts/test/test_postgres_connection.py
+python -m pytest -m "integration"
+```
+
+Если нужно проверить sync flow поверх поднятой БД:
+
+```bash
+python scripts/test/test_sync_integration.py --sync-type full --log-level INFO
+```
 
 ## Troubleshooting
 
-### Проблема: Connection refused
-**Решение**: Убедитесь, что контейнер PostgreSQL запущен
+### `Connection refused`
+
+Проверьте:
+
+- контейнер запущен;
+- порт `5432` проброшен;
+- сеть `devnet` существует.
+
+Команды:
+
 ```bash
-scripts/check_postgres_status.bat
+docker-compose -f docker-compose.db.yml ps
+docker network ls
+docker-compose -f docker-compose.db.yml logs postgres
 ```
 
-### Проблема: Host not found
-**Решение**: Проверьте, что контейнер в сети `devnet`
-```bash
-docker network ls | grep devnet
-```
+### `Host not found`
 
-### Проблема: Authentication failed
-**Решение**: Проверьте учетные данные в `config.env`
+Обычно означает одну из проблем:
 
-## Тестирование
+- не создана сеть `devnet`;
+- контейнер `so_pg` не поднят;
+- `DB_HOST` в `config.env` не совпадает с именем контейнера.
 
-### Unit тесты
-```bash
-python -m pytest tests/unit/ --tb=line
-```
+### `Authentication failed`
 
-### Integration тесты
-```bash
-python -m pytest tests/integration/ --tb=line
-```
+Проверьте значения:
 
-### E2E тесты
-```bash
-python -m pytest tests/e2e/ --tb=line
-```
+- `DB_USER`
+- `DB_PASSWORD`
+- `DB_NAME`
 
-## Безопасность
+в `config.env` и `docker-compose.db.yml`.
 
-### Production настройки
-1. Измените пароли по умолчанию
-2. Настройте SSL соединения
-3. Используйте connection pooling
-4. Ограничьте доступ по IP
+## Ограничения
+
+- текущие значения в `config.env` являются dev-ориентированными;
+- этот документ не описывает production hardening;
+- если конфигурация окружения будет переработана, сначала нужно проверить код, который сейчас
+  читает именно `config.env`.

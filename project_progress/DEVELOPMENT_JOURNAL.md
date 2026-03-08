@@ -6,6 +6,81 @@
 
 ---
 
+## 2026-03-08 - Аудит migrations/tests и нормализация test scripts
+
+### Цель:
+Проверить, нет ли в `migrations/` и тестовых каталогах лишних или не на своем месте файлов, и
+сделать только безопасные структурные изменения без скрытого изменения поведения.
+
+### Выполненные действия:
+1. Проверен Alembic-контур:
+   - подтвержден конфликт истории миграций: `alembic history` падает из-за двух файлов с
+     `revision = "0003"`;
+   - конфликт зафиксирован как отдельный риск, без рискованного удаления миграций вслепую.
+2. Нормализованы ручные проверочные сценарии:
+   - `testing/scripts/test_postgres_connection.py` -> `scripts/test/test_postgres_connection.py`
+   - `testing/scripts/test_excel_parsing.py` -> `scripts/test/test_excel_parsing.py`
+   - `testing/scripts/test_sync_integration.py` -> `scripts/test/test_sync_integration.py`
+   - добавлены `.bat`-обертки в `scripts/test/` для Windows-запуска.
+3. Нормализована структура тестов:
+   - `tests/new/test_deal_item_mapper.py` -> `tests/unit/test_deal_item_mapper.py`
+   - `tests/new/test_deal_repository_load_items.py` ->
+     `tests/unit/test_deal_repository_load_items.py`
+   - размещение выбрано в `tests/unit/`, а не в `tests/unit/infrastructure/`, чтобы не упираться в
+     текущий конфликт именования с пакетом `src/infrastructure`.
+4. Обновлены ссылки на новые пути в active docs и dashboard-скриптах.
+
+### Результат:
+- ручные сценарии теперь лежат в согласованной служебной зоне `scripts/test/`;
+- `tests/new/` больше не нужен как временный буфер для уже принятых unit-тестов;
+- миграционный конфликт локализован и отделен от задач по чистке файлов.
+
+### Зачем:
+Чтобы структура репозитория отражала реальное назначение файлов: автотесты остаются в `tests/`,
+ручные сценарии переходят в `scripts/test/`, а миграционные проблемы не маскируются под простое
+удаление «лишних» файлов.
+
+---
+
+## 2026-03-08 - Полная ревизия документации и архивирование historical docs
+
+### Цель:
+Привести документацию проекта к инженерному формату, убрать ложные источники истины и сохранить
+архитектурную память без смешивания active docs и historical материалов.
+
+### Выполненные действия:
+1. Переписаны активные документы:
+   - `README.md`
+   - `README_UBUNTU.md`
+   - `docs/README.md`
+   - `docs/DEVELOPMENT_GUIDE.md`
+   - `docs/DATABASE_DESIGN.md`
+   - `docs/DATABASE_MANAGEMENT.md`
+   - `docs/MIGRATION_COMMANDS.md`
+   - `docs/POSTGRESQL_SETUP.md`
+   - `project_progress/PROJECT_OVERVIEW.md`
+   - `project_progress/STATUS.md`
+   - `project_progress/SYNC_FLOW.md`
+2. Добавлен новый канонический документ:
+   - `project_progress/PROJECT_PLAN.md`
+3. Созданы архивные зоны:
+   - `docs/archive/`
+   - `project_progress/archive/`
+4. В архив перенесены устаревшие и разовые техотчеты, которые больше не должны использоваться
+   как текущее описание проекта.
+5. В архивных каталогах добавлены `README.md` с правилами использования historical документов.
+
+### Результат:
+- Активная документация теперь описывает только текущий scope проекта.
+- Устаревшие claims про UI/API/1С, production-ready и несуществующие файлы убраны из active docs.
+- Историческая информация сохранена и отделена от канонических документов.
+
+### Зачем:
+Чтобы новый разработчик мог быстро понять текущее устройство проекта и не тратил время на
+разрешение противоречий между кодом, миграциями и старыми документами.
+
+---
+
 ## 2026-03-07 - Удаление UI и API (presentation layer)
 
 ### Цель:

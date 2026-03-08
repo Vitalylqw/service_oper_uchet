@@ -1,38 +1,97 @@
-# Service Oper Uchet - Обзор проекта
+# Обзор проекта
 
-## Описание и цель проекта
-Система учета операций для парсинга Excel файлов и загрузки данных в PostgreSQL. Проект включает:
-- DDD-архитектура (domain, application, infrastructure)
-- PostgreSQL (и SQLite для разработки) база данных
-- Система парсинга Excel с валидацией
-- Event Sourcing, CQRS, read-модели
+## Назначение
 
-## Архитектура проекта
-- **Domain Layer** (`src/domain/`) - бизнес-логика и модели
-- **Application Layer** (`src/application/`) - сервисы и use cases
-- **Infrastructure Layer** (`src/infrastructure/`) - БД, воркеры, репозитории
+`Service Oper Uchet` синхронизирует данные из Excel-книги с базой данных и строит read-модели для
+быстрого чтения и проверки результата. Целевое поведение и ограничения зафиксированы в
+`.cursor/rules/project_goals.md`.
 
-## Технологический стек
-- **Backend**: Python 3.9+, SQLAlchemy, Alembic, loguru
-- **Database**: PostgreSQL 16 / SQLite
-- **Dev Environment**: Dev Container, Docker Compose (БД)
+Главный результат работы системы:
 
-## Структура проекта
+- изменения из Excel фиксируются в `event_store`;
+- текущее состояние сделок хранится в `read_deals`;
+- текущее состояние позиций хранится в `read_positions`;
+- дополнительные агрегаты и техконтроль поддерживаются через `read_stats` и `db_snapshots`.
+
+## Текущий scope
+
+В активном scope:
+
+- Excel parser;
+- change detection;
+- event store;
+- read model builder;
+- dashboard и snapshot-скрипты для контроля целостности;
+- unit/integration тесты.
+
+Вне активного scope:
+
+- REST API;
+- UI;
+- 1С-интеграция;
+- пользовательская auth-модель.
+
+## Архитектура
+
+- `src/domain/` — доменные модели, value objects, исключения, интерфейсы.
+- `src/application/` — прикладные сервисы: Excel parser, change detector, sync orchestrator.
+- `src/infrastructure/` — БД, воркеры, scheduler, file system.
+
+Ключевые точки:
+
+- `src/application/excel_parser/parser.py` — парсинг Excel.
+- `src/application/change_detector/detector.py` — сравнение Excel и текущего состояния БД.
+- `src/application/sync_orchestrator/orchestrator.py` — общий orchestration flow.
+- `src/infrastructure/database/models.py` — SQLAlchemy модели.
+- `src/infrastructure/workers/read_model_builder.py` — применение событий к read-моделям.
+- `src/infrastructure/workers/simple_position_sync.py` — упрощенная синхронизация позиций.
+
+## Поток данных
+
+```text
+Excel file
+  -> ExcelParserService
+  -> ChangeDetectorService
+  -> event_store
+  -> ReadModelBuilder
+  -> read_deals / read_positions / read_stats
+  -> db_snapshots / HTML dashboards
 ```
-src/
-├── domain/          # Бизнес-модели и логика
-├── application/     # Сервисы и use cases
-├── infrastructure/  # БД, воркеры, репозитории
+
+## Навигация по репозиторию
+
+```text
+dashboard/             # snapshot и dashboard-проверки
+docs/                  # актуальная документация
+migrations/            # Alembic миграции
+project_progress/      # обзор, план, статус, журнал, sync flow
+scripts/test/          # ручные проверочные сценарии и bat-обертки
+tests/                 # unit и integration тесты
 ```
 
-## Среда разработки (Dev Container + Remote-SSH)
-- Проект открыт на удалённом сервере по SSH; в контейнере путь `/workspaces/service_oper_uchet`. Локальной папки проекта на Windows нет.
-- **Файловый менеджер к проекту:** (1) Cursor — левая панель (Explorer) уже показывает файлы на сервере. (2) Проводник Windows: смонтировать каталог сервера через SSHFS (WinFsp + SSHFS-Win) как сетевой диск и открыть его в Explorer. (3) SFTP-клиент (WinSCP, FileZilla): подключиться к тому же серверу и перейти в каталог проекта.
+## Конфигурация
+
+Текущее состояние конфигурации:
+
+- `config.env` — основная конфигурация БД.
+- `.env` — настройки `file_system` и `scheduler`.
+
+Это неидеально и должно учитываться при запуске скриптов: dashboard, миграции и БД ориентируются
+на `config.env`.
+
+## Что открыть в первую очередь
+
+Для входа в проект:
+
+1. `README.md`
+2. `project_progress/PROJECT_PLAN.md`
+3. `project_progress/STATUS.md`
+4. `project_progress/SYNC_FLOW.md`
+5. `docs/DEVELOPMENT_GUIDE.md`
 
 ## Принципы разработки
-- DDD (Domain-Driven Design)
-- Слоистая архитектура
-- Асинхронное программирование
-- Типизация (PEP 484)
-- Логирование через loguru
-- Тестирование через pytest
+
+- DDD и минимальные изменения в существующем поведении.
+- Проверка гипотез до утверждений.
+- Документация должна быть инженерной, а не маркетинговой.
+- История решений сохраняется, но historical docs не должны подменять active docs.

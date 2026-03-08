@@ -1,3 +1,5 @@
+> Historical document. Preserved for project memory. Do not use as the current source of truth.
+
 # УПРОЩЕННАЯ ЛОГИКА СИНХРОНИЗАЦИИ РЕАЛИЗОВАНА ✅
 
 ## Итоговый отчет по переработке синхронизации позиций
