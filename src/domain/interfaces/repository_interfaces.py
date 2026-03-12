@@ -140,11 +140,6 @@ class ReadModelRepository(ABC):
         pass
 
     @abstractmethod
-    async def rebuild_audit_read_model(self) -> None:
-        """Rebuild audit read model from events."""
-        pass
-
-    @abstractmethod
     async def rebuild_stats_read_model(self) -> None:
         """Rebuild stats read model from events."""
         pass

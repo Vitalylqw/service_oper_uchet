@@ -277,50 +277,6 @@ class ReadModelPosition(Base):
     )
 
 
-class ReadModelAudit(Base):
-    """
-    Read model for audit trail - change history.
-
-    Tracks all changes to deals and positions.
-    Compatible with both PostgreSQL and SQLite.
-    """
-
-    __tablename__ = "read_audit"
-
-    # Primary key
-    id: Mapped[int] = mapped_column(
-        Integer().with_variant(BigInteger(), "postgresql"),
-        primary_key=True,
-        autoincrement=True,
-    )
-
-    # What changed
-    entity_type: Mapped[str] = mapped_column(String(50), nullable=False)  # deal, position
-    entity_id: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False)
-    entity_key: Mapped[str] = mapped_column(String(500), nullable=False)
-
-    # Change details
-    change_type: Mapped[str] = mapped_column(String(20), nullable=False)  # INSERT, UPDATE, DELETE
-    field_name: Mapped[str] = mapped_column(String(100), nullable=True)
-    old_value: Mapped[str] = mapped_column(Text, nullable=True)
-    new_value: Mapped[str] = mapped_column(Text, nullable=True)
-
-    # Context
-    sync_session_id: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False)
-    event_id: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False)
-
-    # Timing
-    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
-
-    # Indexes
-    __table_args__ = (
-        Index("ix_read_audit_entity", "entity_type", "entity_id"),
-        Index("ix_read_audit_session", "sync_session_id"),
-        Index("ix_read_audit_changed_at", "changed_at"),
-        Index("ix_read_audit_change_type", "change_type"),
-    )
-
-
 class ReadModelStats(Base):
     """
     Read model for statistics and metrics.
@@ -443,7 +399,7 @@ class DbSnapshot(Base):
     health_checks: Mapped[dict] = mapped_column(JSONType(), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=func.now()
+        DateTime(timezone=True), server_default=func.now()
     )
 
     __table_args__ = (

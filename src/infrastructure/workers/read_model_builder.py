@@ -20,7 +20,6 @@ from domain.interfaces import EventStore
 from domain.models import Deal, DealItem
 
 from ..database.models import (
-    ReadModelAudit,
     ReadModelDeal,
     ReadModelPosition,
     ReadModelStats,
@@ -314,16 +313,6 @@ class ReadModelBuilder:
 
             await self._recalculate_totals(deal.id)
 
-            await self._create_audit_entry(
-                entity_type="deal_sync",
-                entity_id=deal.id,
-                entity_key=deal.deal_key,
-                change_type="SYNC",
-                event_id=full_event["event_id"],
-                sync_session_id=sync_session_id,
-                additional_data=sync_stats,
-            )
-
             logger.info(
                 f"Atomic deal sync completed: {deal.deal_key} - {sync_stats}"
             )
@@ -608,16 +597,6 @@ class ReadModelBuilder:
             # Recalculate totals to set has_totals_error correctly
             await self._recalculate_totals(deal.id)
 
-            # Create audit entry
-            await self._create_audit_entry(
-                entity_type="deal",
-                entity_id=deal.id,
-                entity_key=deal.deal_key,
-                change_type="INSERT",
-                event_id=full_event["event_id"],
-                sync_session_id=full_event.get("metadata", {}).get("sync_session_id"),
-            )
-
             logger.debug(f"Created read model for deal {deal.deal_key}")
 
         except Exception as e:
@@ -718,20 +697,6 @@ class ReadModelBuilder:
             if financial_fields_changed:
                 await self._recalculate_totals(deal_id)
 
-            # Create audit entries for each changed field
-            for field_name, change_data in changes.items():
-                await self._create_audit_entry(
-                    entity_type="deal",
-                    entity_id=deal_id,
-                    entity_key=existing_deal.deal_key,
-                    change_type="UPDATE",
-                    field_name=field_name,
-                    old_value=str(change_data.get("old_value")),
-                    new_value=str(change_data.get("new_value")),
-                    event_id=full_event["event_id"],
-                    sync_session_id=full_event.get("metadata", {}).get("sync_session_id"),
-                )
-
             logger.debug(f"Updated read model for deal {existing_deal.deal_key}")
 
         except Exception as e:
@@ -758,16 +723,6 @@ class ReadModelBuilder:
 
             await self.session.execute(
                 delete(ReadModelDeal).where(ReadModelDeal.id == deal_id)
-            )
-
-            # Create audit entry
-            await self._create_audit_entry(
-                entity_type="deal",
-                entity_id=deal_id,
-                entity_key=deal_key,
-                change_type="DELETE",
-                event_id=full_event["event_id"],
-                sync_session_id=full_event.get("metadata", {}).get("sync_session_id"),
             )
 
             logger.debug(f"Deleted read model for deal {deal_key}")
@@ -924,16 +879,6 @@ class ReadModelBuilder:
                 stmt = insert(ReadModelPosition).values(**read_position_data)
                 await self.session.execute(stmt)
 
-            # Create audit entry
-            await self._create_audit_entry(
-                entity_type="position",
-                entity_id=item.id,
-                entity_key=item.product_name,
-                change_type="INSERT",
-                event_id=full_event["event_id"],
-                sync_session_id=full_event.get("metadata", {}).get("sync_session_id"),
-            )
-
             # Recalculate totals for the deal after adding position
             await self._recalculate_totals(item.deal_id)
 
@@ -1011,9 +956,6 @@ class ReadModelBuilder:
                 position_number=item_data.get("position_number", 1),
             )
             item.set_id(uuid.UUID(str(item_id_raw)))
-
-            # Get changes from event
-            changes = event_data.get("field_changes", event_data.get("changes", {}))
 
             # NEW UPDATE LOGIC: Handle hash_key changes with versioning
             new_hash_key = str(item.hash_key)
@@ -1104,20 +1046,6 @@ class ReadModelBuilder:
                 stmt = insert(ReadModelPosition).values(**new_position_data)
                 await self.session.execute(stmt)
 
-            # Create audit entries for each changed field
-            for field_name, change_data in changes.items():
-                await self._create_audit_entry(
-                    entity_type="position",
-                    entity_id=item.id,
-                    entity_key=item.product_name,
-                    change_type="UPDATE",
-                    field_name=field_name,
-                    old_value=str(change_data.get("old_value")),
-                    new_value=str(change_data.get("new_value")),
-                    event_id=full_event["event_id"],
-                    sync_session_id=full_event.get("metadata", {}).get("sync_session_id"),
-                )
-
             # Recalculate totals for the deal after updating position
             await self._recalculate_totals(item.deal_id)
 
@@ -1148,16 +1076,6 @@ class ReadModelBuilder:
             )
 
             await self.session.execute(stmt)
-
-            # Create audit entry
-            await self._create_audit_entry(
-                entity_type="position",
-                entity_id=item_id,
-                entity_key=item_key,
-                change_type="DELETE",
-                event_id=full_event["event_id"],
-                sync_session_id=full_event.get("metadata", {}).get("sync_session_id"),
-            )
 
             # Recalculate totals for the deal after deleting position
             if deal_id:
@@ -1317,46 +1235,6 @@ class ReadModelBuilder:
                 has_totals_error=has_error,
             )
         )
-
-    async def _create_audit_entry(
-        self,
-        entity_type: str,
-        entity_id: uuid.UUID,
-        entity_key: str,
-        change_type: str,
-        event_id: uuid.UUID,
-        sync_session_id: uuid.UUID | None = None,
-        field_name: str | None = None,
-        old_value: str | None = None,
-        new_value: str | None = None,
-        additional_data: dict[str, Any] | None = None,
-    ) -> None:
-        """Create audit trail entry."""
-        try:
-            # Log detailed audit info for sync operations
-            if additional_data:
-                logger.debug(f"Audit entry: {entity_type} {entity_id} {change_type} - {additional_data}")
-            else:
-                logger.debug(f"Audit entry: {entity_type} {entity_id} {change_type}")
-            return
-
-            audit_entry = ReadModelAudit(
-                entity_type=entity_type,
-                entity_id=entity_id,
-                entity_key=entity_key,
-                change_type=change_type,
-                field_name=field_name,
-                old_value=old_value,
-                new_value=new_value,
-                sync_session_id=sync_session_id or uuid.uuid4(),
-                event_id=event_id,
-            )
-
-            self.session.add(audit_entry)
-
-        except Exception as e:
-            logger.error(f"Failed to create audit entry: {e}")
-            raise
 
     async def _clear_read_models_for_aggregate(self, aggregate_id: uuid.UUID) -> None:
         """Clear all read models for specific aggregate."""

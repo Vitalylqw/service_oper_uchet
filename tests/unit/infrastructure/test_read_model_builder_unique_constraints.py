@@ -101,8 +101,7 @@ class TestReadModelBuilderUniqueConstraints:
             }
         )
 
-        # Mock _create_audit_entry and _recalculate_totals
-        read_model_builder._create_audit_entry = AsyncMock()
+        # Mock _recalculate_totals
         read_model_builder._recalculate_totals = AsyncMock()
 
         # Create event data
@@ -131,7 +130,6 @@ class TestReadModelBuilderUniqueConstraints:
 
         # Assert - Should create new position with version=1, is_active=True
         assert mock_session.execute.call_count >= 2  # Check + Insert
-        read_model_builder._create_audit_entry.assert_called_once()
         read_model_builder._recalculate_totals.assert_called_once()
 
     @pytest.mark.asyncio
@@ -167,7 +165,6 @@ class TestReadModelBuilderUniqueConstraints:
         )
 
         # Mock other methods
-        read_model_builder._create_audit_entry = AsyncMock()
         read_model_builder._recalculate_totals = AsyncMock()
 
         # Create event data with different deal_id
@@ -239,7 +236,6 @@ class TestReadModelBuilderUniqueConstraints:
         )
 
         # Mock other methods
-        read_model_builder._create_audit_entry = AsyncMock()
         read_model_builder._recalculate_totals = AsyncMock()
 
         # Create event data with same deal_id

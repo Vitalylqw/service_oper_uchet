@@ -11,20 +11,15 @@ import uuid
 from typing import Any
 
 from loguru import logger
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.interfaces import DealRepository, ReadModelRepository, SyncSessionRepository
 from domain.models import Deal, SyncSession
-from domain.value_objects import Money, SignedMoney, Period, Status
-
-from .models import ReadModelDeal, ReadModelPosition, SyncSessionModel
+from domain.value_objects import Money, Period, SignedMoney, Status
 from infrastructure.database.models import (
-    EventStoreModel,
-    ReadModelAudit,
     ReadModelDeal,
     ReadModelPosition,
-    ReadModelStats,
     SyncSessionModel,
 )
 from infrastructure.mappers.deal_item_mapper import from_read_position
@@ -484,7 +479,7 @@ class SyncSessionRepositoryImplementation(SyncSessionRepository):
             try:
                 import json
                 stats_dict = json.loads(model.stats_data)
-                
+
                 # Update stats with data from JSON
                 sync_session.stats.total_deals = stats_dict.get('total_deals', 0)
                 sync_session.stats.processed_deals = stats_dict.get('processed_deals', 0)
@@ -497,7 +492,7 @@ class SyncSessionRepositoryImplementation(SyncSessionRepository):
                 sync_session.stats.deleted_records = stats_dict.get('deleted_records', 0)
                 sync_session.stats.errors = stats_dict.get('errors', [])
                 sync_session.stats.warnings = stats_dict.get('warnings', [])
-                
+
             except (json.JSONDecodeError, Exception) as e:
                 logger.warning(f"Failed to parse stats_data for session {model.id}: {e}")
                 # Keep default empty stats
@@ -520,7 +515,7 @@ class SyncSessionRepositoryImplementation(SyncSessionRepository):
             "errors": session.stats.errors,
             "warnings": session.stats.warnings,
         }
-        
+
         model = SyncSessionModel(
             id=session.id,
             sync_type=session.sync_type.value,
@@ -590,11 +585,6 @@ class ReadModelRepositoryImplementation(ReadModelRepository):
         logger.info("Rebuilding position read model...")
         pass
 
-    async def rebuild_audit_read_model(self) -> None:
-        """Rebuild audit read model from events."""
-        logger.info("Rebuilding audit read model...")
-        pass
-
     async def rebuild_stats_read_model(self) -> None:
         """Rebuild stats read model from events."""
         logger.info("Rebuilding stats read model...")
@@ -606,7 +596,7 @@ class ReadModelRepositoryImplementation(ReadModelRepository):
         """Aggregate basic statistics for deals from the read model."""
 
         try:
-            from sqlalchemy import case, cast, Numeric
+            from sqlalchemy import case
 
             # Base condition - get all deals (no is_active field)
             conditions = []

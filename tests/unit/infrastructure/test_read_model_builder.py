@@ -16,7 +16,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from domain.interfaces import EventStore
 from domain.models import Deal, DealItem
 from domain.value_objects import Money, Period, Status
-from infrastructure.database.models import ReadModelAudit
 from infrastructure.workers.read_model_builder import ReadModelBuilder
 
 
@@ -262,8 +261,8 @@ class TestReadModelBuilder:
         """Test creating deal read model."""
         # Arrange
         with patch.object(
-            read_model_builder, "_create_audit_entry", new_callable=AsyncMock
-        ) as mock_audit:
+            read_model_builder, "_recalculate_totals", new_callable=AsyncMock
+        ) as mock_recalculate:
             # Act
             await read_model_builder._create_deal_read_model(
                 sample_deal_event["event_data"], sample_deal_event
@@ -272,15 +271,7 @@ class TestReadModelBuilder:
         # Assert
         # Should execute insert statement
         mock_session.execute.assert_called_once()
-
-        # Should create audit entry
-        mock_audit.assert_called_once()
-
-        # Verify audit entry parameters
-        call_args = mock_audit.call_args[1]
-        assert call_args["entity_type"] == "deal"
-        assert call_args["change_type"] == "INSERT"
-        assert call_args["event_id"] == sample_deal_event["event_id"]
+        mock_recalculate.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_update_deal_read_model(
@@ -298,7 +289,7 @@ class TestReadModelBuilder:
                 "client_name": {"old_value": "Old Client", "new_value": "New Client"}
             }
         }
-        
+
         # Mock existing deal in read model
         from unittest.mock import MagicMock
         existing_deal = MagicMock()
@@ -308,13 +299,13 @@ class TestReadModelBuilder:
         existing_deal.period_year = "2024"
         existing_deal.period_full_name = "Январь 2024"
         existing_deal.version = 1
-        
+
         # Mock session.execute to return existing deal
         mock_session.execute.return_value.scalar_one_or_none.return_value = existing_deal
 
         with patch.object(
-            read_model_builder, "_create_audit_entry", new_callable=AsyncMock
-        ) as mock_audit:
+            read_model_builder, "_recalculate_totals", new_callable=AsyncMock
+        ) as mock_recalculate:
             # Act
             await read_model_builder._update_deal_read_model(
                 event_data, sample_deal_event
@@ -324,16 +315,7 @@ class TestReadModelBuilder:
         # Should execute select to get existing deal
         assert mock_session.execute.call_count >= 1
 
-        # Should create audit entry for each changed field
-        mock_audit.assert_called_once()
-
-        # Verify audit entry parameters
-        call_args = mock_audit.call_args[1]
-        assert call_args["entity_type"] == "deal"
-        assert call_args["change_type"] == "UPDATE"
-        assert call_args["field_name"] == "client_name"
-        assert call_args["old_value"] == "Old Client"
-        assert call_args["new_value"] == "New Client"
+        mock_recalculate.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_update_deal_read_model_not_found(
@@ -351,7 +333,7 @@ class TestReadModelBuilder:
                 "client_name": {"old_value": "Old Client", "new_value": "New Client"}
             }
         }
-        
+
         # Mock session.execute to return None (deal not found)
         mock_session.execute.return_value.scalar_one_or_none.return_value = None
 
@@ -363,7 +345,7 @@ class TestReadModelBuilder:
         # Assert
         # Should execute select to get existing deal
         mock_session.execute.assert_called_once()
-        
+
         # Should not create audit entries or execute updates
         # (method should return early)
 
@@ -381,14 +363,14 @@ class TestReadModelBuilder:
             "deal_id": str(deal_id),
             "field_changes": {}  # No changes
         }
-        
+
         # Mock existing deal in read model
         from unittest.mock import MagicMock
         existing_deal = MagicMock()
         existing_deal.id = deal_id
         existing_deal.deal_key = "test|deal|key"
         existing_deal.version = 1
-        
+
         # Mock session.execute to return existing deal
         mock_session.execute.return_value.scalar_one_or_none.return_value = existing_deal
 
@@ -400,7 +382,7 @@ class TestReadModelBuilder:
         # Assert
         # Should execute select to get existing deal
         mock_session.execute.assert_called_once()
-        
+
         # Should not execute updates or create audit entries
         # (method should return early due to no changes)
 
@@ -416,8 +398,8 @@ class TestReadModelBuilder:
         event = {"event_id": uuid.uuid4(), "metadata": {"sync_session_id": uuid.uuid4()}}
 
         with patch.object(
-            read_model_builder, "_create_audit_entry", new_callable=AsyncMock
-        ) as mock_audit:
+            read_model_builder, "_recalculate_totals", new_callable=AsyncMock
+        ) as mock_recalculate:
             # Act
             await read_model_builder._delete_deal_read_model(event_data, event)
 
@@ -425,14 +407,7 @@ class TestReadModelBuilder:
         # Should execute single delete statement on read_deals
         assert mock_session.execute.call_count == 1
 
-        # Should create audit entry
-        mock_audit.assert_called_once()
-
-        # Verify audit entry parameters
-        call_args = mock_audit.call_args[1]
-        assert call_args["entity_type"] == "deal"
-        assert call_args["change_type"] == "DELETE"
-        assert call_args["entity_id"] == deal_id
+        mock_recalculate.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_create_deal_item_read_model(
@@ -454,8 +429,8 @@ class TestReadModelBuilder:
             read_model_builder, "_get_deal_context", new_callable=AsyncMock
         ) as mock_context:
             with patch.object(
-                read_model_builder, "_create_audit_entry", new_callable=AsyncMock
-            ) as mock_audit:
+                read_model_builder, "_recalculate_totals", new_callable=AsyncMock
+            ) as mock_recalculate:
                 mock_context.return_value = deal_context
 
                 # Act
@@ -469,14 +444,7 @@ class TestReadModelBuilder:
 
         # Should execute insert statement
         mock_session.execute.assert_called_once()
-
-        # Should create audit entry
-        mock_audit.assert_called_once()
-
-        # Verify audit entry parameters
-        call_args = mock_audit.call_args[1]
-        assert call_args["entity_type"] == "position"
-        assert call_args["change_type"] == "INSERT"
+        mock_recalculate.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_deal_context_success(
@@ -534,45 +502,6 @@ class TestReadModelBuilder:
 
         # Assert
         assert context == {}
-
-    @pytest.mark.asyncio
-    async def test_create_audit_entry(
-        self, read_model_builder: ReadModelBuilder, mock_session: AsyncSession
-    ):
-        """Test creating audit entry."""
-        # Arrange
-        entity_id = uuid.uuid4()
-        event_id = uuid.uuid4()
-        sync_session_id = uuid.uuid4()
-
-        # Act
-        await read_model_builder._create_audit_entry(
-            entity_type="deal",
-            entity_id=entity_id,
-            entity_key="test|deal|key",
-            change_type="INSERT",
-            event_id=event_id,
-            sync_session_id=sync_session_id,
-            field_name="client_name",
-            old_value="Old Client",
-            new_value="New Client",
-        )
-
-        # Assert
-        mock_session.add.assert_called_once()
-
-        # Verify the audit entry object
-        audit_entry = mock_session.add.call_args[0][0]
-        assert isinstance(audit_entry, ReadModelAudit)
-        assert audit_entry.entity_type == "deal"
-        assert audit_entry.entity_id == entity_id
-        assert audit_entry.entity_key == "test|deal|key"
-        assert audit_entry.change_type == "INSERT"
-        assert audit_entry.event_id == event_id
-        assert audit_entry.sync_session_id == sync_session_id
-        assert audit_entry.field_name == "client_name"
-        assert audit_entry.old_value == "Old Client"
-        assert audit_entry.new_value == "New Client"
 
     @pytest.mark.asyncio
     async def test_process_events_by_type(
@@ -687,8 +616,8 @@ class TestReadModelBuilder:
             read_model_builder, "_get_deal_context", new_callable=AsyncMock
         ) as mock_context:
             with patch.object(
-                read_model_builder, "_create_audit_entry", new_callable=AsyncMock
-            ) as mock_audit:
+                read_model_builder, "_recalculate_totals", new_callable=AsyncMock
+            ) as mock_recalculate:
                 mock_context.return_value = deal_context
 
                 # Act
@@ -702,17 +631,7 @@ class TestReadModelBuilder:
 
         # Should execute update statement
         mock_session.execute.assert_called_once()
-
-        # Should create audit entry
-        mock_audit.assert_called_once()
-
-        # Verify audit entry parameters
-        call_args = mock_audit.call_args[1]
-        assert call_args["entity_type"] == "position"
-        assert call_args["change_type"] == "UPDATE"
-        assert call_args["field_name"] == "product_name"
-        assert call_args["old_value"] == "Old Product"
-        assert call_args["new_value"] == "New Product"
+        mock_recalculate.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_delete_deal_item_read_model(
@@ -721,28 +640,24 @@ class TestReadModelBuilder:
         """Test soft deleting deal item read model."""
         # Arrange
         item_id = uuid.uuid4()
+        deal_id = uuid.uuid4()
         item_key = "test|item|key"
         event_data = {"deal_item_id": str(item_id), "item_key": item_key}
         event = {"event_id": uuid.uuid4(), "metadata": {"sync_session_id": uuid.uuid4()}}
+        mock_session.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=deal_id)),
+            MagicMock(),
+        ]
 
         with patch.object(
-            read_model_builder, "_create_audit_entry", new_callable=AsyncMock
-        ) as mock_audit:
+            read_model_builder, "_recalculate_totals", new_callable=AsyncMock
+        ) as mock_recalculate:
             # Act
             await read_model_builder._delete_deal_item_read_model(event_data, event)
 
         # Assert
-        # Should execute update statement for soft delete
-        mock_session.execute.assert_called_once()
-
-        # Should create audit entry
-        mock_audit.assert_called_once()
-
-        # Verify audit entry parameters
-        call_args = mock_audit.call_args[1]
-        assert call_args["entity_type"] == "position"
-        assert call_args["change_type"] == "DELETE"
-        assert call_args["entity_id"] == item_id
+        assert mock_session.execute.call_count == 2
+        mock_recalculate.assert_called_once_with(deal_id)
 
     @pytest.mark.asyncio
     async def test_update_stats_after_sync(
