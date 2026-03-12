@@ -5,6 +5,13 @@
 Этот документ содержит рабочие команды Alembic для текущего состояния репозитория. Он не описывает
 исторические эксперименты со структурой миграций.
 
+## Текущая модель истории
+
+- активная история Alembic состоит из одной baseline-миграции в `migrations/versions/`;
+- предыдущая цепочка `0001..0005` сохранена в `migrations/archive/versions_pre_baseline_20260308/`;
+- для существующей БД с данными нельзя полагаться на старую историю ревизий, используется
+  проверка схемы и затем `stamp`.
+
 ## Базовые команды
 
 Проверить текущую версию:
@@ -103,6 +110,26 @@ alembic upgrade head
 python scripts/test/test_postgres_connection.py
 ```
 
+### Существующая БД после перехода на baseline
+
+Проверить готовность схемы:
+
+```bash
+python scripts/services/align_existing_db_to_baseline.py
+```
+
+Применить известные безопасные исправления и затем привязать baseline:
+
+```bash
+python scripts/services/align_existing_db_to_baseline.py --apply-known-fixes --stamp
+```
+
+Windows:
+
+```bat
+scripts\\services\\align_existing_db_to_baseline.bat --apply-known-fixes --stamp
+```
+
 ### После изменения SQLAlchemy моделей
 
 ```bash
@@ -120,7 +147,8 @@ alembic upgrade head --sql
 ## Важные замечания
 
 - перед risky-изменениями делайте backup БД;
-- не используйте `stamp` без явного понимания, почему версия в БД должна быть изменена вручную;
+- `stamp` допустим только после проверки, что существующая БД соответствует baseline-контракту;
+- helper-скрипт для выравнивания existing DB исправляет только известные и проверенные расхождения;
 - описание миграции должно отражать причину изменения, а не только механическое действие;
 - после миграции нужно проверить не только схему, но и рабочие сценарии sync flow.
 
@@ -129,6 +157,7 @@ alembic upgrade head --sql
 Каноника по миграциям определяется комбинацией:
 
 - `migrations/versions/*.py`
+- `migrations/archive/versions_pre_baseline_20260308/` как historical memory, но не active history;
 - `migrations/env.py`
 - `src/infrastructure/database/models.py`
 

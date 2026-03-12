@@ -92,6 +92,19 @@ alembic current -v
 alembic history --verbose
 ```
 
+Текущее правило:
+
+- активная история содержит одну baseline-миграцию;
+- старая цепочка хранится только в архиве `migrations/archive/versions_pre_baseline_20260308/`;
+- existing DB нужно сначала проверить и только потом `stamp`-ить.
+
+Проверка и привязка существующей БД:
+
+```bash
+python scripts/services/align_existing_db_to_baseline.py
+python scripts/services/align_existing_db_to_baseline.py --apply-known-fixes --stamp
+```
+
 ## Базовые SQL-проверки
 
 После sync полезно смотреть:
@@ -168,8 +181,9 @@ alembic upgrade head
 ## Нюансы текущей схемы
 
 - `read_positions` хранит только текущее состояние и не использует `is_active/version`;
-- `read_audit` и `read_stats` существуют в схеме, но их фактическое наполнение нужно проверять по
-  текущему коду, а не по старым документам;
+- `event_store` является единственным рабочим источником истории изменений;
+- `read_audit` выведен из целевой архитектуры и удаляется отдельной миграцией для legacy-БД;
+- `read_stats` нужно оценивать по текущему event path, а не по старым документам;
 - `db_snapshots` — это не боевые данные, а технический слой наблюдаемости и проверки.
 
 ## Когда смотреть этот документ

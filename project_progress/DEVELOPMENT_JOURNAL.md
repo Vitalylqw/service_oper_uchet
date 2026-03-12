@@ -6,6 +6,37 @@
 
 ---
 
+## 2026-03-08 - Вывод `read_audit` из целевой архитектуры
+
+### Цель:
+Упростить проект и убрать неиспользуемый audit-слой, не затронув рабочий sync flow и историю в
+`event_store`.
+
+### Выполненные действия:
+1. Проверен фактический runtime-контур:
+   - подтверждено, что `read_audit` не читается рабочим кодом;
+   - подтверждено, что таблица в БД пуста;
+   - зафиксировано, что история изменений уже живёт в `event_store`.
+2. Выполнен cleanup Python-кода:
+   - удалены `ReadModelAudit`, `_create_audit_entry()` и `rebuild_audit_read_model()`;
+   - убраны вызовы и импорты, связанные с `read_audit`;
+   - unit-тесты приведены к новому контракту без audit-layer.
+3. Актуализированы active docs и `project_progress`:
+   - `read_audit` переведён в historical/legacy-контекст;
+   - целевое решение зафиксировано как `event_store`-only history.
+4. Подготовлена отдельная Alembic-миграция на удаление legacy-таблицы `read_audit`.
+
+### Результат:
+- в коде больше нет зависимости от отдельного read-side аудита;
+- история изменений формально и practically закреплена за `event_store`;
+- удаление DDL вынесено в отдельный контролируемый шаг.
+
+### Зачем:
+Чтобы убрать мёртвый слой без скрытого изменения бизнес-логики и упростить дальнейшую поддержку
+схемы и документации.
+
+---
+
 ## 2026-03-08 - Аудит migrations/tests и нормализация test scripts
 
 ### Цель:
@@ -39,6 +70,81 @@
 Чтобы структура репозитория отражала реальное назначение файлов: автотесты остаются в `tests/`,
 ручные сценарии переходят в `scripts/test/`, а миграционные проблемы не маскируются под простое
 удаление «лишних» файлов.
+
+---
+
+## 2026-03-08 - Переход на одну baseline-миграцию Alembic
+
+### Цель:
+Устранить конфликт ревизий `0003_*`, восстановить рабочие команды Alembic и перевести проект на
+одну каноническую baseline-миграцию без потери исторической памяти.
+
+### Выполненные действия:
+1. Зафиксирован новый контракт миграций:
+   - активная история сведена к `migrations/versions/0001_baseline_current_schema.py`;
+   - старая цепочка `0001..0005` перенесена в
+     `migrations/archive/versions_pre_baseline_20260308/`.
+2. Baseline-миграция собрана по текущим SQLAlchemy-моделям:
+   - `read_positions.purchase_price_amount` и `margin_amount` заданы как `NUMERIC(18, 5)`;
+   - добавлен `uq_read_positions_deal_position`;
+   - snapshot-таблицы и текущие индексы включены сразу в baseline.
+3. Для существующей БД добавлен сервисный путь:
+   - `scripts/services/align_existing_db_to_baseline.py`;
+   - `.bat`-обертка для Windows-запуска;
+   - сценарий умеет проверить drift, применить известные безопасные DDL-исправления и выполнить
+     `alembic stamp`.
+4. Обновлены active docs по Alembic:
+   - `docs/MIGRATION_COMMANDS.md`
+   - `docs/DATABASE_MANAGEMENT.md`
+   - `docs/DEVELOPMENT_GUIDE.md`
+5. `migrations/env.py` обновлен так, чтобы временно можно было переопределять URL через
+   `ALEMBIC_DATABASE_URL` для изолированной проверки baseline.
+
+### Результат:
+- дублированная ревизия больше не участвует в active history;
+- новая чистая БД может собираться из одной ревизии;
+- для legacy-БД появился повторяемый и проверяемый сценарий привязки к baseline.
+
+### Зачем:
+Чтобы Alembic снова стал предсказуемым инструментом: одна активная точка истины для новых
+инстансов и отдельный контролируемый путь для уже существующей БД.
+
+---
+
+## 2026-03-08 - Коррекция контракта `db_snapshots.created_at`
+
+### Цель:
+Вернуть `db_snapshots.created_at` к контракту, соответствующему реальной логике snapshot-потока, где
+вставка выполняется raw SQL без явной передачи `created_at`.
+
+### Выполненные действия:
+1. Проверен фактический путь записи snapshot:
+   - `dashboard/create_db_snapshot.py` вызывает `save_snapshot()` из
+     `dashboard/db_snapshot_service.py`;
+   - `save_snapshot()` делает `INSERT INTO db_snapshots` без поля `created_at`.
+2. Подтверждён исходный замысел схемы:
+   - в historical миграции `0005_add_db_snapshots.py` `created_at` был создан с
+     `server_default=now()`.
+3. Выполнена коррекция в active contract:
+   - в live PostgreSQL БД возвращён `DEFAULT now()` для `db_snapshots.created_at`;
+   - baseline `migrations/versions/0001_baseline_current_schema.py` приведён к тому же контракту;
+   - модель `DbSnapshot` в `src/infrastructure/database/models.py` переведена на
+     `server_default=func.now()`;
+   - `scripts/services/align_existing_db_to_baseline.py` изменён так, чтобы считать отсутствие
+     server default drift-ошибкой, а не наоборот.
+4. Выполнена проверка после исправления:
+   - `python dashboard/create_db_snapshot.py --label created_at_probe_after_fix` успешно создал
+     snapshot;
+   - `alembic check` снова показывает `No new upgrade operations detected`.
+
+### Результат:
+- snapshot-поток снова работает на текущей БД;
+- baseline и модель больше не противоречат реальному способу записи snapshot;
+- drift-check отражает фактический контракт, а не ошибочное промежуточное состояние.
+
+### Зачем:
+Чтобы не подгонять рабочую БД под упрощённую модель там, где источником истины является реальный
+runtime-поток приложения.
 
 ---
 

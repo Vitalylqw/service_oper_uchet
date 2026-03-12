@@ -7,6 +7,7 @@ Supports both PostgreSQL and SQLite databases with automatic configuration detec
 from __future__ import annotations
 
 import asyncio
+import os
 from logging.config import fileConfig
 from pathlib import Path
 
@@ -49,8 +50,8 @@ def get_database_config() -> DatabaseConfig:
 
 def get_database_url() -> str:
     """Get database URL for migrations."""
-    # Force PostgreSQL for migrations
-    return "postgresql://so_user:so_pass@so_pg:5432/so_uchet"
+    # Allow explicit override for validation or temporary maintenance tasks.
+    return os.getenv("ALEMBIC_DATABASE_URL", "postgresql://so_user:so_pass@so_pg:5432/so_uchet")
 
 
 def run_migrations_offline() -> None:

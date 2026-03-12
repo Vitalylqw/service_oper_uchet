@@ -199,6 +199,9 @@ data/*.jpg
 data/*.JPG
 debug_pars/
 migrations/archive*/
+!migrations/archive/
+!migrations/archive/versions_pre_baseline_20260308/
+!migrations/archive/versions_pre_baseline_20260308/**
 migrations/dump*.sql
 migrations/versions/0001_initial_complete_schema.py
 migrations/versions/0002_add_unique_deal_position_number.py

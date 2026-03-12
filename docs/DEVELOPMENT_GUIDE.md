@@ -131,6 +131,16 @@ alembic downgrade -1
 alembic revision --autogenerate -m "Describe change"
 ```
 
+Сейчас активная история Alembic состоит из одной baseline-миграции. Исторические ревизии вынесены в
+архив и не являются рабочим путём обновления.
+
+Для существующей БД используйте:
+
+```bash
+python scripts/services/align_existing_db_to_baseline.py
+python scripts/services/align_existing_db_to_baseline.py --apply-known-fixes --stamp
+```
+
 Подробные сценарии вынесены в `MIGRATION_COMMANDS.md`.
 
 ## Правила разработки
@@ -155,7 +165,8 @@ alembic revision --autogenerate -m "Describe change"
 
 - основной runtime-поток использует deal-level event `DealWithPositionsCreated`;
 - old model с `is_active/version` больше не считается рабочим описанием;
-- `read_audit` есть в схеме, но его фактическое заполнение нужно оценивать по коду и тестам;
+- history/write-side поддерживается только через `event_store`;
+- `read_audit` выведен из целевой архитектуры и удаляется отдельной миграцией;
 - `read_stats` не следует считать автоматически заполненным на каждом запуске без отдельной проверки
   event path.
 
