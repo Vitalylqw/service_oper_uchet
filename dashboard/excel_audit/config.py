@@ -15,7 +15,7 @@ class AuditConfig(BaseModel):
     """Excel audit dashboard settings."""
 
     threshold: Decimal = Field(
-        default=Decimal("0.1"),
+        default=Decimal("1"),
         description=(
             "Minimum absolute delta (rubles) to treat as a real discrepancy. "
             "Differences at or below this value are classified as WARN; "
