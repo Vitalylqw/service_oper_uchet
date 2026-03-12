@@ -16,7 +16,10 @@ from period_utils import period_sort_key
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
+from excel_audit.config import AuditConfig
+
 logger = logging.getLogger(__name__)
+_DEFAULT_THRESHOLD = AuditConfig().threshold
 
 
 # ---------------------------------------------------------------------------
@@ -425,7 +428,10 @@ def collect_health_checks(conn: Connection) -> dict[str, Any]:
 # Drill-down detail collectors (used by generate_dashboard for detail files)
 # ---------------------------------------------------------------------------
 
-def collect_discrepant_deals(conn: Connection) -> list[dict]:
+def collect_discrepant_deals(
+    conn: Connection,
+    threshold: Decimal = _DEFAULT_THRESHOLD,
+) -> list[dict]:
     """Collect deals where totals differ from aggregated position sums.
 
     Returns list of dicts with deal-level fields and aggregated position sums,
@@ -455,17 +461,17 @@ def collect_discrepant_deals(conn: Connection) -> list[dict]:
                  d.total_cost_amount, d.total_quantity,
                  d.has_totals_error, d.items_count
         HAVING
-            COALESCE(d.total_revenue_amount, 0)
-                != COALESCE(SUM(p.revenue_amount), 0)
-            OR COALESCE(d.total_margin_amount, 0)
-                != COALESCE(SUM(p.margin_amount), 0)
-            OR COALESCE(d.total_cost_amount, 0)
-                != COALESCE(SUM(p.cost_amount), 0)
-            OR COALESCE(d.total_quantity, 0)
-                != COALESCE(SUM(p.quantity), 0)
+            ABS(COALESCE(d.total_revenue_amount, 0)
+                - COALESCE(SUM(p.revenue_amount), 0)) > :threshold
+            OR ABS(COALESCE(d.total_margin_amount, 0)
+                - COALESCE(SUM(p.margin_amount), 0)) > :threshold
+            OR ABS(COALESCE(d.total_cost_amount, 0)
+                - COALESCE(SUM(p.cost_amount), 0)) > :threshold
+            OR ABS(COALESCE(d.total_quantity, 0)
+                - COALESCE(SUM(p.quantity), 0)) > :threshold
         ORDER BY d.period_full_name, d.deal_key
     """)
-    rows = conn.execute(sql).mappings().all()
+    rows = conn.execute(sql, {"threshold": threshold}).mappings().all()
     return [dict(r) for r in rows]
 
 

@@ -34,6 +34,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "dashboard"))
 from period_utils import sort_period_dicts, sort_period_items, sort_periods  # noqa: E402
 from sqlalchemy import create_engine, text  # noqa: E402
 
+from excel_audit.config import AuditConfig  # noqa: E402
 from infrastructure.database.connection import DatabaseConfig  # noqa: E402
 
 logging.basicConfig(
@@ -43,6 +44,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 REPORTS_DIR = PROJECT_ROOT / "dashboard" / "reports"
+_DEFAULT_THRESHOLD = AuditConfig().threshold
 
 
 # ---------------------------------------------------------------------------
@@ -141,15 +143,25 @@ def _fmt(val: Any) -> str:
     return str(val)
 
 
-def _delta_cls(delta: Any) -> str:
-    """Return CSS class for delta value."""
+def _is_significant_delta(delta: Any, threshold: Decimal = _DEFAULT_THRESHOLD) -> bool:
+    """Return True when absolute delta is above the configured threshold."""
+    if delta is None:
+        return False
+    try:
+        return abs(Decimal(str(delta))) > threshold
+    except Exception:
+        return False
+
+
+def _delta_cls(delta: Any, threshold: Decimal = _DEFAULT_THRESHOLD) -> str:
+    """Return CSS class for delta value using the configured threshold."""
     if delta is None:
         return ""
     try:
         d = Decimal(str(delta))
     except Exception:
         return ""
-    if d == 0:
+    if d == 0 or abs(d) <= threshold:
         return "ok"
     if d > 0:
         return "pos"
@@ -264,7 +276,9 @@ def _render_overview_cards(snap: dict) -> str:
 
 
 def _render_financial_table(
-    snap: dict, period_links: dict[str, str] | None = None,
+    snap: dict,
+    period_links: dict[str, str] | None = None,
+    threshold: Decimal = _DEFAULT_THRESHOLD,
 ) -> str:
     """Block 2: Financial totals -- deals vs positions side by side."""
     all_href = (period_links or {}).get("__ALL__")
@@ -287,9 +301,9 @@ def _render_financial_table(
         p_val = snap.get(pk, 0) if pk else None
         if p_val is not None:
             delta = Decimal(str(d_val)) - Decimal(str(p_val))
-            cls = _delta_cls(delta)
+            cls = _delta_cls(delta, threshold)
             html += f"<tr><td>{label}</td><td>{_fmt(d_val)}</td>"
-            if delta != 0 and all_href:
+            if _is_significant_delta(delta, threshold) and all_href:
                 html += (
                     f'<td>{_fmt(p_val)}</td>'
                     f'<td class="delta-cell {cls}">'
@@ -348,7 +362,9 @@ def _render_health(snap: dict) -> str:
 
 
 def _render_deal_periods_table(
-    periods: list[dict], period_links: dict[str, str] | None = None,
+    periods: list[dict],
+    period_links: dict[str, str] | None = None,
+    threshold: Decimal = _DEFAULT_THRESHOLD,
 ) -> str:
     """Block 4A: Deals by period."""
     if not periods:
@@ -399,7 +415,7 @@ def _render_deal_periods_table(
                 else:
                     html += f'<td class="{cls}">{_fmt(val)}</td>'
             elif key == "delta_dk_hk":
-                cls = "ok" if (val or 0) == 0 else "fail"
+                cls = _delta_cls(val or 0, threshold)
                 html += f'<td class="{cls}">{_fmt(val)}</td>'
             else:
                 html += f"<td>{_fmt(val)}</td>"
@@ -411,7 +427,7 @@ def _render_deal_periods_table(
     for _, key in cols[1:]:
         val = totals.get(key, 0)
         if key in ("delta_dk_hk", "has_error_count"):
-            cls = "ok" if val == 0 else "fail"
+            cls = _delta_cls(val, threshold)
             html += f'<td class="{cls}">{_fmt(val)}</td>'
         else:
             html += f"<td>{_fmt(val)}</td>"
@@ -419,7 +435,10 @@ def _render_deal_periods_table(
     return html
 
 
-def _render_position_periods_table(periods: list[dict]) -> str:
+def _render_position_periods_table(
+    periods: list[dict],
+    threshold: Decimal = _DEFAULT_THRESHOLD,
+) -> str:
     """Block 4B: Positions by period."""
     if not periods:
         return "<p>No position period data.</p>"
@@ -452,7 +471,7 @@ def _render_position_periods_table(periods: list[dict]) -> str:
             if key == "period_key":
                 html += f"<td><strong>{val}</strong></td>"
             elif key == "delta_rows_hk":
-                cls = "ok" if (val or 0) == 0 else "fail"
+                cls = _delta_cls(val or 0, threshold)
                 html += f'<td class="{cls}">{_fmt(val)}</td>'
             else:
                 html += f"<td>{_fmt(val)}</td>"
@@ -464,7 +483,7 @@ def _render_position_periods_table(periods: list[dict]) -> str:
     for _, key in cols[1:]:
         val = totals.get(key, 0)
         if key == "delta_rows_hk":
-            cls = "ok" if val == 0 else "fail"
+            cls = _delta_cls(val, threshold)
             html += f'<td class="{cls}">{_fmt(val)}</td>'
         else:
             html += f"<td>{_fmt(val)}</td>"
@@ -484,6 +503,7 @@ def _render_cross_period_table(
     deal_periods: list[dict],
     pos_periods: list[dict],
     period_links: dict[str, str] | None = None,
+    threshold: Decimal = _DEFAULT_THRESHOLD,
 ) -> str:
     """Block 4C: Cross-compare deals vs positions by period."""
     dp_map = {_normalize_period_key(p["period_full_name"]): p for p in deal_periods}
@@ -526,9 +546,9 @@ def _render_cross_period_table(
             d = Decimal(str(d_val or 0))
             p = Decimal(str(p_val or 0))
             delta = d - p
-            cls = _delta_cls(delta)
+            cls = _delta_cls(delta, threshold)
             html += f"<td>{_fmt(d)}</td><td>{_fmt(p)}</td>"
-            if delta != 0 and href:
+            if _is_significant_delta(delta, threshold) and href:
                 html += (
                     f'<td class="delta-cell {cls}">'
                     f'<a href="{href}" target="_blank">{_fmt(delta)}</a></td>'
@@ -596,6 +616,7 @@ def _generate_detail_html(
     deals: list[dict],
     positions_by_deal: dict[str, list[dict]],
     dashboard_filename: str,
+    threshold: Decimal = _DEFAULT_THRESHOLD,
 ) -> str:
     """Generate detail HTML page for a single period (or ALL)."""
     title = f"Detail: {period}" if period != "ALL" else "Detail: All Periods"
@@ -649,7 +670,7 @@ def _generate_detail_html(
         html += f"<td>{deal.get('client_name', '?')}</td>"
         for _, d_val, p_val in deltas:
             delta = d_val - p_val
-            cls = _delta_cls(delta)
+            cls = _delta_cls(delta, threshold)
             html += f"<td>{_fmt(d_val)}</td><td>{_fmt(p_val)}</td>"
             html += f'<td class="delta-cell {cls}">{_fmt(delta)}</td>'
         html += "</tr>"
@@ -727,6 +748,7 @@ def generate_detail_files(
     conn,
     details_dir: Path,
     dashboard_filename: str,
+    threshold: Decimal = _DEFAULT_THRESHOLD,
 ) -> dict[str, str]:
     """Generate detail HTML files for each period with discrepancies.
 
@@ -741,7 +763,7 @@ def generate_detail_files(
     from db_snapshot_service import collect_discrepant_deals, collect_positions_for_deals
 
     logger.info("Collecting discrepant deals for drill-down...")
-    deals = collect_discrepant_deals(conn)
+    deals = collect_discrepant_deals(conn, threshold=threshold)
     if not deals:
         logger.info("No discrepancies found -- no detail files generated.")
         return {}
@@ -768,6 +790,7 @@ def generate_detail_files(
         html = _generate_detail_html(
             period, period_deals, positions_by_deal,
             f"../{dashboard_filename}",
+            threshold=threshold,
         )
         (details_dir / filename).write_text(html, encoding="utf-8")
         norm_key = _normalize_period_key(period)
@@ -777,6 +800,7 @@ def generate_detail_files(
     all_html = _generate_detail_html(
         "ALL", deals, positions_by_deal,
         f"../{dashboard_filename}",
+        threshold=threshold,
     )
     (details_dir / "detail_ALL.html").write_text(all_html, encoding="utf-8")
     period_links["__ALL__"] = f"{details_subdir}/detail_ALL.html"
@@ -813,7 +837,11 @@ def _render_compare_overview(snap_a: dict, snap_b: dict) -> str:
     return html
 
 
-def _render_compare_financials(snap_a: dict, snap_b: dict) -> str:
+def _render_compare_financials(
+    snap_a: dict,
+    snap_b: dict,
+    threshold: Decimal = _DEFAULT_THRESHOLD,
+) -> str:
     """Compare financial totals between two snapshots."""
     rows_data = [
         ("D: Revenue", "deals_sum_revenue"),
@@ -835,7 +863,7 @@ def _render_compare_financials(snap_a: dict, snap_b: dict) -> str:
         a = Decimal(str(snap_a.get(key, 0) or 0))
         b = Decimal(str(snap_b.get(key, 0) or 0))
         delta = b - a
-        cls = _delta_cls(delta)
+        cls = _delta_cls(delta, threshold)
         html += f"<tr><td>{label}</td><td>{_fmt(a)}</td><td>{_fmt(b)}</td>"
         html += f'<td class="delta-cell {cls}">{_fmt(delta)}</td></tr>'
     html += "</table>"
@@ -847,7 +875,9 @@ def _render_compare_financials(snap_a: dict, snap_b: dict) -> str:
 # ---------------------------------------------------------------------------
 
 def generate_latest_html(
-    snap: dict, period_links: dict[str, str] | None = None,
+    snap: dict,
+    period_links: dict[str, str] | None = None,
+    threshold: Decimal = _DEFAULT_THRESHOLD,
 ) -> str:
     """Generate full HTML page for a single snapshot."""
     label = snap.get("label", "?")
@@ -864,22 +894,23 @@ def generate_latest_html(
 {_render_overview_cards(snap)}
 
 <h2>2. Financial Totals (deals vs positions)</h2>
-{_render_financial_table(snap, period_links=links)}
+{_render_financial_table(snap, period_links=links, threshold=threshold)}
 
 <h2>3. Data Health</h2>
 {_render_health(snap)}
 
 <h2>4A. Deals by Period</h2>
-{_render_deal_periods_table(snap.get('deal_periods', []), period_links=links)}
+{_render_deal_periods_table(snap.get('deal_periods', []), period_links=links, threshold=threshold)}
 
 <h2>4B. Positions by Period</h2>
-{_render_position_periods_table(snap.get('position_periods', []))}
+{_render_position_periods_table(snap.get('position_periods', []), threshold=threshold)}
 
 <h2>4C. Cross-compare: Deals vs Positions by Period</h2>
 {_render_cross_period_table(
     snap.get('deal_periods', []),
     snap.get('position_periods', []),
     period_links=links,
+    threshold=threshold,
 )}
 
 </body></html>"""
@@ -891,6 +922,7 @@ def generate_compare_html(
     snap_b: dict,
     file_a: str | None = None,
     file_b: str | None = None,
+    threshold: Decimal = _DEFAULT_THRESHOLD,
 ) -> str:
     """Generate full HTML page comparing two snapshots."""
     la = snap_a.get("label", "?")
@@ -917,7 +949,7 @@ def generate_compare_html(
 {_render_compare_overview(snap_a, snap_b)}
 
 <h2>2. Financial Totals Comparison</h2>
-{_render_compare_financials(snap_a, snap_b)}
+{_render_compare_financials(snap_a, snap_b, threshold=threshold)}
 
 <h2>3A. Data Health -- Snapshot A ({la})</h2>
 {_render_health(snap_a)}
@@ -926,22 +958,22 @@ def generate_compare_html(
 {_render_health(snap_b)}
 
 <h2>4A. Deals by Period -- Snapshot A ({la})</h2>
-{_render_deal_periods_table(snap_a.get('deal_periods', []))}
+{_render_deal_periods_table(snap_a.get('deal_periods', []), threshold=threshold)}
 
 <h2>4A. Deals by Period -- Snapshot B ({lb})</h2>
-{_render_deal_periods_table(snap_b.get('deal_periods', []))}
+{_render_deal_periods_table(snap_b.get('deal_periods', []), threshold=threshold)}
 
 <h2>4B. Positions by Period -- Snapshot A ({la})</h2>
-{_render_position_periods_table(snap_a.get('position_periods', []))}
+{_render_position_periods_table(snap_a.get('position_periods', []), threshold=threshold)}
 
 <h2>4B. Positions by Period -- Snapshot B ({lb})</h2>
-{_render_position_periods_table(snap_b.get('position_periods', []))}
+{_render_position_periods_table(snap_b.get('position_periods', []), threshold=threshold)}
 
 <h2>4C. Cross-compare: Deals vs Positions -- Snapshot A ({la})</h2>
-{_render_cross_period_table(snap_a.get('deal_periods', []), snap_a.get('position_periods', []))}
+{_render_cross_period_table(snap_a.get('deal_periods', []), snap_a.get('position_periods', []), threshold=threshold)}
 
 <h2>4C. Cross-compare: Deals vs Positions -- Snapshot B ({lb})</h2>
-{_render_cross_period_table(snap_b.get('deal_periods', []), snap_b.get('position_periods', []))}
+{_render_cross_period_table(snap_b.get('deal_periods', []), snap_b.get('position_periods', []), threshold=threshold)}
 
 </body></html>"""
     return html
@@ -977,7 +1009,22 @@ def main() -> int:
         "--output", type=str, default=None,
         help="Output HTML path. Auto-generated if omitted.",
     )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=None,
+        metavar="RUBLES",
+        help=(
+            "Minimum absolute delta to treat as a discrepancy in dashboard output. "
+            f"Default: {_DEFAULT_THRESHOLD} (from AuditConfig)."
+        ),
+    )
     args = parser.parse_args()
+    threshold = (
+        Decimal(str(args.threshold))
+        if args.threshold is not None
+        else _DEFAULT_THRESHOLD
+    )
 
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     engine = get_sync_engine()
@@ -1031,15 +1078,15 @@ def main() -> int:
                 for snap, fname in [(snap_a, file_a), (snap_b, file_b)]:
                     sid = snap.get("id")
                     det_dir = REPORTS_DIR / f"dashboard_snap_{sid}_details"
-                    links = generate_detail_files(conn, det_dir, fname)
-                    snap_html = generate_latest_html(snap, period_links=links)
+                    links = generate_detail_files(conn, det_dir, fname, threshold=threshold)
+                    snap_html = generate_latest_html(snap, period_links=links, threshold=threshold)
                     (REPORTS_DIR / fname).write_text(snap_html, encoding="utf-8")
                     logger.info("Individual dashboard: %s", fname)
 
                 la = snap_a.get("label", id_a)
                 lb = snap_b.get("label", id_b)
                 html = generate_compare_html(
-                    snap_a, snap_b, file_a=file_a, file_b=file_b,
+                    snap_a, snap_b, file_a=file_a, file_b=file_b, threshold=threshold,
                 )
                 out_name = f"dashboard_compare_{la}_vs_{lb}.html"
 
@@ -1052,9 +1099,9 @@ def main() -> int:
                 out_name = f"dashboard_{ts}.html"
                 details_dir = REPORTS_DIR / f"dashboard_{ts}_details"
                 period_links = generate_detail_files(
-                    conn, details_dir, out_name,
+                    conn, details_dir, out_name, threshold=threshold,
                 )
-                html = generate_latest_html(snap, period_links=period_links)
+                html = generate_latest_html(snap, period_links=period_links, threshold=threshold)
 
     except Exception:
         logger.exception("Failed to generate dashboard")
