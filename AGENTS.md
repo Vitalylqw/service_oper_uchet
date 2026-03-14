@@ -27,7 +27,7 @@
 
 1. `.agents/AGENTS.md`
 2. `.agents/ENGINEERING_RULES.md`
-3. `.agents/project_goals.md`
+3. `project_goals.md`
 4. `.agents/project_conventions.md`
 
 ## Правило приоритета
