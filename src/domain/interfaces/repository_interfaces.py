@@ -125,6 +125,18 @@ class EventStore(ABC):
         """Get latest events."""
         pass
 
+    @abstractmethod
+    async def delete_events_by_session_id(self, session_id: str) -> int:
+        """Delete all events created by a specific sync session.
+
+        Args:
+            session_id: The sync session ID to match in event metadata.
+
+        Returns:
+            Number of events deleted.
+        """
+        pass
+
 
 class ReadModelRepository(ABC):
     """Abstract repository for read models (CQRS)."""

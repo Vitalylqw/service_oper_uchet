@@ -168,7 +168,7 @@ class SyncOrchestratorService:
 
             if config.rollback_on_failure:
                 logger.warning("Rolling back changes due to failure")
-                # TODO: Implement rollback logic
+                await self._rollback_sync_changes(session_id, result)
 
             if not config.continue_on_errors:
                 raise
@@ -237,6 +237,72 @@ class SyncOrchestratorService:
         except Exception as e:
             logger.error(f"Failed to complete sync session: {e}")
             # Don't re-raise - session completion failure shouldn't fail the whole sync
+
+    async def _rollback_sync_changes(self, session_id: str, result: SyncResult) -> None:
+        """Rollback database changes made during a failed sync session.
+
+        Performs best-effort rollback:
+        1. Deletes events appended to the event store during this session.
+        2. For INSERT events, removes the corresponding read model records.
+        3. Logs warnings for UPDATE/DELETE changes that cannot be fully reversed
+           without prior state (a full read model rebuild would be needed).
+
+        Args:
+            session_id: ID of the failed sync session.
+            result: SyncResult containing the list of events that were created.
+        """
+        try:
+            # Step 1: Remove events from event store
+            deleted_count = await self.event_store.delete_events_by_session_id(session_id)
+            logger.info(f"Rollback: deleted {deleted_count} events for session {session_id}")
+
+            # Step 2: Reverse read model changes for INSERT events
+            if result.events_created and self.read_model_builder:
+                insert_aggregate_ids: list[Any] = []
+                has_non_insert = False
+
+                for event in result.events_created:
+                    change_type = (event.get("metadata") or {}).get("change_type")
+                    if change_type == "INSERT":
+                        aggregate_id = event.get("aggregate_id")
+                        if aggregate_id is not None:
+                            insert_aggregate_ids.append(aggregate_id)
+                    elif change_type in ("UPDATE", "DELETE"):
+                        has_non_insert = True
+
+                if insert_aggregate_ids:
+                    from sqlalchemy import delete as sa_delete
+                    from infrastructure.database.models import ReadModelDeal, ReadModelPosition
+
+                    await self.read_model_builder.session.execute(
+                        sa_delete(ReadModelPosition).where(
+                            ReadModelPosition.deal_id.in_(insert_aggregate_ids)
+                        )
+                    )
+                    await self.read_model_builder.session.execute(
+                        sa_delete(ReadModelDeal).where(
+                            ReadModelDeal.id.in_(insert_aggregate_ids)
+                        )
+                    )
+                    await self.read_model_builder.session.flush()
+                    logger.info(
+                        f"Rollback: removed {len(insert_aggregate_ids)} inserted deal(s) "
+                        "from read model"
+                    )
+
+                if has_non_insert:
+                    logger.warning(
+                        "Rollback: UPDATE/DELETE read model changes cannot be automatically "
+                        "reversed. Consider triggering a full read model rebuild."
+                    )
+            elif result.events_created:
+                logger.warning(
+                    "Rollback: read_model_builder not available; "
+                    "read model may be inconsistent after rollback"
+                )
+
+        except Exception as rollback_err:
+            logger.error(f"Rollback failed for session {session_id}: {rollback_err}")
 
     async def _apply_changes_to_database(
         self, result: SyncResult, config: SyncConfiguration

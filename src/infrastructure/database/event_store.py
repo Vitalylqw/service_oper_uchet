@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Any
 
 from loguru import logger
-from sqlalchemy import desc, func, select
+from sqlalchemy import delete, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.interfaces import EventStore
@@ -343,6 +343,33 @@ class EventStoreImplementation(EventStore):
         except Exception as e:
             logger.error(f"Failed to get event count: {e}")
             return 0
+
+    async def delete_events_by_session_id(self, session_id: str) -> int:
+        """
+        Delete all events created by a specific sync session.
+
+        Matches events where metadata contains sync_session_id equal to session_id.
+
+        Args:
+            session_id: The sync session ID to match in event metadata.
+
+        Returns:
+            Number of events deleted.
+        """
+        try:
+            stmt = delete(EventStoreModel).where(
+                EventStoreModel.event_metadata["sync_session_id"].as_string() == session_id
+            )
+            result = await self.session.execute(stmt)
+            deleted_count = result.rowcount
+            await self.session.flush()
+
+            logger.info(f"Deleted {deleted_count} events for sync session {session_id}")
+            return deleted_count
+
+        except Exception as e:
+            logger.error(f"Failed to delete events for session {session_id}: {e}")
+            raise
 
     async def get_aggregate_version(self, aggregate_id: uuid.UUID) -> int:
         """Get current version (highest sequence number) for aggregate."""
