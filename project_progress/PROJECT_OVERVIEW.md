@@ -22,7 +22,8 @@
 - event store;
 - read model builder;
 - dashboard и snapshot-скрипты для контроля целостности;
-- unit/integration тесты.
+- unit/integration тесты;
+- CLI-обёртка `so-uchet` (в разработке).
 
 Вне активного scope:
 
@@ -45,6 +46,7 @@
 - `src/infrastructure/database/models.py` — SQLAlchemy модели.
 - `src/infrastructure/workers/read_model_builder.py` — применение событий к read-моделям.
 - `src/infrastructure/workers/simple_position_sync.py` — упрощенная синхронизация позиций.
+- `src/cli/` — CLI-обёртка `so-uchet` (presentation layer, в разработке).
 
 ## Поток данных
 
@@ -64,8 +66,10 @@ Excel file
 dashboard/             # snapshot и dashboard-проверки
 docs/                  # актуальная документация
 migrations/            # Alembic миграции
+plans/                 # детальные планы этапов
 project_progress/      # обзор, план, статус, журнал, sync flow
 scripts/test/          # ручные проверочные сценарии и bat-обертки
+src/cli/               # CLI-обёртка so-uchet (в разработке)
 tests/                 # unit и integration тесты
 ```
 
