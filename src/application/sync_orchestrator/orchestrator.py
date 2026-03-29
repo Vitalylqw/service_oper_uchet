@@ -7,6 +7,7 @@ change detection, event creation, and database updates.
 
 from __future__ import annotations
 
+import asyncio
 import time
 import uuid
 from datetime import datetime
@@ -50,6 +51,7 @@ class SyncOrchestratorService:
         self.event_store = event_store
         self.sync_session_repository = sync_session_repository
         self.read_model_builder = read_model_builder
+        self.active_session_id: str | None = None
 
     async def execute_sync(self, file_path: str, config: SyncConfiguration) -> SyncResult:
         """
@@ -73,6 +75,7 @@ class SyncOrchestratorService:
 
         # Create sync session
         sync_session = await self._create_sync_session(session_id, file_path, config)
+        self.active_session_id = session_id
 
         # Initialize result
         result = SyncResult(
@@ -153,7 +156,19 @@ class SyncOrchestratorService:
                 f"{result.summary.duration_seconds:.2f}s"
             )
 
+            self.active_session_id = None
             return result
+
+        except (KeyboardInterrupt, asyncio.CancelledError) as e:
+            error_msg = f"Sync session {session_id} interrupted: {str(e) or type(e).__name__}"
+            logger.warning(error_msg)
+
+            result.add_error(error_msg)
+            result.summary.finished_at = datetime.now()
+            result.summary.duration_seconds = time.time() - start_time
+
+            await self._complete_sync_session(sync_session, False, error_msg)
+            raise
 
         except Exception as e:
             error_msg = f"Sync session {session_id} failed: {str(e)}"
@@ -173,6 +188,7 @@ class SyncOrchestratorService:
             if not config.continue_on_errors:
                 raise
 
+            self.active_session_id = None
             return result
 
     async def _create_sync_session(
@@ -212,7 +228,7 @@ class SyncOrchestratorService:
             sync_session.start()
 
             # Save to database
-            await self.sync_session_repository.save(sync_session)
+            await self.sync_session_repository.save_visible(sync_session)
 
             logger.debug(f"Created sync session {session_id}")
             return sync_session
@@ -231,7 +247,7 @@ class SyncOrchestratorService:
             else:
                 sync_session.complete_failed(error_message or "Unknown error")
 
-            await self.sync_session_repository.save(sync_session)
+            await self.sync_session_repository.save_visible(sync_session)
             logger.debug(f"Completed sync session {sync_session.id} (success: {success})")
 
         except Exception as e:

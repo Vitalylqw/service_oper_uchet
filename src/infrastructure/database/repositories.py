@@ -12,7 +12,7 @@ from typing import Any
 
 from loguru import logger
 from sqlalchemy import delete, func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from domain.interfaces import DealRepository, ReadModelRepository, SyncSessionRepository
 from domain.models import Deal, SyncSession
@@ -405,6 +405,25 @@ class SyncSessionRepositoryImplementation(SyncSessionRepository):
         except Exception as e:
             logger.error(f"Failed to save sync session {session.id}: {e}")
             raise
+
+    async def save_visible(self, session: SyncSession) -> None:
+        """Persist sync session in a separate committed transaction."""
+        bind = self.session.bind
+        if bind is None:
+            raise RuntimeError("Cannot persist sync session visibly without bound engine")
+
+        visibility_session_factory = async_sessionmaker(
+            bind=bind,
+            class_=AsyncSession,
+            expire_on_commit=False,
+            autoflush=True,
+            autocommit=False,
+        )
+
+        async with visibility_session_factory() as visibility_session:
+            visibility_repository = SyncSessionRepositoryImplementation(visibility_session)
+            await visibility_repository.save(session)
+            await visibility_session.commit()
 
     async def find_by_status(self, status: str) -> list[SyncSession]:
         """Find sync sessions by status."""

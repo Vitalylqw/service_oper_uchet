@@ -81,6 +81,11 @@ class SyncSessionRepository(ABC):
         pass
 
     @abstractmethod
+    async def save_visible(self, session: SyncSession) -> None:
+        """Persist sync session in a separate committed transaction."""
+        pass
+
+    @abstractmethod
     async def find_by_status(self, status: str) -> list[SyncSession]:
         """Find sync sessions by status."""
         pass

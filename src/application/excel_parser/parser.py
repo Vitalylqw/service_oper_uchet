@@ -100,7 +100,12 @@ class ExcelParserService:
 
         return CacheMode.HYBRID
 
-    async def parse_file(self, file_path: str, sync_session: object | None) -> ParseResult:
+    async def parse_file(
+        self,
+        file_path: str,
+        sync_session: object | None,
+        allowed_periods: list[str] | None = None,
+    ) -> ParseResult:
         """
         Parse Excel file and return structured result.
 
@@ -121,7 +126,7 @@ class ExcelParserService:
             file_info = self._get_file_info(file_path)
 
             # Read Excel sheets
-            sheets_data = self._read_excel_file(file_path)
+            sheets_data = self._read_excel_file(file_path, allowed_periods=allowed_periods)
             self.stats.total_sheets = len(sheets_data)
 
             all_deals = []
@@ -374,7 +379,11 @@ class ExcelParserService:
 
         return formula_columns
 
-    def _read_excel_file(self, file_path: str) -> dict:
+    def _read_excel_file(
+        self,
+        file_path: str,
+        allowed_periods: list[str] | None = None,
+    ) -> dict:
         """Read Excel file and return sheets data with calculated formulas."""
         try:
             logger.info("Loading Excel file with formula calculation support...")
@@ -421,8 +430,14 @@ class ExcelParserService:
             )
 
             sheets_data: dict[str, pd.DataFrame] = {}
+            normalized_allowed_periods = self._normalize_allowed_periods(allowed_periods)
 
             for sheet_name in workbook.sheetnames:
+                if normalized_allowed_periods:
+                    sheet_period = self._canonical_period_name(sheet_name)
+                    if sheet_period is None or sheet_period not in normalized_allowed_periods:
+                        continue
+
                 worksheet = workbook[sheet_name]
                 values_ws = (
                     workbook_values[sheet_name]
@@ -513,8 +528,6 @@ class ExcelParserService:
                             else:
                                 row_values.append(cell_value)
                             continue
-
-                        should_skip_cache = False
 
                         if is_total_column:
                             if cached_value is not None:
@@ -633,6 +646,26 @@ class ExcelParserService:
             raise SyncFileError(
                 file_path, f"Cannot read Excel file: {str(e)}"
             ) from e
+
+    @staticmethod
+    def _canonical_period_name(sheet_name: str) -> str | None:
+        """Convert sheet name to canonical 'Month YYYY'."""
+        try:
+            period = Period.from_sheet_name(sheet_name)
+        except Exception:
+            return None
+        return f"{period.month} {period.year}"
+
+    def _normalize_allowed_periods(self, allowed_periods: list[str] | None) -> set[str]:
+        """Normalize requested periods for internal sheet filtering."""
+        if not allowed_periods:
+            return set()
+
+        normalized: set[str] = set()
+        for raw_period in allowed_periods:
+            canonical = self._canonical_period_name(raw_period)
+            normalized.add(canonical or raw_period.strip())
+        return normalized
 
     async def _parse_sheet(self, df: pd.DataFrame, sheet_name: str) -> list[Deal]:
         """Parse individual Excel sheet."""
