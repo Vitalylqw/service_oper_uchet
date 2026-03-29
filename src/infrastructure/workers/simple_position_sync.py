@@ -76,9 +76,9 @@ class SimplePositionSync:
         await self._insert_deal(deal, deal_context)
         stats["inserted_deal"] = 1
 
-        for item in deal.items:
-            await self._insert_position(item, deal_context)
-            stats["inserted_positions"] += 1
+        if deal.items:
+            await self._insert_positions_batch(deal.items, deal_context)
+            stats["inserted_positions"] = len(deal.items)
 
         logger.info(f"Atomic deal sync completed for {deal_key}: {stats}")
         return stats
@@ -170,6 +170,17 @@ class SimplePositionSync:
         """Insert single position into read_positions."""
         position_data = self._prepare_position_data(item, deal_context)
         stmt = insert(ReadModelPosition).values(**position_data)
+        await self.session.execute(stmt)
+
+    async def _insert_positions_batch(
+        self, items: list[DealItem], deal_context: dict[str, Any]
+    ) -> None:
+        """Insert all deal positions with a single batch statement."""
+        position_rows = [
+            self._prepare_position_data(item, deal_context)
+            for item in items
+        ]
+        stmt = insert(ReadModelPosition).values(position_rows)
         await self.session.execute(stmt)
 
     def _prepare_position_data(

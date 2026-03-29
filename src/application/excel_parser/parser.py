@@ -387,7 +387,11 @@ class ExcelParserService:
             workbook_source = str(effective_path)
 
             # Load workbook with formulas (data_only=False to see formulas)
-            workbook = load_workbook(filename=workbook_source, data_only=False)
+            workbook = load_workbook(
+                filename=workbook_source,
+                data_only=False,
+                read_only=True,
+            )
             # Load workbook with cached values (data_only=True) for fallback
             workbook_values = None
             if self.cache_mode != CacheMode.NO_CACHE:
