@@ -35,6 +35,8 @@ NS = {
     "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
     "ct": "http://schemas.openxmlformats.org/package/2006/content-types",
     "rel": "http://schemas.openxmlformats.org/package/2006/relationships",
+    "ep": "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties",
+    "vt": "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes",
 }
 
 # Content types
@@ -233,6 +235,15 @@ def _find_sheets_info(
     return result
 
 
+def _list_sheet_names(workbook_xml: bytes) -> list[str]:
+    """Return workbook sheet names in document order."""
+    root = ET.fromstring(workbook_xml)
+    sheets_el = root.find("ss:sheets", NS)
+    if sheets_el is None:
+        return []
+    return [sheet_el.get("name", "") for sheet_el in sheets_el.findall("ss:sheet", NS)]
+
+
 def _resolve_sheet_targets(
     rels_xml: bytes,
     r_ids: set[str],
@@ -312,8 +323,28 @@ def _patch_workbook_xml(
 
     root = ET.fromstring(xml_bytes)
     sheets_el = root.find("ss:sheets", NS)
+    original_sheet_count = 0
+
+    def _remap_sheet_index(index: int) -> int:
+        """Map old sheet index to a valid index after sheet removal."""
+        if original_sheet_count == 0:
+            return 0
+
+        remaining_count = max(original_sheet_count - len(removed_indices), 1)
+        shift_before = sum(1 for removed_index in removed_indices if removed_index < index)
+        if index not in removed_indices:
+            return min(index - shift_before, remaining_count - 1)
+
+        candidate = index
+        while candidate in removed_indices and candidate >= 0:
+            candidate -= 1
+        if candidate >= 0:
+            shift_before = sum(1 for removed_index in removed_indices if removed_index < candidate)
+            return min(candidate - shift_before, remaining_count - 1)
+        return 0
 
     if sheets_el is not None:
+        original_sheet_count = len(sheets_el.findall("ss:sheet", NS))
         to_remove = []
         for sheet_el in sheets_el.findall("ss:sheet", NS):
             if sheet_el.get("name", "") in sheet_names:
@@ -321,6 +352,36 @@ def _patch_workbook_xml(
         for el in to_remove:
             sheets_el.remove(el)
             logger.debug("Removed <sheet> element: {}", el.get("name"))
+
+    book_views_el = root.find("ss:bookViews", NS)
+    if book_views_el is not None:
+        for workbook_view_el in book_views_el.findall("ss:workbookView", NS):
+            for attr_name in ("firstSheet", "activeTab"):
+                attr_value = workbook_view_el.get(attr_name)
+                if attr_value is None:
+                    continue
+                remapped = _remap_sheet_index(int(attr_value))
+                workbook_view_el.set(attr_name, str(remapped))
+                logger.debug(
+                    "Adjusted workbookView {}: {} -> {}",
+                    attr_name,
+                    attr_value,
+                    remapped,
+                )
+
+    custom_views_el = root.find("ss:customWorkbookViews", NS)
+    if custom_views_el is not None:
+        for custom_view_el in custom_views_el.findall("ss:customWorkbookView", NS):
+            attr_value = custom_view_el.get("activeSheetId")
+            if attr_value is None:
+                continue
+            remapped = _remap_sheet_index(int(attr_value))
+            custom_view_el.set("activeSheetId", str(remapped))
+            logger.debug(
+                "Adjusted customWorkbookView activeSheetId: {} -> {}",
+                attr_value,
+                remapped,
+            )
 
     # Remove definedNames with localSheetId pointing to removed sheets
     # and adjust localSheetId for sheets after removed ones
@@ -379,6 +440,40 @@ def _patch_workbook_rels(
     return ET.tostring(root, xml_declaration=True, encoding="UTF-8")
 
 
+def _patch_app_properties(
+    xml_bytes: bytes,
+    sheet_names: list[str],
+) -> bytes:
+    """Sync docProps/app.xml sheet metadata with workbook.xml."""
+    ET.register_namespace("", NS["ep"])
+    ET.register_namespace("vt", NS["vt"])
+
+    root = ET.fromstring(xml_bytes)
+
+    heading_pairs_el = root.find("ep:HeadingPairs", NS)
+    if heading_pairs_el is not None:
+        vector_el = heading_pairs_el.find("vt:vector", NS)
+        if vector_el is not None:
+            variants = vector_el.findall("vt:variant", NS)
+            if len(variants) >= 2:
+                count_el = variants[1].find("vt:i4", NS)
+                if count_el is not None:
+                    count_el.text = str(len(sheet_names))
+
+    titles_el = root.find("ep:TitlesOfParts", NS)
+    if titles_el is not None:
+        vector_el = titles_el.find("vt:vector", NS)
+        if vector_el is not None:
+            vector_el.set("size", str(len(sheet_names)))
+            for child in list(vector_el):
+                vector_el.remove(child)
+            for sheet_name in sheet_names:
+                sheet_el = ET.SubElement(vector_el, f"{{{NS['vt']}}}lpstr")
+                sheet_el.text = sheet_name
+
+    return ET.tostring(root, xml_declaration=True, encoding="UTF-8")
+
+
 def _patch_calc_chain(
     xml_bytes: bytes,
     removed_sheet_ids: set[str],
@@ -424,6 +519,9 @@ def convert_xlsm_to_xlsx(
         # Step 1: Read workbook.xml and rels to find sheet info
         workbook_xml = zin.read("xl/workbook.xml")
         rels_xml = zin.read("xl/_rels/workbook.xml.rels")
+        remaining_sheet_names = [
+            name for name in _list_sheet_names(workbook_xml) if name not in exclude_sheets
+        ]
 
         sheets_info = _find_sheets_info(workbook_xml, exclude_sheets)
         if not sheets_info:
@@ -485,6 +583,11 @@ def convert_xlsm_to_xlsx(
 
                 elif item.filename == "xl/_rels/workbook.xml.rels":
                     patched = _patch_workbook_rels(rels_xml, remove_r_ids)
+                    zout.writestr(item, patched)
+
+                elif item.filename == "docProps/app.xml":
+                    app_xml = zin.read(item.filename)
+                    patched = _patch_app_properties(app_xml, remaining_sheet_names)
                     zout.writestr(item, patched)
 
                 elif item.filename == "xl/calcChain.xml":
