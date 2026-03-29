@@ -245,7 +245,115 @@ CSS = """
     }
     .snap-badge .snap-label a:hover { border-bottom-style: solid; color: #3498db; }
     .snap-badge .snap-meta { font-size: 11px; color: #666; margin-top: 2px; }
+    .paginated-table { margin-bottom: 16px; }
+    .paginated-table table { margin-bottom: 8px; }
+    .paginated-table tbody tr:nth-child(even) td { background: #fafbfc; }
+    .paginated-table tbody tr:hover td { background: #f0f4ff; }
+    .pagination-controls {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+        margin-bottom: 8px;
+    }
+    .pagination-info { font-size: 12px; color: #555; margin-right: 8px; }
+    .pagination-pages { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pagination-btn {
+        border: 1px solid #cfd6df; background: #fff; color: #1a1a2e;
+        border-radius: 4px; padding: 4px 10px; font-size: 12px; cursor: pointer;
+    }
+    .pagination-btn:hover:not(:disabled) { background: #f0f4ff; }
+    .pagination-btn:disabled { cursor: not-allowed; opacity: 0.5; }
+    .pagination-btn.active {
+        background: #1a1a2e; border-color: #1a1a2e; color: #fff;
+    }
 </style>
+"""
+
+
+PAGINATION_SCRIPT = """
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var wrappers = document.querySelectorAll('.paginated-table');
+
+    wrappers.forEach(function (wrapper) {
+        var table = wrapper.querySelector('table');
+        var tbody = table ? table.querySelector('tbody') : null;
+        var controls = wrapper.querySelector('.pagination-controls');
+        if (!table || !tbody || !controls) {
+            return;
+        }
+
+        var rows = Array.from(tbody.querySelectorAll('tr'));
+        var pageSize = Number(wrapper.dataset.pageSize || 15);
+        if (rows.length <= pageSize) {
+            controls.hidden = true;
+            return;
+        }
+
+        var pageCount = Math.ceil(rows.length / pageSize);
+        var currentPage = 1;
+        var info = document.createElement('span');
+        var prevBtn = document.createElement('button');
+        var pages = document.createElement('div');
+        var nextBtn = document.createElement('button');
+
+        info.className = 'pagination-info';
+        prevBtn.className = 'pagination-btn';
+        nextBtn.className = 'pagination-btn';
+        pages.className = 'pagination-pages';
+
+        prevBtn.type = 'button';
+        nextBtn.type = 'button';
+        prevBtn.textContent = 'Назад';
+        nextBtn.textContent = 'Вперёд';
+
+        function renderPage(page) {
+            currentPage = page;
+            var start = (page - 1) * pageSize;
+            var end = start + pageSize;
+
+            rows.forEach(function (row, index) {
+                row.hidden = index < start || index >= end;
+            });
+
+            info.textContent = 'Страница ' + page + ' из ' + pageCount;
+            prevBtn.disabled = page === 1;
+            nextBtn.disabled = page === pageCount;
+
+            pages.querySelectorAll('button').forEach(function (button, index) {
+                button.classList.toggle('active', index + 1 === page);
+            });
+        }
+
+        prevBtn.addEventListener('click', function () {
+            if (currentPage > 1) {
+                renderPage(currentPage - 1);
+            }
+        });
+
+        nextBtn.addEventListener('click', function () {
+            if (currentPage < pageCount) {
+                renderPage(currentPage + 1);
+            }
+        });
+
+        for (var page = 1; page <= pageCount; page += 1) {
+            var pageBtn = document.createElement('button');
+            pageBtn.type = 'button';
+            pageBtn.className = 'pagination-btn';
+            pageBtn.textContent = String(page);
+            pageBtn.addEventListener('click', function (event) {
+                renderPage(Number(event.currentTarget.textContent));
+            });
+            pages.appendChild(pageBtn);
+        }
+
+        controls.appendChild(info);
+        controls.appendChild(prevBtn);
+        controls.appendChild(pages);
+        controls.appendChild(nextBtn);
+        renderPage(1);
+    });
+});
+</script>
 """
 
 
@@ -361,6 +469,17 @@ def _render_health(snap: dict) -> str:
     return html
 
 
+def _wrap_paginated_table(table_html: str, table_name: str, page_size: int = 15) -> str:
+    """Wrap table HTML with pagination controls."""
+    return (
+        f'<div class="paginated-table" data-table-name="{table_name}" '
+        f'data-page-size="{page_size}">'
+        f"{table_html}"
+        '<div class="pagination-controls" aria-label="Pagination"></div>'
+        "</div>"
+    )
+
+
 def _render_deal_periods_table(
     periods: list[dict],
     period_links: dict[str, str] | None = None,
@@ -390,10 +509,10 @@ def _render_deal_periods_table(
         ("Errors", "has_error_count"),
     ]
 
-    html = "<table><tr>"
+    html = "<table><thead><tr>"
     for label, _ in cols:
         html += f"<th>{label}</th>"
-    html += "</tr>"
+    html += "</tr></thead><tbody>"
 
     totals: dict[str, Any] = {}
     for p in periods:
@@ -423,6 +542,7 @@ def _render_deal_periods_table(
                 totals[key] = (totals.get(key) or Decimal("0")) + Decimal(str(val or 0))
         html += "</tr>"
 
+    html += "</tbody><tfoot>"
     html += '<tr class="totals"><td><strong>TOTAL</strong></td>'
     for _, key in cols[1:]:
         val = totals.get(key, 0)
@@ -431,8 +551,8 @@ def _render_deal_periods_table(
             html += f'<td class="{cls}">{_fmt(val)}</td>'
         else:
             html += f"<td>{_fmt(val)}</td>"
-    html += "</tr></table>"
-    return html
+    html += "</tr></tfoot></table>"
+    return _wrap_paginated_table(html, "deal-periods")
 
 
 def _render_position_periods_table(
@@ -458,10 +578,10 @@ def _render_position_periods_table(
         ("Cost", "sum_cost"),
     ]
 
-    html = "<table><tr>"
+    html = "<table><thead><tr>"
     for label, _ in cols:
         html += f"<th>{label}</th>"
-    html += "</tr>"
+    html += "</tr></thead><tbody>"
 
     totals: dict[str, Any] = {}
     for p in periods:
@@ -479,6 +599,7 @@ def _render_position_periods_table(
                 totals[key] = (totals.get(key) or Decimal("0")) + Decimal(str(val or 0))
         html += "</tr>"
 
+    html += "</tbody><tfoot>"
     html += '<tr class="totals"><td><strong>TOTAL</strong></td>'
     for _, key in cols[1:]:
         val = totals.get(key, 0)
@@ -487,8 +608,8 @@ def _render_position_periods_table(
             html += f'<td class="{cls}">{_fmt(val)}</td>'
         else:
             html += f"<td>{_fmt(val)}</td>"
-    html += "</tr></table>"
-    return html
+    html += "</tr></tfoot></table>"
+    return _wrap_paginated_table(html, "position-periods")
 
 
 def _normalize_period_key(key: str) -> str:
@@ -514,7 +635,7 @@ def _render_cross_period_table(
     if not all_periods:
         return "<p>No period data to compare.</p>"
 
-    html = """<table><tr>
+    html = """<table><thead><tr>
         <th>Period</th>
         <th>D: deal_key</th><th>P: deal_key</th><th>Delta DK</th>
         <th>D: client</th><th>P: client</th><th>Delta Cl</th>
@@ -524,7 +645,7 @@ def _render_cross_period_table(
         <th>D: CalcRev</th><th>P: revenue</th><th>Delta CRev</th>
         <th>D: CalcCost</th><th>P: cost</th><th>Delta CCost</th>
         <th>D: qty</th><th>P: qty</th><th>Delta Qty</th>
-    </tr>"""
+    </tr></thead><tbody>"""
 
     for period in all_periods:
         dp = dp_map.get(period, {})
@@ -556,8 +677,8 @@ def _render_cross_period_table(
             else:
                 html += f'<td class="delta-cell {cls}">{_fmt(delta)}</td>'
         html += "</tr>"
-    html += "</table>"
-    return html
+    html += "</tbody></table>"
+    return _wrap_paginated_table(html, "cross-periods")
 
 
 # ---------------------------------------------------------------------------
@@ -913,6 +1034,7 @@ def generate_latest_html(
     threshold=threshold,
 )}
 
+{PAGINATION_SCRIPT}
 </body></html>"""
     return html
 
@@ -975,6 +1097,7 @@ def generate_compare_html(
 <h2>4C. Cross-compare: Deals vs Positions -- Snapshot B ({lb})</h2>
 {_render_cross_period_table(snap_b.get('deal_periods', []), snap_b.get('position_periods', []), threshold=threshold)}
 
+{PAGINATION_SCRIPT}
 </body></html>"""
     return html
 

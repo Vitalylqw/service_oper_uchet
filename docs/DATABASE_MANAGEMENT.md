@@ -153,6 +153,14 @@ python dashboard/run_dashboard_check.py --after sync_case
 - проверить totals и quantity;
 - получить drill-down по периодам и проблемным сделкам.
 
+Особенность HTML dashboard:
+
+- длинные периодные таблицы разбиваются на страницы по 15 строк;
+- пагинация применяется к `Deals by Period`, `Positions by Period` и
+  `Cross-compare: Deals vs Positions by Period`;
+- строка общего `TOTAL` в таблицах периодов остаётся общей по всей таблице и не
+  зависит от выбранной страницы.
+
 ## Резервное копирование
 
 Создание бэкапа:
