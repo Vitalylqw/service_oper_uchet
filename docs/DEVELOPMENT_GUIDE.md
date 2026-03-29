@@ -111,6 +111,11 @@ python dashboard/generate_dashboard.py --mode latest
 python dashboard/run_dashboard_check.py --label smoke_check
 ```
 
+HTML dashboard теперь разбивает длинные периодные таблицы на страницы по 15 строк.
+Это относится к блокам `Deals by Period`, `Positions by Period` и `Cross-compare`.
+Строка общего `TOTAL` в периодных таблицах не участвует в пагинации и остаётся видимой
+на любой странице.
+
 Сценарий до/после:
 
 ```bash
@@ -142,6 +147,32 @@ python scripts/services/align_existing_db_to_baseline.py --apply-known-fixes --s
 ```
 
 Подробные сценарии вынесены в `MIGRATION_COMMANDS.md`.
+
+## Обновление Excel-файла с SMB-шары
+
+Скрипт `scripts/services/fetch_excel_from_smb.py` автоматизирует получение актуального
+Excel-файла с сетевой шары, удаление ненужного листа "Отчеты" и конвертацию `.xlsm` → `.xlsx`.
+
+Требования: `smbclient` (`sudo apt install smbclient`).
+
+```bash
+# Через переменные среды (рекомендуется — пароль не попадает в историю shell)
+SMB_USERNAME=Vitaly SMB_PASSWORD='...' python scripts/services/fetch_excel_from_smb.py
+
+# Через аргументы
+python scripts/services/fetch_excel_from_smb.py --username Vitaly --password '...'
+```
+
+Что делает скрипт:
+
+1. Скачивает `ОперативныйУчет.xlsm` с `\\192.168.1.3\Share\Учет`.
+2. Удаляет лист "Отчеты" и VBA-макросы (ZIP-level, без загрузки в openpyxl).
+3. Создаёт бэкап в `data/real_data_for_testing/backups/` (ротация: макс. 15 файлов).
+4. Сохраняет результат как `data/real_data_for_testing/Data_source_excel.xlsx`.
+5. Верифицирует результат через openpyxl.
+
+Дополнительные флаги: `--no-backup`, `--skip-verify`, `--exclude-sheets`, `--host`, `--share`,
+`--remote-path`. Подробности: `python scripts/services/fetch_excel_from_smb.py --help`.
 
 ## Правила разработки
 
