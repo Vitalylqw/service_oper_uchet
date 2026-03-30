@@ -5,7 +5,9 @@ from __future__ import annotations
 import click
 
 from .common import initialize_runtime
+from .dashboard import dashboard
 from .db import db
+from .snapshot import snapshot
 from .sync import sync
 
 
@@ -33,4 +35,6 @@ def cli(ctx: click.Context, log_level: str, env_file: str | None) -> None:
 
 
 cli.add_command(db)
+cli.add_command(dashboard)
+cli.add_command(snapshot)
 cli.add_command(sync)

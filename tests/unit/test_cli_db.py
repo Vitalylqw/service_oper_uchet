@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -90,3 +91,28 @@ def test_db_align_maps_apply_fixes_flag(monkeypatch) -> None:
 
     assert result.exit_code == 0
     assert calls == [(True, True)]
+
+
+def test_db_test_uses_single_async_run_for_check_and_cleanup(monkeypatch) -> None:
+    """DB test should check connectivity and cleanup inside one event loop."""
+    events: list[tuple[str, int]] = []
+
+    class _StubManager:
+        async def test_connection(self) -> bool:
+            events.append(("test", id(asyncio.get_running_loop())))
+            return True
+
+        async def close(self) -> None:
+            events.append(("close", id(asyncio.get_running_loop())))
+
+    monkeypatch.setattr("src.cli.main.initialize_runtime", lambda log_level, env_file: None)
+    monkeypatch.setattr("src.cli.db.build_database_manager", lambda: _StubManager())
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["db", "test"])
+
+    assert result.exit_code == 0
+    assert "Database connection: OK" in result.output
+    assert [name for name, _ in events] == ["test", "close"]
+    assert events[0][1] == events[1][1]
+    assert "Database close failed after test" not in result.output

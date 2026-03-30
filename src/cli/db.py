@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import click
 from loguru import logger
 
@@ -19,19 +21,25 @@ def test_connection() -> None:
     manager = build_database_manager()
 
     try:
-        success = run_async(manager.test_connection())
+        success = run_async(_test_connection_with_cleanup(manager))
     except Exception as exc:
         raise click.ClickException(f"Ошибка проверки подключения к БД: {exc}") from exc
-    finally:
-        try:
-            run_async(manager.close())
-        except Exception as close_exc:
-            logger.debug("Database close failed after test: {}", close_exc)
 
     if not success:
         raise click.ClickException("Подключение к БД не удалось")
 
     click.echo("Database connection: OK")
+
+
+async def _test_connection_with_cleanup(manager: Any) -> bool:
+    """Run DB connectivity check and cleanup in the same event loop."""
+    try:
+        return await manager.test_connection()
+    finally:
+        try:
+            await manager.close()
+        except Exception as close_exc:
+            logger.debug("Database close failed after test: {}", close_exc)
 
 
 @db.command("migrate")
@@ -67,4 +75,3 @@ def align(apply_fixes: bool, stamp: bool) -> None:
         raise click.ClickException(f"Align-сценарий завершился с кодом {exit_code}")
 
     click.echo("Database alignment completed")
-
