@@ -8,7 +8,6 @@ to event storage and read model updates.
 import tempfile
 import uuid
 from decimal import Decimal
-from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pandas as pd
@@ -21,28 +20,7 @@ from src.application.sync_orchestrator.models import SyncConfiguration
 from src.domain.interfaces import DealRepository, EventStore, SyncSessionRepository
 from src.domain.models import Deal, DealItem, SyncSession, SyncType
 from src.domain.value_objects import Money, Period, Status
-from tests.conftest import build_test_deal, build_test_item
-
-
-def safe_cleanup_file(file_path: str | Path) -> None:
-    """Safely remove file, handling Windows file locking issues."""
-    import platform
-    import time
-    import logging
-
-    max_retries = 3
-    logger = logging.getLogger(__name__)
-    for attempt in range(max_retries):
-        try:
-            Path(file_path).unlink()
-            break
-        except (OSError, PermissionError) as e:
-            if attempt == max_retries - 1:
-                # On any OS, file might be locked - log but don't fail
-                logger.warning(f"Could not delete temporary file: {e}")
-            else:
-                # Wait and retry
-                time.sleep(0.1)
+from tests.conftest import build_test_deal, build_test_item, safe_cleanup_file
 
 
 @pytest.mark.integration
@@ -71,6 +49,7 @@ class TestSyncIntegration:
         repository = AsyncMock(spec=SyncSessionRepository)
         repository.get_running_session.return_value = None
         repository.save.return_value = None
+        repository.save_visible.return_value = None
         return repository
 
     @pytest.fixture
@@ -100,78 +79,32 @@ class TestSyncIntegration:
         """Create a sample Excel file for testing."""
         # Create temporary Excel file
         with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_file:
-            # Create sample data
-            data = {
-                "Клиент": [
-                    'ООО "Тестовая компания"',
-                    None,
-                    None,
-                    'АО "Другая компания"',
-                    None,
+            rows = [
+                [
+                    "Клиент",
+                    "Номенклатуры",
+                    "Кол/Отгр",
+                    "Цена вх/накл",
+                    "цена исх/Оплач?",
+                    "Выручка",
+                    "Маржа",
+                    "От кого Зак/Прод",
+                    "Ст. Закупки",
+                    "Поставщик/Откат",
+                    "Дата",
                 ],
-                "Счет": [
-                    "001 от 15.01.2024",
-                    "Товар 1",
-                    "Товар 2",
-                    "002 от 16.01.2024",
-                    "Товар 3",
-                ],
-                "Отгружен": [
-                    "да",
-                    None,
-                    None,
-                    "нет",
-                    None,
-                ],
-                "Оплачен": [
-                    "да",
-                    None,
-                    None,
-                    "нет",
-                    None,
-                ],
-                "Продавец": [
-                    "Продавец 1",
-                    None,
-                    None,
-                    "Продавец 2",
-                    None,
-                ],
-                "Выручка": [
-                    100000,
-                    50000,
-                    50000,
-                    75000,
-                    75000,
-                ],
-                "Маржа": [
-                    20000,
-                    10000,
-                    10000,
-                    15000,
-                    15000,
-                ],
-                "Количество": [
-                    None,
-                    10,
-                    5,
-                    None,
-                    15,
-                ],
-                "Поставщик": [
-                    None,
-                    "Поставщик А",
-                    "Поставщик Б",
-                    None,
-                    "Поставщик В",
-                ],
-            }
+                ['ООО "Тестовая компания"', "001 от 15.01.2024", "да", "УПД-001", "да", 100000, 20000, "Продавец 1", 80000, 0, None],
+                [None, "Товар 1", "10", "1000", "1500", 50000, 10000, None, 40000, "Поставщик А", "15"],
+                [None, "Товар 2", "5", "2000", "2500", 50000, 10000, None, 40000, "Поставщик Б", "20"],
+                ['АО "Другая компания"', "002 от 16.01.2024", "нет", "УПД-002", "нет", 75000, 15000, "Продавец 2", 60000, 0, None],
+                [None, "Товар 3", "15", "1000", "1500", 75000, 15000, None, 60000, "Поставщик В", "21"],
+            ]
 
-            df = pd.DataFrame(data)
+            df = pd.DataFrame(rows)
 
             # Create Excel with sheet named "Январь 2024"
             with pd.ExcelWriter(tmp_file.name, engine="openpyxl") as writer:
-                df.to_excel(writer, sheet_name="Январь 2024", index=False)
+                df.to_excel(writer, sheet_name="Январь 2024", index=False, header=False)
 
             return tmp_file.name
 
@@ -198,10 +131,11 @@ class TestSyncIntegration:
         # Verify events were created
         mock_event_store.append_events.assert_called_once()
         created_events = mock_event_store.append_events.call_args[0][0]
-        assert len(created_events) == 5  # 2 deals + 3 items
+        assert len(created_events) == 2
+        assert all(event["event_type"] == "DealWithPositionsCreated" for event in created_events)
 
         # Verify session management
-        assert mock_sync_session_repository.save.call_count >= 2  # Create + complete
+        assert mock_sync_session_repository.save_visible.call_count >= 2
 
         # Check performance metrics
         assert result.summary.parsing_duration_seconds > 0
@@ -217,14 +151,16 @@ class TestSyncIntegration:
         # Arrange - simulate existing deals in database
         existing_period = Period(month="Январь", year="2024", full_name="Январь 2024")
 
-        existing_deal = Deal(
+        existing_deal = build_test_deal(
+            period=existing_period,
+            explicit_id=uuid.uuid4(),
             client_name='ООО "Тестовая компания"',
             invoice_info="001 от 15.01.2024",
-            period=existing_period,
+            invoice_number="001",
+            invoice_date="15.01.2024",
+            seller="Старый продавец",
+            total_revenue=Money(amount=Decimal("80000.00")),
         )
-        existing_deal.id = uuid.uuid4()
-        existing_deal.seller = "Старый продавец"  # Different from Excel
-        existing_deal.total_revenue = Money(amount=Decimal("80000.00"))  # Different amount
 
         # Mock repository to return existing deal
         mock_deal_repository.find_by_period.return_value = [existing_deal]
@@ -251,7 +187,7 @@ class TestSyncIntegration:
         assert result.summary.change_detection_duration_seconds > 0
 
         # Clean up
-        Path(sample_excel_file).unlink()
+        safe_cleanup_file(sample_excel_file)
 
     async def test_sync_with_parsing_errors(self, sync_orchestrator, mock_sync_session_repository):
         """Test sync with file that causes parsing errors."""
@@ -272,15 +208,20 @@ class TestSyncIntegration:
         assert "non_existent_file.xlsx" in str(result.errors[0])
 
         # Session should still be completed with failure
-        assert mock_sync_session_repository.save.call_count >= 1
+        assert mock_sync_session_repository.save_visible.call_count >= 1
 
     async def test_concurrent_sync_prevention(
         self, sync_orchestrator, mock_sync_session_repository, sample_excel_file
     ):
         """Test prevention of concurrent sync sessions."""
         # Arrange - simulate running session
-        running_session = SyncSession(sync_type=SyncType.FULL, file_path="other.xlsx")
-        running_session.id = uuid.uuid4()
+        running_session = SyncSession(
+            sync_type=SyncType.FULL,
+            source_file_path="other.xlsx",
+            source_file_hash="running_session_hash",
+            source_file_size=1,
+            created_by="integration_test",
+        )
         running_session.start()
         mock_sync_session_repository.get_running_session.return_value = running_session
 
@@ -291,7 +232,7 @@ class TestSyncIntegration:
             await sync_orchestrator.execute_sync(sample_excel_file, config)
 
         # Clean up
-        Path(sample_excel_file).unlink()
+        safe_cleanup_file(sample_excel_file)
 
     async def test_sync_session_lifecycle(
         self, sync_orchestrator, mock_sync_session_repository, sample_excel_file
@@ -305,7 +246,7 @@ class TestSyncIntegration:
         async def capture_save(session):
             saved_sessions.append(session)
 
-        mock_sync_session_repository.save.side_effect = capture_save
+        mock_sync_session_repository.save_visible.side_effect = capture_save
 
         # Act
         await sync_orchestrator.execute_sync(sample_excel_file, config)
@@ -329,7 +270,7 @@ class TestSyncIntegration:
         assert completed_session.finished_at is not None
 
         # Clean up
-        Path(sample_excel_file).unlink()
+        safe_cleanup_file(sample_excel_file)
 
     async def test_event_creation_structure(
         self, sync_orchestrator, mock_event_store, sample_excel_file
@@ -361,11 +302,10 @@ class TestSyncIntegration:
 
         # Check event types
         event_types = [event["event_type"] for event in events]
-        assert "DealCreated" in event_types
-        assert "DealItemAdded" in event_types
+        assert event_types == ["DealWithPositionsCreated", "DealWithPositionsCreated"]
 
         # Clean up
-        Path(sample_excel_file).unlink()
+        safe_cleanup_file(sample_excel_file)
 
     async def test_change_detection_accuracy(self, change_detector, mock_deal_repository):
         """Test accuracy of change detection algorithms."""
@@ -462,7 +402,7 @@ class TestSyncIntegration:
             assert "items_per_second" in metrics
 
         # Clean up
-        Path(sample_excel_file).unlink()
+        safe_cleanup_file(sample_excel_file)
 
     async def test_error_propagation_integration(self, sync_orchestrator, mock_event_store):
         """Test error propagation through the sync pipeline."""
@@ -475,9 +415,26 @@ class TestSyncIntegration:
 
         # Create a simple valid Excel file
         with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_file:
-            df = pd.DataFrame({"Клиент": ["Тест"], "Счет": ["001"], "Выручка": [1000]})
+            df = pd.DataFrame(
+                [
+                    [
+                        "Клиент",
+                        "Номенклатуры",
+                        "Кол/Отгр",
+                        "Цена вх/накл",
+                        "цена исх/Оплач?",
+                        "Выручка",
+                        "Маржа",
+                        "От кого Зак/Прод",
+                        "Ст. Закупки",
+                        "Поставщик/Откат",
+                        "Дата",
+                    ],
+                    ["Тест", "001 от 01.01.2024", "да", "УПД-1", "да", 1000, 100, "Продавец", 900, 0, None],
+                ]
+            )
             with pd.ExcelWriter(tmp_file.name, engine="openpyxl") as writer:
-                df.to_excel(writer, sheet_name="Январь 2024", index=False)
+                df.to_excel(writer, sheet_name="Январь 2024", index=False, header=False)
 
             # Act
             result = await sync_orchestrator.execute_sync(tmp_file.name, config)
@@ -499,8 +456,13 @@ class TestSyncIntegration:
     ):
         """Test sync history tracking integration."""
         # Arrange
-        completed_session = SyncSession(sync_type=SyncType.FULL, file_path="old.xlsx")
-        completed_session.id = uuid.uuid4()
+        completed_session = SyncSession(
+            sync_type=SyncType.FULL,
+            source_file_path="old.xlsx",
+            source_file_hash="history_hash",
+            source_file_size=1,
+            created_by="integration_test",
+        )
         completed_session.status = Status.COMPLETED
 
         mock_sync_session_repository.get_latest_sessions.return_value = [completed_session]
@@ -515,13 +477,18 @@ class TestSyncIntegration:
         assert history[0]["status"] == "completed"
 
         # Clean up
-        Path(sample_excel_file).unlink()
+        safe_cleanup_file(sample_excel_file)
 
     async def test_running_session_detection(self, sync_orchestrator, mock_sync_session_repository):
         """Test running session detection integration."""
         # Arrange
-        running_session = SyncSession(sync_type=SyncType.INCREMENTAL, file_path="running.xlsx")
-        running_session.id = uuid.uuid4()
+        running_session = SyncSession(
+            sync_type=SyncType.INCREMENTAL,
+            source_file_path="running.xlsx",
+            source_file_hash="running_hash",
+            source_file_size=1,
+            created_by="integration_test",
+        )
         running_session.start()
 
         mock_sync_session_repository.get_running_session.return_value = running_session

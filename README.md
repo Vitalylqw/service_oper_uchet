@@ -39,13 +39,14 @@
 src/
 ├── domain/           # Доменные модели и value objects
 ├── application/      # Парсер Excel, change detector, orchestrator
-└── infrastructure/   # БД, воркеры, file_system, scheduler
+├── infrastructure/   # БД, воркеры, file_system, scheduler
+└── cli/              # Частично реализованная CLI-обёртка so-uchet (`db`, `sync`)
 
 dashboard/            # Snapshot и HTML dashboard для проверки БД
 docs/                 # Актуальная техническая документация
 migrations/           # Alembic миграции
 project_progress/     # Память проекта: обзор, план, статус, журнал
-testing/scripts/      # Проверочные сценарии для ручного прогона
+scripts/test/         # Проверочные сценарии для ручного прогона
 tests/                # Unit и integration тесты
 ```
 
@@ -91,7 +92,7 @@ alembic upgrade head
 
 ```bash
 python scripts/test/test_postgres_connection.py
-python -m pytest
+env PYTHONPATH=src timeout 120s pytest tests -q
 ruff check .
 ```
 
@@ -125,6 +126,12 @@ python scripts/test/test_excel_parsing.py
 python scripts/test/test_sync_integration.py --sync-type full --log-level INFO
 ```
 
+Текущее состояние CLI:
+
+- entry point `so-uchet` зарегистрирован в `pyproject.toml`;
+- реализованы группы команд `db` и `sync`;
+- сценарии `snapshot` и `dashboard` пока остаются отдельными Python-скриптами в `dashboard/`.
+
 Создание snapshot и HTML dashboard:
 
 ```bash
@@ -148,8 +155,8 @@ python dashboard/run_dashboard_check.py --label smoke_check
 
 - Язык общения — русский.
 - Код, коммиты и docstring — английский.
-- Основные правила разработки — `.cursor/rules/ENGINEERING_RULES.md`.
-- Целевая бизнес-логика синхронизации — `.cursor/rules/project_goals.md`.
+- Основные правила разработки — `.agents/ENGINEERING_RULES.md`.
+- Целевая бизнес-логика синхронизации — `project_goals.md`.
 - Линтинг — `ruff check .`.
 - Коммиты — Conventional Commits.
 

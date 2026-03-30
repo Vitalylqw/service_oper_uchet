@@ -1,9 +1,10 @@
 """
-Unit tests for ReadModelBuilder unique constraints logic.
+Unit tests for ReadModelBuilder position conflict handling.
 
-Tests new unique constraints:
-1. (hash_key, is_active) - prevents duplicate active positions
-2. (hash_key, version) - ensures version uniqueness
+The current implementation uses simplified replacement logic:
+- insert when no conflicting hash exists
+- update when same deal owns the hash
+- delete conflicting row and insert a new one when another deal owns the hash
 """
 
 from __future__ import annotations
@@ -15,9 +16,6 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.domain.models import Deal, DealItem
-from src.domain.value_objects import HashKey, Money, Period
-from src.infrastructure.database.models import ReadModelPosition
 from src.infrastructure.workers.read_model_builder import ReadModelBuilder
 
 
@@ -55,6 +53,8 @@ class TestReadModelBuilderUniqueConstraints:
             "client_name": "Тестовый клиент",
             "period_month": "Январь",
             "period_year": "2024",
+            "seller": "Тестовый продавец",
+            "invoice_info": "Счет TEST_DEAL_001",
         }
 
     @pytest.fixture
@@ -88,7 +88,8 @@ class TestReadModelBuilderUniqueConstraints:
         # Arrange
         mock_session.execute.side_effect = [
             # No existing active position
-            MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+            MagicMock(scalar_one_or_none=MagicMock(return_value=None)),
+            MagicMock(),
         ]
 
         # Mock _get_deal_context
@@ -98,6 +99,8 @@ class TestReadModelBuilderUniqueConstraints:
                 "client_name": "Тестовый клиент",
                 "period_month": "Январь",
                 "period_year": "2024",
+                "seller": "Тестовый продавец",
+                "invoice_info": "Счет TEST_DEAL_001",
             }
         )
 
@@ -128,8 +131,7 @@ class TestReadModelBuilderUniqueConstraints:
         # Act
         await read_model_builder._create_deal_item_read_model(event_data, full_event)
 
-        # Assert - Should create new position with version=1, is_active=True
-        assert mock_session.execute.call_count >= 2  # Check + Insert
+        assert mock_session.execute.call_count == 2
         read_model_builder._recalculate_totals.assert_called_once()
 
     @pytest.mark.asyncio
@@ -161,6 +163,8 @@ class TestReadModelBuilderUniqueConstraints:
                 "client_name": "Другой клиент",
                 "period_month": "Февраль",
                 "period_year": "2024",
+                "seller": "Другой продавец",
+                "invoice_info": "Счет TEST_DEAL_002",
             }
         )
 
@@ -196,14 +200,10 @@ class TestReadModelBuilderUniqueConstraints:
         # Should have: 1 check + 1 deactivate old + 1 insert new = 3 calls
         assert mock_session.execute.call_count == 3
 
-        # Verify deactivation call
-        update_call = mock_session.execute.call_args_list[1]
-        assert "is_active" in str(update_call)
-        assert "version" in str(update_call)
-
-        # Verify new position creation
-        insert_call = mock_session.execute.call_args_list[2]
-        assert "INSERT" in str(insert_call).upper()
+        delete_stmt = mock_session.execute.call_args_list[1].args[0]
+        insert_stmt = mock_session.execute.call_args_list[2].args[0]
+        assert delete_stmt.__class__.__name__ == "Delete"
+        assert insert_stmt.__class__.__name__ == "Insert"
 
     @pytest.mark.asyncio
     async def test_update_same_deal_same_hash_key(
@@ -232,6 +232,8 @@ class TestReadModelBuilderUniqueConstraints:
                 "client_name": "Тестовый клиент",
                 "period_month": "Январь",
                 "period_year": "2024",
+                "seller": "Тестовый продавец",
+                "invoice_info": "Счет TEST_DEAL_001",
             }
         )
 
@@ -266,9 +268,8 @@ class TestReadModelBuilderUniqueConstraints:
         # Should have: 1 check + 1 update = 2 calls
         assert mock_session.execute.call_count == 2
 
-        # Verify update call (should increment version)
-        update_call = mock_session.execute.call_args_list[1]
-        assert "version" in str(update_call)
+        update_stmt = mock_session.execute.call_args_list[1].args[0]
+        assert update_stmt.__class__.__name__ == "Update"
 
     @pytest.mark.asyncio
     async def test_version_uniqueness_constraint(

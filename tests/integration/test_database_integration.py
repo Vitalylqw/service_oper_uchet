@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from src.application.excel_parser import ExcelParserService
@@ -20,7 +21,37 @@ from src.domain.value_objects import Status
 class TestDatabaseIntegration:
     """Database integration tests with real database operations."""
 
-    async def test_excel_to_database_pipeline(self, test_repositories, real_excel_file):
+    @pytest.fixture
+    def sample_db_excel_file(self, tmp_path) -> str:
+        """Create a compact Excel fixture for database integration checks."""
+        rows = [
+            [
+                "Клиент",
+                "Номенклатуры",
+                "Кол/Отгр",
+                "Цена вх/накл",
+                "цена исх/Оплач?",
+                "Выручка",
+                "Маржа",
+                "От кого Зак/Прод",
+                "Ст. Закупки",
+                "Поставщик/Откат",
+                "Дата",
+            ],
+            ["ООО Тест", "001 от 01.01.2024", "да", "УПД-1", "да", 1000, 100, "Продавец", 900, 0, None],
+            [None, "Товар 1", "10", "90", "100", 1000, 100, None, 900, "Поставщик", "15"],
+        ]
+        excel_file = tmp_path / "db_integration.xlsx"
+        pd.DataFrame(rows).to_excel(
+            excel_file,
+            sheet_name="Январь 2024",
+            index=False,
+            header=False,
+            engine="openpyxl",
+        )
+        return str(excel_file)
+
+    async def test_excel_to_database_pipeline(self, test_repositories, sample_db_excel_file):
         """Full pipeline: Excel → Parse → Repository → Database."""
         # Arrange
         parser = ExcelParserService()
@@ -30,14 +61,14 @@ class TestDatabaseIntegration:
         # Create sync session with required fields
         sync_session = SyncSession(
             sync_type=SyncType.FULL,
-            source_file_path=real_excel_file,
+            source_file_path=sample_db_excel_file,
             source_file_hash="test_hash_12345",
             source_file_size=1024,  # Required field
             created_by="test_user"
         )
 
         # Act: Parse Excel file
-        result = await parser.parse_file(real_excel_file, sync_session)
+        result = await parser.parse_file(sample_db_excel_file, sync_session)
 
         # Save session to database
         await session_repo.save(sync_session)
@@ -54,7 +85,7 @@ class TestDatabaseIntegration:
         # Test retrieval from database for sync session
         db_session = await session_repo.get_by_id(saved_session.id)
         assert db_session is not None
-        assert db_session.source_file_path == real_excel_file
+        assert db_session.source_file_path == sample_db_excel_file
 
         # Verify parsed deals structure (they exist in memory)
         for deal in parsed_deals:
@@ -205,6 +236,7 @@ async def test_large_excel_file_processing(test_repositories):
         sync_type=SyncType.FULL,
         source_file_path=str(large_file_path),
         source_file_hash="large_file_hash",
+        source_file_size=1024,
         created_by="performance_test"
     )
 

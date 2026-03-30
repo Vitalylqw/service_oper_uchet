@@ -229,15 +229,23 @@ class ReadModelBuilder:
         # Отмечаем событие как обработанное
         try:
             from datetime import datetime as _dt
+            from datetime import timezone as _timezone
 
             from sqlalchemy import update as _update
 
+            event_id = event.get("event_id")
+            if not event_id:
+                logger.debug("Skipping processed flag update for event without event_id")
+                return
+
             from ..database.models import EventStoreModel as _ESM
             await self.session.execute(
-                _update(_ESM).where(_ESM.event_id == event["event_id"]).values(processed_at=_dt.utcnow())
+                _update(_ESM)
+                .where(_ESM.event_id == event_id)
+                .values(processed_at=_dt.now(_timezone.utc))
             )
         except Exception as _e:
-            logger.error(f"Failed to mark event {event['event_id']} as processed: {_e}")
+            logger.error(f"Failed to mark event {event.get('event_id')} as processed: {_e}")
 
     async def _handle_deal_event(
         self, event_type: str, event_data: dict[str, Any], full_event: dict[str, Any]

@@ -3,14 +3,16 @@ Unit tests for Excel parser application service.
 """
 
 from decimal import Decimal
+from pathlib import Path
 
 import pandas as pd
 import pytest
 
 from src.application.excel_parser import ExcelParserService, ParseResult
-from src.domain.builders.deal_builder import DealBuilder
-from src.domain.models.sync_session import SyncSession, SyncType
-from src.domain.value_objects import Period
+from domain.builders.deal_builder import DealBuilder
+from domain.models.sync_session import SyncSession, SyncType
+from domain.value_objects import Period
+from tests.conftest import build_test_deal, build_test_item
 
 
 @pytest.mark.unit
@@ -32,43 +34,35 @@ class TestExcelParserService:
     @pytest.fixture
     def test_excel_data(self, tmp_path):
         """Create test Excel file with sample data."""
-        # Create test data
-        data = {
-            "Клиент": ['ООО "Тест"', None, None, "ИП Иванов", None],
-            "Номенклатуры": [
-                "12345 от 01.05.2025",
-                "Товар 1",
-                "Товар 2",
-                "67890 от 02.05.2025",
-                "Товар 3",
+        rows = [
+            [
+                "Клиент",
+                "Номенклатуры",
+                "Кол/Отгр",
+                "Цена вх/накл",
+                "цена исх/Оплач?",
+                "Выручка",
+                "Маржа",
+                "От кого Зак/Прод",
+                "Ст. Закупки",
+                "Поставщик/Откат",
+                "Дата",
             ],
-            "Кол/Отгр": ["да", "10", "5", "нет", "15"],
-            "Цена вх/накл": ["УПД-001", "100.50", "200.75", "УПД-002", "150.00"],
-            "цена исх/Оплач?": ["да", "150.00", "250.00", "нет", "200.00"],
-            "Выручка": [2000.00, 1500.00, 1250.00, 3000.00, 3000.00],
-            "Маржа": [600.00, 495.00, 231.25, 750.00, 750.00],
-            "От кого Зак/Прод": ["Продавец1", None, None, "Продавец2", None],
-            "Ст. Закупки": [1400.00, 1005.00, 1018.75, 2250.00, 2250.00],
-            "Поставщик/Откат": [0, "Поставщик1", "Поставщик2", 0, "Поставщик3"],
-            "Дата": [None, "15", "Июнь", None, "20"],
-        }
+            ['ООО "Тест"', "12345 от 01.05.2025", "да", "УПД-001", "да", 2000.00, 600.00, "Продавец1", 1400.00, 0, None],
+            [None, "Товар 1", "10", "100.50", "150.00", 1500.00, 495.00, None, 1005.00, "Поставщик1", "15"],
+            [None, "Товар 2", "5", "200.75", "250.00", 1250.00, 231.25, None, 1018.75, "Поставщик2", "20"],
+            ["ИП Иванов", "67890 от 02.05.2025", "нет", "УПД-002", "нет", 3000.00, 750.00, "Продавец2", 2250.00, 0, None],
+            [None, "Товар 3", "15", "150.00", "200.00", 3000.00, 750.00, None, 2250.00, "Поставщик3", "20"],
+        ]
 
-        df = pd.DataFrame(data)
-
-        # Create Excel file
-        excel_file = tmp_path / "test_data.xlsx"
-        with pd.ExcelWriter(excel_file, engine="openpyxl") as writer:
-            df.to_excel(writer, sheet_name="Май 2025", index=False, header=False)
-            # Add header row at row 1 (0-indexed)
-            df_with_header = pd.concat(
-                [
-                    pd.DataFrame([data.keys()]),  # Header row
-                    df,
-                ],
-                ignore_index=True,
-            )
-            df_with_header.to_excel(writer, sheet_name="Май 2025", index=False, header=False)
-
+        excel_file = Path(tmp_path) / "test_data.xlsx"
+        pd.DataFrame(rows).to_excel(
+            excel_file,
+            sheet_name="Май 2025",
+            index=False,
+            header=False,
+            engine="openpyxl",
+        )
         return str(excel_file)
 
     def test_parser_initialization(self, parser_service):
@@ -336,19 +330,27 @@ class TestParseResult:
     def test_parse_result_properties(self, sample_sync_session):
         """Test ParseResult computed properties."""
         from src.application.excel_parser.models import ParseResult, ParseStats
-        from src.domain.models import Deal
-
         # Create sample deals
         period = Period(month="Май", year="2025", full_name="Май 2025")
-        deal1 = Deal(client_name="Client 1", invoice_info="123", period=period)
-        deal2 = Deal(client_name="Client 2", invoice_info="456", period=period)
+        deal1 = build_test_deal(
+            period=period,
+            client_name="Client 1",
+            invoice_info="123",
+            invoice_number="123",
+            seller="Seller 1",
+        )
+        deal2 = build_test_deal(
+            period=period,
+            client_name="Client 2",
+            invoice_info="456",
+            invoice_number="456",
+            seller="Seller 2",
+        )
 
         # Add items to deals
-        from src.domain.models import DealItem
-
-        deal1.add_item(DealItem(product_name="Item 1"))
-        deal1.add_item(DealItem(product_name="Item 2"))
-        deal2.add_item(DealItem(product_name="Item 3"))
+        deal1.add_item(build_test_item(deal=deal1, position_number=1, product_name="Item 1"))
+        deal1.add_item(build_test_item(deal=deal1, position_number=2, product_name="Item 2"))
+        deal2.add_item(build_test_item(deal=deal2, position_number=1, product_name="Item 3"))
 
         stats = ParseStats()
         stats.errors = ["Error 1"]
@@ -371,15 +373,31 @@ class TestParseResult:
     def test_parse_result_filters(self, sample_sync_session):
         """Test ParseResult filtering methods."""
         from src.application.excel_parser.models import ParseResult, ParseStats
-        from src.domain.models import Deal
-
         # Create deals with different periods and clients
         period1 = Period(month="Май", year="2025", full_name="Май 2025")
         period2 = Period(month="Июнь", year="2025", full_name="Июнь 2025")
 
-        deal1 = Deal(client_name="ООО Тест", invoice_info="123", period=period1)
-        deal2 = Deal(client_name="ИП Иванов", invoice_info="456", period=period1)
-        deal3 = Deal(client_name="ООО Другой", invoice_info="789", period=period2)
+        deal1 = build_test_deal(
+            period=period1,
+            client_name="ООО Тест",
+            invoice_info="123",
+            invoice_number="123",
+            seller="Seller 1",
+        )
+        deal2 = build_test_deal(
+            period=period1,
+            client_name="ИП Иванов",
+            invoice_info="456",
+            invoice_number="456",
+            seller="Seller 2",
+        )
+        deal3 = build_test_deal(
+            period=period2,
+            client_name="ООО Другой",
+            invoice_info="789",
+            invoice_number="789",
+            seller="Seller 3",
+        )
 
         result = ParseResult(
             deals=[deal1, deal2, deal3],

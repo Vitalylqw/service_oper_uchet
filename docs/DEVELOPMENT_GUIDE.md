@@ -74,21 +74,19 @@ alembic upgrade head
 ### Основные команды
 
 ```bash
-python -m pytest
-python -m pytest -m "unit"
-python -m pytest -m "integration"
+env PYTHONPATH=src timeout 60s pytest tests/unit -q
+env PYTHONPATH=src timeout 60s pytest tests/integration/test_sync_integration.py -q
+env PYTHONPATH=src timeout 60s pytest tests/integration/test_database_integration.py -q
+env PYTHONPATH=src timeout 45s pytest tests/integration/test_excel_parser_integration.py -q
+env PYTHONPATH=src timeout 120s pytest tests -q
 ruff check .
 mypy src/
 ```
 
 ### Проверочные сценарии
 
-```bash
-python scripts/test/test_postgres_connection.py
-python scripts/test/test_excel_parsing.py
-python scripts/test/test_sync_integration.py --sync-type full --log-level INFO
-python scripts/test/test_sync_integration.py --sync-type partial --log-level DEBUG
-```
+Ручные скрипты из `scripts/test/` не входят в безопасный базовый прогон и запускаются
+только отдельно, когда нужен именно ручной интеграционный сценарий.
 
 ### Что проверять после sync
 
@@ -136,8 +134,9 @@ alembic downgrade -1
 alembic revision --autogenerate -m "Describe change"
 ```
 
-Сейчас активная история Alembic состоит из одной baseline-миграции. Исторические ревизии вынесены в
-архив и не являются рабочим путём обновления.
+Сейчас активная история Alembic состоит из baseline-миграции `0001` и следующей за ней
+миграции `0002_drop_read_audit.py`. Исторические ревизии `0001..0005` вынесены в архив и не
+являются рабочим путём обновления.
 
 Для существующей БД используйте:
 
@@ -176,7 +175,7 @@ python scripts/services/fetch_excel_from_smb.py --username Vitaly --password '..
 
 ## Правила разработки
 
-- соблюдать `.cursor/rules/ENGINEERING_RULES.md`;
+- соблюдать `.agents/ENGINEERING_RULES.md`;
 - не менять существующее поведение без прямой необходимости;
 - проверять гипотезы до утверждений;
 - держать документацию синхронной с кодом;
@@ -197,7 +196,8 @@ python scripts/services/fetch_excel_from_smb.py --username Vitaly --password '..
 - основной runtime-поток использует deal-level event `DealWithPositionsCreated`;
 - old model с `is_active/version` больше не считается рабочим описанием;
 - history/write-side поддерживается только через `event_store`;
-- `read_audit` выведен из целевой архитектуры и удаляется отдельной миграцией;
+- `read_audit` уже выведен из active schema отдельной миграцией `0002`, но может ещё встречаться
+  в legacy-БД до применения `alembic upgrade head`;
 - `read_stats` не следует считать автоматически заполненным на каждом запуске без отдельной проверки
   event path.
 

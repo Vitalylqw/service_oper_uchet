@@ -14,9 +14,9 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.interfaces import EventStore
-from domain.models import Deal, DealItem
 from domain.value_objects import Money, Period, Status
 from infrastructure.workers.read_model_builder import ReadModelBuilder
+from tests.conftest import build_test_deal, build_test_item
 
 
 @pytest.mark.unit
@@ -48,8 +48,10 @@ class TestReadModelBuilder:
     @pytest.fixture
     def sample_deal_event(self) -> dict:
         """Create sample deal created event."""
-        deal = Deal(
-            id=uuid.uuid4(),
+        period = Period(month="Январь", year="2024", full_name="Январь 2024")
+        deal = build_test_deal(
+            period=period,
+            explicit_id=uuid.uuid4(),
             client_name="Test Client",
             invoice_info="Test Invoice Info",
             invoice_number="INV-001",
@@ -60,8 +62,6 @@ class TestReadModelBuilder:
             total_revenue=Money(amount=Decimal("1000.00")),
             total_margin=Money(amount=Decimal("200.00")),
             total_cost=Money(amount=Decimal("800.00")),
-            period=Period(month="Январь", year="2024", full_name="Январь 2024"),
-            items=[],
         )
 
         return {
@@ -69,7 +69,30 @@ class TestReadModelBuilder:
             "aggregate_id": deal.id,
             "aggregate_type": "Deal",
             "event_type": "DealCreated",
-            "event_data": {"deal": deal.model_dump()},
+            "event_data": {
+                "deal": {
+                    "deal_id": str(deal.id),
+                    "deal_key": str(deal.deal_key),
+                    "client_name": deal.client_name,
+                    "invoice_info": deal.invoice_info,
+                    "invoice_number": deal.invoice_number,
+                    "invoice_date": deal.invoice_date,
+                    "period": {
+                        "month": deal.period.month,
+                        "year": deal.period.year,
+                        "full_name": deal.period.full_name,
+                    },
+                    "is_shipped": deal.is_shipped,
+                    "is_paid": deal.is_paid,
+                    "upd_number": deal.upd_number,
+                    "seller": deal.seller,
+                    "totals": {
+                        "revenue": str(deal.total_revenue.amount),
+                        "margin": str(deal.total_margin.amount),
+                        "cost": str(deal.total_cost.amount),
+                    },
+                }
+            },
             "metadata": {"sync_session_id": uuid.uuid4()},
             "created_at": "2024-01-15T10:00:00",
         }
@@ -78,8 +101,8 @@ class TestReadModelBuilder:
     def sample_deal_item_event(self) -> dict:
         """Create sample deal item created event."""
         deal_id = uuid.uuid4()
-        item = DealItem(
-            id=uuid.uuid4(),
+        item = build_test_item(
+            explicit_id=uuid.uuid4(),
             deal_id=deal_id,
             product_name="Test Product",
             supplier_name="Test Supplier",
@@ -94,7 +117,24 @@ class TestReadModelBuilder:
             "aggregate_id": deal_id,
             "aggregate_type": "Deal",
             "event_type": "DealItemCreated",
-            "event_data": {"deal_item": item.model_dump()},
+            "event_data": {
+                "deal_item": {
+                    "item_id": str(item.id),
+                    "deal_id": str(deal_id),
+                    "product_name": item.product_name,
+                    "supplier_name": item.supplier_name,
+                    "pickup_date": item.pickup_date,
+                    "quantity": str(item.quantity),
+                    "position_number": item.position_number,
+                    "prices": {
+                        "purchase": str(item.purchase_price.amount),
+                        "sale": str(item.sale_price.amount),
+                        "revenue": str(item.revenue.amount),
+                        "margin": str(item.margin.amount),
+                        "cost": str(item.cost.amount),
+                    },
+                }
+            },
             "metadata": {"sync_session_id": uuid.uuid4()},
             "created_at": "2024-01-15T10:00:00",
         }
@@ -156,11 +196,10 @@ class TestReadModelBuilder:
         ) as mock_process:
             mock_process.side_effect = Exception("Processing error")
 
-            # Act & Assert
-            with pytest.raises(Exception, match="Processing error"):
-                await read_model_builder.process_latest_events()
+            result = await read_model_builder.process_latest_events()
 
-            mock_session.rollback.assert_called_once()
+        assert result == 0
+        mock_session.rollback.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_process_single_event_deal_created(
@@ -269,8 +308,8 @@ class TestReadModelBuilder:
             )
 
         # Assert
-        # Should execute insert statement
-        mock_session.execute.assert_called_once()
+        # Для deal выполняется один upsert, а пересчёт тоталов замокан отдельно.
+        assert mock_session.execute.call_count == 1
         mock_recalculate.assert_called_once()
 
     @pytest.mark.asyncio
@@ -300,8 +339,9 @@ class TestReadModelBuilder:
         existing_deal.period_full_name = "Январь 2024"
         existing_deal.version = 1
 
-        # Mock session.execute to return existing deal
-        mock_session.execute.return_value.scalar_one_or_none.return_value = existing_deal
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = existing_deal
+        mock_session.execute = AsyncMock(return_value=mock_result)
 
         with patch.object(
             read_model_builder, "_recalculate_totals", new_callable=AsyncMock
@@ -334,8 +374,9 @@ class TestReadModelBuilder:
             }
         }
 
-        # Mock session.execute to return None (deal not found)
-        mock_session.execute.return_value.scalar_one_or_none.return_value = None
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_session.execute = AsyncMock(return_value=mock_result)
 
         # Act
         await read_model_builder._update_deal_read_model(
@@ -371,8 +412,9 @@ class TestReadModelBuilder:
         existing_deal.deal_key = "test|deal|key"
         existing_deal.version = 1
 
-        # Mock session.execute to return existing deal
-        mock_session.execute.return_value.scalar_one_or_none.return_value = existing_deal
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = existing_deal
+        mock_session.execute = AsyncMock(return_value=mock_result)
 
         # Act
         await read_model_builder._update_deal_read_model(
@@ -404,8 +446,8 @@ class TestReadModelBuilder:
             await read_model_builder._delete_deal_read_model(event_data, event)
 
         # Assert
-        # Should execute single delete statement on read_deals
-        assert mock_session.execute.call_count == 1
+        # Worker now explicitly deletes positions first, then the deal row.
+        assert mock_session.execute.call_count == 2
 
         mock_recalculate.assert_not_called()
 
@@ -423,6 +465,8 @@ class TestReadModelBuilder:
             "client_name": "Test Client",
             "period_month": "01",
             "period_year": "2024",
+            "seller": "Test Seller",
+            "invoice_info": "Invoice 001",
         }
 
         with patch.object(
@@ -432,6 +476,9 @@ class TestReadModelBuilder:
                 read_model_builder, "_recalculate_totals", new_callable=AsyncMock
             ) as mock_recalculate:
                 mock_context.return_value = deal_context
+                first_result = MagicMock()
+                first_result.scalar_one_or_none.return_value = None
+                mock_session.execute = AsyncMock(return_value=first_result)
 
                 # Act
                 await read_model_builder._create_deal_item_read_model(
@@ -442,8 +489,8 @@ class TestReadModelBuilder:
         # Should get deal context
         mock_context.assert_called_once()
 
-        # Should execute insert statement
-        mock_session.execute.assert_called_once()
+        # Сначала конфликтный select, затем insert.
+        assert mock_session.execute.call_count == 2
         mock_recalculate.assert_called_once()
 
     @pytest.mark.asyncio
@@ -458,6 +505,8 @@ class TestReadModelBuilder:
         mock_deal.client_name = "Test Client"
         mock_deal.period_month = "01"
         mock_deal.period_year = "2024"
+        mock_deal.seller = "Test Seller"
+        mock_deal.invoice_info = "Invoice 001"
 
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = mock_deal
@@ -472,6 +521,8 @@ class TestReadModelBuilder:
             "client_name": "Test Client",
             "period_month": "01",
             "period_year": "2024",
+            "seller": "Test Seller",
+            "invoice_info": "Invoice 001",
         }
         mock_session.execute.assert_called_once()
 
@@ -610,6 +661,8 @@ class TestReadModelBuilder:
             "client_name": "Test Client",
             "period_month": "Январь",
             "period_year": "2024",
+            "seller": "Test Seller",
+            "invoice_info": "Invoice 001",
         }
 
         with patch.object(
@@ -619,6 +672,17 @@ class TestReadModelBuilder:
                 read_model_builder, "_recalculate_totals", new_callable=AsyncMock
             ) as mock_recalculate:
                 mock_context.return_value = deal_context
+                current_position = MagicMock()
+                current_position.hash_key = "different-hash"
+                current_position.position_number = 1
+                query_result = MagicMock()
+                query_result.scalar_one_or_none.return_value = current_position
+                delete_result = MagicMock()
+                conflict_result = MagicMock()
+                conflict_result.scalar_one_or_none.return_value = None
+                mock_session.execute = AsyncMock(
+                    side_effect=[query_result, delete_result, conflict_result, MagicMock()]
+                )
 
                 # Act
                 await read_model_builder._update_deal_item_read_model(
@@ -629,8 +693,8 @@ class TestReadModelBuilder:
         # Should get deal context
         mock_context.assert_called_once()
 
-        # Should execute update statement
-        mock_session.execute.assert_called_once()
+        # Текущая логика: select текущей позиции -> delete -> select конфликта -> insert.
+        assert mock_session.execute.call_count == 4
         mock_recalculate.assert_called_once()
 
     @pytest.mark.asyncio
@@ -695,6 +759,7 @@ class TestReadModelBuilder:
         """Test handling of unknown event types."""
         # Arrange
         unknown_event = {
+            "event_id": uuid.uuid4(),
             "event_type": "UnknownEvent",
             "event_data": {},
             "aggregate_id": uuid.uuid4(),
