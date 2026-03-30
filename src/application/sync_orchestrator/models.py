@@ -276,7 +276,7 @@ class SyncConfiguration(BaseModel):
     def is_partial_sync(self) -> bool:
         """Check if this is a partial sync (specific periods/sheets)."""
         return self.sync_type.lower() == "partial"
-        
+
     def get_target_periods(self) -> list[str]:
         """Get list of target periods for sync."""
         if self.is_full_sync():

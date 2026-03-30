@@ -171,6 +171,12 @@ class DealItem(BaseModel):
         
     
     @computed_field
+    def item_key(self) -> str:
+        """Return a human-readable item key used by validators and diagnostics."""
+        supplier = (self.supplier_name or "").strip()
+        return f"{self.product_name}|{supplier}" if supplier else self.product_name
+
+    @computed_field
     def hash_key(self) -> HashKey:
         """Compute lightweight hash key used for change detection.
 

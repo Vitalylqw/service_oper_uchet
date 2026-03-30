@@ -24,7 +24,7 @@ from src.application.data_validator import (
 from src.application.excel_parser import ParseResult
 from src.domain.models import Deal, DealItem, SyncSession, SyncType
 from src.domain.value_objects import Money, SignedMoney, Period, Status
-from tests.conftest import safe_cleanup_file
+from tests.conftest import build_test_deal, build_test_item, build_test_period, safe_cleanup_file
 
 
 # Global fixtures available to all test classes
@@ -37,29 +37,9 @@ def validator():
 @pytest.fixture
 def sample_deal():
     """Create sample valid deal."""
-    item1 = DealItem(
-        product_name="Товар 1",
-        supplier_name="Поставщик 1",
-        quantity=Decimal("10"),
-        purchase_price=Money(amount=Decimal("100")),
-        sale_price=Money(amount=Decimal("150")),
-        revenue=Money(amount=Decimal("1500")),
-        cost=Money(amount=Decimal("1000")),
-        margin=SignedMoney(amount=Decimal("500")),
-    )
-
-    item2 = DealItem(
-        product_name="Товар 2",
-        supplier_name="Поставщик 2",
-        quantity=Decimal("5"),
-        purchase_price=Money(amount=Decimal("200")),
-        sale_price=Money(amount=Decimal("300")),
-        revenue=Money(amount=Decimal("1500")),
-        cost=Money(amount=Decimal("1000")),
-        margin=SignedMoney(amount=Decimal("500")),
-    )
-
-    deal = Deal(
+    period = build_test_period(month="Январь", year="2025")
+    deal = build_test_deal(
+        period=period,
         client_name="Тестовый клиент",
         seller="Тестовый продавец",
         invoice_info="Счет №123 от 01.01.2025",
@@ -70,10 +50,33 @@ def sample_deal():
         total_revenue=Money(amount=Decimal("3000")),
         total_cost=Money(amount=Decimal("2000")),
         total_margin=SignedMoney(amount=Decimal("1000")),
-        period=Period(month="Январь", year="2025", full_name="Январь 2025"),
-        items=[item1, item2],
     )
-
+    item1 = build_test_item(
+        deal=deal,
+        position_number=1,
+        product_name="Товар 1",
+        supplier_name="Поставщик 1",
+        quantity=Decimal("10"),
+        purchase_price=Money(amount=Decimal("100")),
+        sale_price=Money(amount=Decimal("150")),
+        revenue=Money(amount=Decimal("1500")),
+        cost=Money(amount=Decimal("1000")),
+        margin=SignedMoney(amount=Decimal("500")),
+    )
+    item2 = build_test_item(
+        deal=deal,
+        position_number=2,
+        product_name="Товар 2",
+        supplier_name="Поставщик 2",
+        quantity=Decimal("5"),
+        purchase_price=Money(amount=Decimal("200")),
+        sale_price=Money(amount=Decimal("300")),
+        revenue=Money(amount=Decimal("1500")),
+        cost=Money(amount=Decimal("1000")),
+        margin=SignedMoney(amount=Decimal("500")),
+    )
+    deal.add_item(item1)
+    deal.add_item(item2)
     return deal
 
 
@@ -81,7 +84,10 @@ def sample_deal():
 def sample_parse_result(sample_deal):
     """Create sample ParseResult."""
     sync_session = SyncSession(
-        session_id="test-session", sync_type=SyncType.FULL, started_at="2025-01-01T10:00:00"
+        sync_type=SyncType.FULL,
+        source_file_path="/test/file.xlsx",
+        source_file_hash="testhash",
+        source_file_size=1024,
     )
 
     return ParseResult(
@@ -264,21 +270,7 @@ class TestDataValidatorBusinessLogic:
 
     def test_validate_deal_missing_client_name(self, validator, sample_parse_result):
         """Test validation of deal with missing client name."""
-        # Создаем новый Deal с невалидным client_name (пробелы)
-        invalid_deal = Deal(
-            client_name="   ",  # Только пробелы - будет обрезано валидатором
-            seller="Тестовый продавец",
-            invoice_info="Счет №123 от 01.01.2025",
-            invoice_number="123",
-            invoice_date="01.01.2025",
-            is_shipped=Status.SHIPPED,
-            is_paid=Status.PAID,
-            total_revenue=Money(amount=Decimal("3000")),
-            total_cost=Money(amount=Decimal("2000")),
-            total_margin=SignedMoney(amount=Decimal("1000")),
-            period=Period(month="Январь", year="2025", full_name="Январь 2025"),
-            items=sample_parse_result.deals[0].items,
-        )
+        invalid_deal = sample_parse_result.deals[0].model_copy(update={"client_name": "   "}, deep=True)
 
         # Create new parse result with invalid deal
         invalid_parse_result = ParseResult(
@@ -299,21 +291,7 @@ class TestDataValidatorBusinessLogic:
 
     def test_validate_deal_missing_invoice_info(self, validator, sample_parse_result):
         """Test validation of deal with missing invoice info."""
-        # Создаем новый Deal с невалидным invoice_info (пробелы)
-        invalid_deal = Deal(
-            client_name="Тестовый клиент",
-            seller="Тестовый продавец",
-            invoice_info="   ",  # Только пробелы
-            invoice_number="123",
-            invoice_date="01.01.2025",
-            is_shipped=Status.SHIPPED,
-            is_paid=Status.PAID,
-            total_revenue=Money(amount=Decimal("3000")),
-            total_cost=Money(amount=Decimal("2000")),
-            total_margin=SignedMoney(amount=Decimal("1000")),
-            period=Period(month="Январь", year="2025", full_name="Январь 2025"),
-            items=sample_parse_result.deals[0].items,
-        )
+        invalid_deal = sample_parse_result.deals[0].model_copy(update={"invoice_info": "   "}, deep=True)
 
         # Create new parse result with invalid deal
         invalid_parse_result = ParseResult(
@@ -335,21 +313,7 @@ class TestDataValidatorBusinessLogic:
 
     def test_validate_deal_no_items(self, validator, sample_parse_result):
         """Test validation of deal with no items."""
-        # Создаем новый Deal без items
-        invalid_deal = Deal(
-            client_name="Тестовый клиент",
-            seller="Тестовый продавец",
-            invoice_info="Счет №123 от 01.01.2025",
-            invoice_number="123",
-            invoice_date="01.01.2025",
-            is_shipped=Status.SHIPPED,
-            is_paid=Status.PAID,
-            total_revenue=Money(amount=Decimal("3000")),
-            total_cost=Money(amount=Decimal("2000")),
-            total_margin=SignedMoney(amount=Decimal("1000")),
-            period=Period(month="Январь", year="2025", full_name="Январь 2025"),
-            items=[],  # Пустой список items
-        )
+        invalid_deal = sample_parse_result.deals[0].model_copy(update={"items": tuple()}, deep=True)
 
         # Create new parse result with invalid deal
         invalid_parse_result = ParseResult(
@@ -371,32 +335,13 @@ class TestDataValidatorBusinessLogic:
 
     def test_validate_item_missing_product_name(self, validator, sample_parse_result):
         """Test validation of item with missing product name."""
-        # Создаем новый DealItem с невалидным product_name (пробелы)
-        invalid_item = DealItem(
-            product_name="   ",  # Только пробелы - будет обрезано валидатором
-            supplier_name="Поставщик 1",
-            quantity=Decimal("10"),
-            purchase_price=Money(amount=Decimal("100")),
-            sale_price=Money(amount=Decimal("150")),
-            revenue=Money(amount=Decimal("1500")),
-            cost=Money(amount=Decimal("1000")),
-            margin=SignedMoney(amount=Decimal("500")),
+        invalid_item = sample_parse_result.deals[0].items[0].model_copy(
+            update={"product_name": "   "},
+            deep=True,
         )
-
-        # Создаем новый Deal с невалидным item
-        invalid_deal = Deal(
-            client_name="Тестовый клиент",
-            seller="Тестовый продавец",
-            invoice_info="Счет №123 от 01.01.2025",
-            invoice_number="123",
-            invoice_date="01.01.2025",
-            is_shipped=Status.SHIPPED,
-            is_paid=Status.PAID,
-            total_revenue=Money(amount=Decimal("3000")),
-            total_cost=Money(amount=Decimal("2000")),
-            total_margin=SignedMoney(amount=Decimal("1000")),
-            period=Period(month="Январь", year="2025", full_name="Январь 2025"),
-            items=[invalid_item],
+        invalid_deal = sample_parse_result.deals[0].model_copy(
+            update={"items": (invalid_item,)},
+            deep=True,
         )
 
         # Create new parse result with invalid deal
@@ -418,33 +363,13 @@ class TestDataValidatorBusinessLogic:
 
     def test_validate_item_invalid_quantity(self, validator, sample_parse_result):
         """Test validation of item with invalid quantity."""
-        # Создаем новый DealItem с валидным quantity для создания объекта
-        # Отрицательное значение будет проверено валидатором
-        invalid_item = DealItem(
-            product_name="Товар 1",
-            supplier_name="Поставщик 1",
-            quantity=Decimal("0"),  # Используем 0 вместо -1 для создания объекта
-            purchase_price=Money(amount=Decimal("100")),
-            sale_price=Money(amount=Decimal("150")),
-            revenue=Money(amount=Decimal("1500")),
-            cost=Money(amount=Decimal("1000")),
-            margin=SignedMoney(amount=Decimal("500")),
+        invalid_item = sample_parse_result.deals[0].items[0].model_copy(
+            update={"quantity": Decimal("0")},
+            deep=True,
         )
-
-        # Создаем новый Deal с невалидным item
-        invalid_deal = Deal(
-            client_name="Тестовый клиент",
-            seller="Тестовый продавец",
-            invoice_info="Счет №123 от 01.01.2025",
-            invoice_number="123",
-            invoice_date="01.01.2025",
-            is_shipped=Status.SHIPPED,
-            is_paid=Status.PAID,
-            total_revenue=Money(amount=Decimal("3000")),
-            total_cost=Money(amount=Decimal("2000")),
-            total_margin=SignedMoney(amount=Decimal("1000")),
-            period=Period(month="Январь", year="2025", full_name="Январь 2025"),
-            items=[invalid_item],
+        invalid_deal = sample_parse_result.deals[0].model_copy(
+            update={"items": (invalid_item,)},
+            deep=True,
         )
 
         # Create new parse result with invalid deal
@@ -490,9 +415,10 @@ class TestDataValidatorFinancialValidation:
 
     def test_validate_revenue_mismatch(self, validator, sample_parse_result):
         """Test validation of revenue calculation mismatch."""
-        invalid_deal = sample_parse_result.deals[0].model_copy(deep=True)
-        # Set incorrect revenue that doesn't match quantity * sale_price
-        invalid_deal.items[0].revenue = Money(amount=Decimal("999"))
+        invalid_deal = sample_parse_result.deals[0].model_copy(
+            update={"total_revenue": Money(amount=Decimal("999"))},
+            deep=True,
+        )
 
         # Create new parse result with invalid deal
         invalid_parse_result = ParseResult(
@@ -510,9 +436,10 @@ class TestDataValidatorFinancialValidation:
 
     def test_validate_margin_mismatch(self, validator, sample_parse_result):
         """Test validation of margin calculation mismatch."""
-        invalid_deal = sample_parse_result.deals[0].model_copy(deep=True)
-        # Set incorrect margin that doesn't match revenue - cost
-        invalid_deal.items[0].margin = SignedMoney(amount=Decimal("999"))
+        invalid_deal = sample_parse_result.deals[0].model_copy(
+            update={"total_margin": SignedMoney(amount=Decimal("999"))},
+            deep=True,
+        )
 
         # Create new parse result with invalid deal
         invalid_parse_result = ParseResult(
@@ -530,9 +457,10 @@ class TestDataValidatorFinancialValidation:
 
     def test_validate_small_financial_differences_ignored(self, validator, sample_parse_result):
         """Test that small financial differences are ignored."""
-        invalid_deal = sample_parse_result.deals[0].model_copy(deep=True)
-        # Set small difference in revenue (within tolerance)
-        invalid_deal.items[0].revenue = Money(amount=Decimal("1500.01"))
+        invalid_deal = sample_parse_result.deals[0].model_copy(
+            update={"total_revenue": Money(amount=Decimal("3000.01"))},
+            deep=True,
+        )
 
         # Create new parse result with invalid deal
         invalid_parse_result = ParseResult(

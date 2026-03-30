@@ -10,6 +10,7 @@ import pytest
 from src.domain.models import Deal, DealItem
 from src.domain.models.sync_session import SyncResult, SyncType
 from src.domain.value_objects import Money, Status
+from tests.conftest import build_test_item
 
 
 @pytest.mark.unit
@@ -26,7 +27,7 @@ class TestDealItem:
 
     def test_deal_item_calculate_fields(self):
         """Test DealItem field calculations."""
-        item = DealItem(
+        item = build_test_item(
             product_name="Test Product",
             quantity=Decimal("10"),
             purchase_price=Money(amount=Decimal("100")),
@@ -50,10 +51,11 @@ class TestDealItem:
         assert hash_key.algorithm == "md5"
 
     def test_deal_item_key(self, sample_deal_item):
-        """Test DealItem unique key generation."""
+        """Test DealItem full hash key generation."""
         item = sample_deal_item
-        expected_key = "Тестовый товар|Тестовый поставщик"
-        assert item.item_key == expected_key
+        full_hash = item.get_full_hash_key("deal-key")
+        assert len(full_hash.value) == 32
+        assert full_hash.algorithm == "md5"
 
     def test_deal_item_validation_product_name(self):
         """Test DealItem validation for product name."""
@@ -115,13 +117,17 @@ class TestDeal:
         deal = sample_deal
 
         # Add items with known values
-        item1 = DealItem(
+        item1 = build_test_item(
+            deal=deal,
+            position_number=1,
             product_name="Item 1",
             revenue=Money(amount=Decimal("1000")),
             cost=Money(amount=Decimal("600")),
             margin=Money(amount=Decimal("400")),
         )
-        item2 = DealItem(
+        item2 = build_test_item(
+            deal=deal,
+            position_number=2,
             product_name="Item 2",
             revenue=Money(amount=Decimal("500")),
             cost=Money(amount=Decimal("300")),
@@ -132,10 +138,10 @@ class TestDeal:
         deal.add_item(item2)
         deal.calculate_totals()
 
-        # Check calculated totals
-        assert deal.total_revenue.amount == Decimal("1500.00")
-        assert deal.total_cost.amount == Decimal("900.00")
-        assert deal.total_margin.amount == Decimal("600.00")
+        # Check computed totals
+        assert deal.calc_revenue_amount.amount == Decimal("1500.00")
+        assert deal.calc_cost_amount.amount == Decimal("900.00")
+        assert deal.calc_margin_amount.amount == Decimal("600.00")
 
     def test_deal_hash_key(self, sample_deal):
         """Test Deal hash key generation."""
@@ -147,7 +153,7 @@ class TestDeal:
     def test_deal_key(self, sample_deal):
         """Test Deal unique key generation."""
         deal = sample_deal
-        expected_key = "Тестовый клиент|12345|01.05.2025|Тестовый продавец"
+        expected_key = "12345|01.05.2025|тестовый продавец|май 2025"
         assert deal.deal_key == expected_key
 
     def test_deal_validation_client_name(self, sample_period):

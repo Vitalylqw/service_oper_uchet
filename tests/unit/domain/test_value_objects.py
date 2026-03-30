@@ -105,13 +105,14 @@ class TestPeriod:
             Period(month="Invalid", year="2025", full_name="Invalid 2025")
 
     def test_period_invalid_year_error(self):
-        """Test error with invalid year."""
-        with pytest.raises(ValueError, match="Year must be 4 digits"):
-            Period(month="Май", year="25", full_name="Май 25")
+        """Test two-digit year normalization."""
+        period = Period(month="Май", year="25", full_name="Май 25")
+        assert period.year == "2025"
+        assert period.full_name == "Май 25"
 
     def test_period_year_out_of_range_error(self):
         """Test error with year out of range."""
-        with pytest.raises(ValueError, match="Year must be between 2020 and 2030"):
+        with pytest.raises(ValueError, match="Year must be between 2010 and 2040"):
             Period(month="Май", year="2050", full_name="Май 2050")
 
     def test_period_string_representation(self):

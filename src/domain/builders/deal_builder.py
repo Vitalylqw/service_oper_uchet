@@ -12,8 +12,8 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Optional
 
-from domain.models.deal import Deal
-from domain.value_objects.common import Money, Period, SignedMoney, Status
+from ..models.deal import Deal
+from ..value_objects.common import Money, Period, SignedMoney, Status
 
 
 @dataclass
@@ -102,6 +102,5 @@ class DealBuilder:
             seller=self.seller,  # type: ignore[arg-type]
         )
         return deal
-
 
 
