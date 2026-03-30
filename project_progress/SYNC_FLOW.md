@@ -203,7 +203,9 @@
 
 - история изменений хранится только в `event_store`;
 - отдельный read-side аудит `read_audit` не используется в основном потоке;
-- cleanup кода и удаление legacy-таблицы выполняются отдельными шагами.
+- cleanup кода и удаление legacy-таблицы были вынесены в отдельные шаги;
+- active history Alembic уже содержит миграцию `0002_drop_read_audit.py`, но в legacy-БД таблица
+  может присутствовать до применения `alembic upgrade head`.
 
 ### 3. `read_stats` поддерживается частично
 
@@ -233,4 +235,3 @@
 - `python scripts/test/test_sync_integration.py --sync-type full --log-level INFO`
 - `python dashboard/create_db_snapshot.py --label before_check`
 - `python dashboard/generate_dashboard.py --mode latest`
-

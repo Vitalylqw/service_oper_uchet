@@ -123,7 +123,8 @@ Excel
 
 - история изменений хранится только в `event_store`;
 - отдельная таблица `read_audit` признана лишней для текущего atomic sync flow;
-- legacy-таблица удаляется отдельной миграцией, чтобы cleanup кода и DDL были разделены.
+- active schema удаляет её отдельной миграцией `0002_drop_read_audit.py`, при этом в legacy-БД
+  таблица может сохраняться до применения `alembic upgrade head`.
 
 ### `read_stats`
 

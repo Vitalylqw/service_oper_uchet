@@ -4,7 +4,7 @@
 
 `Service Oper Uchet` синхронизирует данные из Excel-книги с базой данных и строит read-модели для
 быстрого чтения и проверки результата. Целевое поведение и ограничения зафиксированы в
-`.cursor/rules/project_goals.md`.
+`project_goals.md`.
 
 Главный результат работы системы:
 
@@ -23,7 +23,8 @@
 - read model builder;
 - dashboard и snapshot-скрипты для контроля целостности;
 - unit/integration тесты;
-- CLI-обёртка `so-uchet` (в разработке).
+- CLI-обёртка `so-uchet` в частично реализованном состоянии: группы `db` и `sync` уже есть,
+  `snapshot/dashboard` остаются в отдельных скриптах.
 
 Вне активного scope:
 
@@ -46,7 +47,7 @@
 - `src/infrastructure/database/models.py` — SQLAlchemy модели.
 - `src/infrastructure/workers/read_model_builder.py` — применение событий к read-моделям.
 - `src/infrastructure/workers/simple_position_sync.py` — упрощенная синхронизация позиций.
-- `src/cli/` — CLI-обёртка `so-uchet` (presentation layer, в разработке).
+- `src/cli/` — CLI-обёртка `so-uchet` (presentation layer, сейчас реализованы `db` и `sync`).
 
 ## Поток данных
 
@@ -69,7 +70,7 @@ migrations/            # Alembic миграции
 plans/                 # детальные планы этапов
 project_progress/      # обзор, план, статус, журнал, sync flow
 scripts/test/          # ручные проверочные сценарии и bat-обертки
-src/cli/               # CLI-обёртка so-uchet (в разработке)
+src/cli/               # CLI-обёртка so-uchet (`db` и `sync`; без snapshot/dashboard)
 tests/                 # unit и integration тесты
 ```
 
