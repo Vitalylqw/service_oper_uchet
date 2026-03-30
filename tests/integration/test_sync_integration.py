@@ -21,6 +21,7 @@ from src.application.sync_orchestrator.models import SyncConfiguration
 from src.domain.interfaces import DealRepository, EventStore, SyncSessionRepository
 from src.domain.models import Deal, DealItem, SyncSession, SyncType
 from src.domain.value_objects import Money, Period, Status
+from tests.conftest import build_test_deal, build_test_item
 
 
 def safe_cleanup_file(file_path: str | Path) -> None:
@@ -371,27 +372,45 @@ class TestSyncIntegration:
         # Arrange - create Excel deals
         period = Period(month="Январь", year="2024", full_name="Январь 2024")
 
-        excel_deal = Deal(client_name="Тестовый клиент", invoice_info="Счет 001", period=period)
-        excel_deal.seller = "Продавец 1"
-        excel_deal.total_revenue = Money(amount=Decimal("100000.00"))
-
-        item = DealItem(product_name="Товар 1")
-        item.quantity = Decimal("10")
-        item.supplier_name = "Поставщик А"
+        excel_deal = build_test_deal(
+            period=period,
+            explicit_id=uuid.uuid4(),
+            client_name="Тестовый клиент",
+            invoice_info="Счет 001",
+            seller="Продавец 1",
+            total_revenue=Money(amount=Decimal("100000.00")),
+        )
+        item = build_test_item(
+            deal=excel_deal,
+            explicit_id=uuid.uuid4(),
+            position_number=1,
+            product_name="Товар 1",
+            quantity=Decimal("10"),
+            supplier_name="Поставщик А",
+        )
         excel_deal.add_item(item)
 
         # Create slightly different DB deal
-        db_deal = Deal(client_name="Тестовый клиент", invoice_info="Счет 001", period=period)
-        db_deal.id = excel_deal.id
-        # Don't set deal_key directly - it's computed from other fields
-        db_deal.seller = excel_deal.seller  # Keep same seller to maintain same deal_key
-        db_deal.total_revenue = Money(amount=Decimal("90000.00"))  # Changed
+        db_deal = build_test_deal(
+            period=period,
+            explicit_id=excel_deal.id,
+            client_name="Тестовый клиент",
+            invoice_info="Счет 001",
+            invoice_number=excel_deal.invoice_number,
+            invoice_date=excel_deal.invoice_date,
+            seller=excel_deal.seller,
+            total_revenue=Money(amount=Decimal("90000.00")),
+        )
         db_deal.kickback_amount = Money(amount=Decimal("5000.00"))  # Changed field for testing
 
-        db_item = DealItem(product_name="Товар 1")
-        db_item.id = item.id
-        db_item.quantity = Decimal("12")  # Changed
-        db_item.supplier_name = "Поставщик А"
+        db_item = build_test_item(
+            deal=db_deal,
+            explicit_id=item.id,
+            position_number=1,
+            product_name="Товар 1",
+            quantity=Decimal("12"),
+            supplier_name="Поставщик А",
+        )
         db_deal.add_item(db_item)
 
         # Mock repository response
@@ -401,8 +420,8 @@ class TestSyncIntegration:
         result = await change_detector.detect_changes([excel_deal], sync_period_months=3)
 
         # Assert
-        assert result.total_changes == 2  # Deal + item updated
-        assert result.update_count == 2
+        assert result.total_changes == 1  # Position change promoted to deal update
+        assert result.update_count == 1
         assert result.insertion_count == 0
         assert result.deletion_count == 0
 
@@ -413,10 +432,8 @@ class TestSyncIntegration:
         assert "kickback_amount" in deal_change.field_changes  # This field was changed
         assert "total_revenue" in deal_change.field_changes
 
-        item_changes = result.get_item_changes()
-        assert len(item_changes) == 1
-        item_change = item_changes[0]
-        assert "quantity" in item_change.field_changes
+        assert result.get_item_changes() == []
+        assert "items" in deal_change.field_changes
 
     async def test_performance_metrics_integration(self, sync_orchestrator, sample_excel_file):
         """Test performance metrics collection across all sync phases."""

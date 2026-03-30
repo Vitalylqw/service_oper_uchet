@@ -75,13 +75,9 @@ class ChangeDetectorService:
                 excel_deals, db_deals, excel_hashes, db_hashes
             )
 
-            # Detect item changes
-            item_changes = await self._detect_item_changes(
-                excel_deals, db_deals, excel_hashes, db_hashes
-            )
-
-            # Categorize changes
-            all_changes = deal_changes + item_changes
+            # Main sync decision path works only at deal level:
+            # any meaningful position change must surface as a deal change.
+            all_changes = deal_changes
             result.insertions = [c for c in all_changes if c.change_type == ChangeType.INSERT]
             result.updates = [c for c in all_changes if c.change_type == ChangeType.UPDATE]
             result.deletions = [c for c in all_changes if c.change_type == ChangeType.DELETE]
@@ -142,22 +138,14 @@ class ChangeDetectorService:
         """
         Build hash cache for fast entity comparison.
 
-        Creates hashes for both deals and their items.
+        Creates hashes only for deals because the main sync path
+        makes decisions on whole-deal rewrites.
         """
         cache = HashComparisonCache()
 
         for deal in deals:
-            # Hash deal
             deal_hash = self._calculate_deal_hash(deal)
-            # Use hash_deal_key for fast comparison if available
-            cache_key = getattr(deal, '_hash_deal_key', deal.deal_key)
-            cache.set_hash(cache_key, deal_hash)
-
-            # Hash items
-            for item in deal.items:
-                item_key = self._get_item_key(deal, item)
-                item_hash = self._calculate_item_hash(item)
-                cache.set_hash(item_key, item_hash)
+            cache.set_hash(deal.deal_key, deal_hash)
 
         logger.debug(f"Built hash cache with {cache.entity_count} entities")
         return cache
@@ -316,41 +304,9 @@ class ChangeDetectorService:
 
     def _calculate_deal_hash(self, deal: Deal) -> str:
         """Calculate hash for deal entity."""
-        # Build normalized dictionary for hashing based on agreed fields
-        from decimal import Decimal
-        def _fmt_money(val: Decimal | None, scale: str) -> str | None:
-            if val is None:
-                return None
-            q = Decimal(scale)
-            return str(val.quantize(q))
-
-        total_items = len(getattr(deal, 'items', []) or [])
-        total_qty = None
-        try:
-            if getattr(deal, 'items', None):
-                qty_vals = [i.quantity for i in deal.items if getattr(i, 'quantity', None)]
-                if qty_vals:
-                    from decimal import Decimal as _D
-                    total_qty = sum(_D(str(v)) for v in qty_vals)
-        except Exception:
-            total_qty = None
-
-        deal_dict = {
-            "invoice_info": (deal.invoice_info or "").strip().lower(),
-            "period_full_name": str(deal.period),
-            "upd_number": (deal.upd_number or "").strip().lower(),
-            "is_shipped": deal.is_shipped.value if deal.is_shipped else None,
-            "is_paid": deal.is_paid.value if deal.is_paid else None,
-            "seller": (deal.seller or "").strip().lower(),
-            "total_revenue_amount": _fmt_money(deal.total_revenue.amount if deal.total_revenue else None, '0.01'),
-            "total_margin_amount": _fmt_money(deal.total_margin.amount if deal.total_margin else None, '0.01'),
-            "total_cost_amount": _fmt_money(deal.total_cost.amount if deal.total_cost else None, '0.01'),
-            "kickback_amount_value": _fmt_money(deal.kickback_amount.amount if deal.kickback_amount else None, '0.01'),
-            "items_count": total_items,
-            "total_quantity": _fmt_money(total_qty, '0.000'),
-        }
-
-        return HashKey.from_dict(deal_dict).value
+        # Reuse the domain-level deal hash so any position change
+        # bubbles up to a whole-deal rewrite decision.
+        return deal.hash_key.value
 
     def _calculate_item_hash(self, item: DealItem) -> str:
         """Calculate hash for deal item entity."""
@@ -414,6 +370,18 @@ class ChangeDetectorService:
 
             if old_amount != new_amount:
                 changes[field] = {"old_value": old_amount, "new_value": new_amount}
+
+        old_item_hashes = tuple(
+            item.hash_key.value for item in sorted(old_deal.items, key=lambda item: item.position_number)
+        )
+        new_item_hashes = tuple(
+            item.hash_key.value for item in sorted(new_deal.items, key=lambda item: item.position_number)
+        )
+        if old_item_hashes != new_item_hashes:
+            changes["items"] = {
+                "old_value": old_item_hashes,
+                "new_value": new_item_hashes,
+            }
 
         return changes
 

@@ -18,6 +18,7 @@ from src.application.sync_orchestrator import SyncOrchestratorService
 from src.application.sync_orchestrator.models import SyncConfiguration, SyncResult
 from src.domain.interfaces import EventStore, SyncSessionRepository
 from src.domain.value_objects import Status
+from tests.conftest import build_test_deal, build_test_item
 
 
 @pytest.mark.unit
@@ -126,6 +127,7 @@ class TestSyncOrchestratorService:
         self,
         orchestrator,
         mock_excel_parser,
+        mock_change_detector,
         mock_event_store,
         mock_sync_session_repository,
         full_sync_config,
@@ -133,9 +135,12 @@ class TestSyncOrchestratorService:
     ):
         """Test successful full synchronization."""
         # Arrange
+        from src.application.change_detector.models import ChangeDetectionResult
+
         file_path = "test.xlsx"
         mock_sync_session_repository.get_running_session.return_value = None
         mock_excel_parser.parse_file.return_value = sample_parse_result
+        mock_change_detector.detect_changes.return_value = ChangeDetectionResult()
 
         # Act
         result = await orchestrator.execute_sync(file_path, full_sync_config)
@@ -143,15 +148,15 @@ class TestSyncOrchestratorService:
         # Assert
         assert isinstance(result, SyncResult)
         assert result.summary.success is True
-        assert result.summary.total_deals_processed == 0  # Empty deals list
-        assert result.summary.total_items_processed == 0  # Empty deals list
+        assert result.summary.total_deals_processed == 0
+        assert result.summary.total_items_processed == 0
         assert result.summary.insertions_count == 0  # No deals to insert
         assert result.summary.updates_count == 0
         assert result.summary.deletions_count == 0
         assert result.parse_result == sample_parse_result
 
         # Verify session lifecycle
-        mock_sync_session_repository.save.assert_called()
+        mock_sync_session_repository.save_visible.assert_called()
         mock_excel_parser.parse_file.assert_called_once()
 
     async def test_execute_sync_incremental_success(
@@ -182,7 +187,8 @@ class TestSyncOrchestratorService:
 
         # Verify change detection was called
         mock_change_detector.detect_changes.assert_called_once_with(
-            sample_parse_result.deals, incremental_sync_config.incremental_period_months
+            sample_parse_result.deals,
+            sync_period_months=0,
         )
 
     async def test_execute_sync_running_session_error(
@@ -266,7 +272,7 @@ class TestSyncOrchestratorService:
         assert session.sync_type == SyncType.FULL
         assert session.source_file_path == file_path
         assert session.is_running
-        mock_sync_session_repository.save.assert_called_once_with(session)
+        mock_sync_session_repository.save_visible.assert_called_once_with(session)
 
     async def test_create_sync_session_incremental(
         self, orchestrator, mock_sync_session_repository, incremental_sync_config
@@ -298,7 +304,7 @@ class TestSyncOrchestratorService:
         # Assert
         assert sync_session.status == Status.COMPLETED
         assert sync_session.finished_at is not None
-        mock_sync_session_repository.save.assert_called_once_with(sync_session)
+        mock_sync_session_repository.save_visible.assert_called_once_with(sync_session)
 
     async def test_complete_sync_session_failure(self, orchestrator, mock_sync_session_repository):
         """Test sync session completion with failure."""
@@ -349,11 +355,12 @@ class TestSyncOrchestratorService:
         # Assert
         mock_event_store.append_events.assert_not_called()
 
-    async def test_apply_changes_full_sync(
+    async def test_apply_changes_creates_events_from_detected_changes(
         self, orchestrator, mock_event_store, sample_parse_result
     ):
-        """Test applying changes for full sync."""
+        """Test applying changes from the current unified event path."""
         # Arrange
+        from src.application.change_detector.models import ChangeDetectionResult
         from src.application.sync_orchestrator.models import SyncSummary
 
         config = SyncConfiguration(sync_type="full", create_events=True)
@@ -372,10 +379,11 @@ class TestSyncOrchestratorService:
             sync_type="full",
             summary=summary,
             parse_result=sample_parse_result,
+            change_detection_result=ChangeDetectionResult(),
         )
 
         # Mock event creation
-        orchestrator._create_full_sync_events = AsyncMock(
+        orchestrator._create_incremental_sync_events = AsyncMock(
             return_value=[
                 {"event_type": "DealCreated", "aggregate_id": uuid.uuid4()},
                 {"event_type": "DealItemAdded", "aggregate_id": uuid.uuid4()},
@@ -458,17 +466,27 @@ class TestSyncOrchestratorService:
         # Arrange
         from decimal import Decimal
 
-        from src.domain.models import Deal, DealItem
         from src.domain.value_objects import Money, Period
 
         period = Period(month="Январь", year="2024", full_name="Январь 2024")
-        deal = Deal(client_name="Test Client", invoice_info="Invoice 1", period=period)
-        deal.id = uuid.uuid4()
+        deal = build_test_deal(
+            period=period,
+            explicit_id=uuid.uuid4(),
+            client_name="Test Client",
+            invoice_info="Invoice 1",
+            invoice_number="INV-1",
+            invoice_date="2024-01-01",
+            seller="Seller A",
+        )
         deal.total_revenue = Money(amount=Decimal("1000.00"))
 
-        item = DealItem(product_name="Test Product")
-        item.id = uuid.uuid4()
-        item.sale_price = Money(amount=Decimal("500.00"))
+        item = build_test_item(
+            deal=deal,
+            explicit_id=uuid.uuid4(),
+            position_number=1,
+            product_name="Test Product",
+            sale_price=Money(amount=Decimal("500.00")),
+        )
         deal.add_item(item)
 
         from src.application.excel_parser.models import ParseResult, ParseStats
@@ -868,12 +886,12 @@ class TestSyncOrchestratorService:
         # Test full sync
         full_config = SyncConfiguration(sync_type="full")
         assert full_config.is_full_sync() is True
-        assert full_config.is_incremental_sync() is False
+        assert full_config.is_partial_sync() is False
 
-        # Test incremental sync
-        incremental_config = SyncConfiguration(sync_type="incremental")
-        assert incremental_config.is_full_sync() is False
-        assert incremental_config.is_incremental_sync() is True
+        # Test partial sync
+        partial_config = SyncConfiguration(sync_type="partial")
+        assert partial_config.is_full_sync() is False
+        assert partial_config.is_partial_sync() is True
 
         # Test case insensitive
         full_config_upper = SyncConfiguration(sync_type="FULL")

@@ -30,7 +30,7 @@
 
 Ключевой момент текущей реализации:
 
-- и `full`, и `incremental` проходят через фазу `detect_changes`;
+- и `full`, и `partial` проходят через фазу `detect_changes`;
 - оркестратор в рабочем пути создает события через `_create_incremental_sync_events()`;
 - фактический основной event format для вставки и обновления сделки — `DealWithPositionsCreated`;
 - удаление сделки оформляется как `DealDeleted`.
@@ -74,14 +74,15 @@
 `ChangeDetectorService.detect_changes(excel_deals, sync_period_months=0)`:
 
 - загружает сделки из БД для периодов, присутствующих в Excel;
-- считает hash для сделок и позиций;
+- считает change hash на уровне сделки;
 - находит insert, update, delete;
 - для update дополнительно формирует `field_changes`.
 
 Что важно:
 
 - сравнение идет по `deal_key` для сделок;
-- сравнение позиций строится через `item.get_full_hash_key(deal.deal_key)`;
+- hash сделки учитывает и сами позиции внутри сделки;
+- любое изменение позиции в рабочем sync path должно поднимать `deal UPDATE`;
 - удаление определяется как отсутствие сущности из Excel в текущей выборке БД по тем же периодам.
 
 Результат:
@@ -135,13 +136,9 @@
 - `DealUpdated` -> обновление отдельных полей сделки;
 - `DealDeleted` -> жесткое удаление сделки и ее позиций.
 
-Поддерживаемые item-события:
-
-- `DealItemAdded`;
-- `DealItemUpdated`;
-- `DealItemDeleted`.
-
-Но для текущего основного orchestrator-пути item-события не являются главным сценарием.
+Поддерживаемые item-события в `ReadModelBuilder` есть, но основной orchestrator-path их не создает.
+Главный runtime-контракт сейчас такой: изменение позиции должно проявиться как изменение сделки
+и привести к `DealWithPositionsCreated`.
 
 ### 7. Атомарная синхронизация сделки
 
@@ -236,5 +233,4 @@
 - `python scripts/test/test_sync_integration.py --sync-type full --log-level INFO`
 - `python dashboard/create_db_snapshot.py --label before_check`
 - `python dashboard/generate_dashboard.py --mode latest`
-
 
