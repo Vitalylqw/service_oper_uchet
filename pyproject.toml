@@ -11,7 +11,7 @@ where = ["src"]
 [project]
 name = "service-oper-uchet"
 version = "0.1.0"
-description = "Система учета операций для парсинга Excel и загрузки в MS SQL Server"
+description = "Excel-to-PostgreSQL synchronization service with event store and read models"
 authors = [
     {name = "Developer", email = "developer@example.com"},
 ]
@@ -71,9 +71,9 @@ ml = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/username/service-oper-uchet"
-"Bug Reports" = "https://github.com/username/service-oper-uchet/issues"
-"Source" = "https://github.com/username/service-oper-uchet"
+"Homepage" = "https://github.com/Vitalylqw/service_oper_uchet"
+"Bug Reports" = "https://github.com/Vitalylqw/service_oper_uchet/issues"
+"Source" = "https://github.com/Vitalylqw/service_oper_uchet"
 
 # Ruff configuration
 [tool.ruff]
