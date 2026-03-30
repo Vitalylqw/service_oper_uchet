@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Service Oper Uchet daily Excel fetch and sync at 06:00
+
+[Timer]
+OnCalendar=*-*-* 06:00:00
+Persistent=true
+Unit=so-uchet-daily-sync.service
+
+[Install]
+WantedBy=timers.target

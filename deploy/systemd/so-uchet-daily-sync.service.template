@@ -1,0 +1,27 @@
+[Unit]
+Description=Service Oper Uchet daily Excel fetch and sync
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=__PROJECT_ROOT__/scripts/host/run_daily_fetch_and_sync.sh
+ConditionPathExists=__ENV_FILE__
+
+[Service]
+Type=oneshot
+User=__SERVICE_USER__
+Group=__SERVICE_GROUP__
+WorkingDirectory=__PROJECT_ROOT__
+Environment=SO_UCHET_VENV=__VENV_PATH__
+Environment=SO_UCHET_ENV_FILE=__ENV_FILE__
+Environment=PYTHONUNBUFFERED=1
+ExecStart=__PROJECT_ROOT__/scripts/host/run_daily_fetch_and_sync.sh
+KillSignal=SIGINT
+TimeoutStartSec=12h
+StandardOutput=append:/var/log/so-uchet/daily-sync.log
+StandardError=append:/var/log/so-uchet/daily-sync.log
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=__PROJECT_ROOT__ /var/log/so-uchet
+
+[Install]
+WantedBy=multi-user.target

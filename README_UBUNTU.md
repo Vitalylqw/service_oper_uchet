@@ -47,6 +47,30 @@ python scripts/test/test_excel_parsing.py
 python scripts/test/test_sync_integration.py --sync-type full --log-level INFO
 ```
 
+## Запуск на хост-машине вне devcontainer
+
+Для постоянного запуска на текущей Ubuntu-машине добавлена отдельная host-обвязка:
+
+- host virtualenv `.host-venv`
+- wrapper-команда `so-uchet-host`
+- `systemd` timer на 06:00
+- file logging в `/var/log/so-uchet/`
+- `logrotate` с retention 7 дней
+
+Краткий сценарий:
+
+```bash
+cp config.host.env.example config.host.env
+sudo apt-get install -y smbclient
+sudo ./scripts/host/install_host_runtime.sh
+so-uchet-host db test
+systemctl status so-uchet-daily-sync.timer
+```
+
+Подробная инструкция:
+
+- `docs/HOST_RUNTIME.md`
+
 ## Snapshot и dashboard
 
 ```bash
