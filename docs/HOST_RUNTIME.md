@@ -8,7 +8,7 @@
 
 - CLI доступен как отдельная команда на хосте;
 - ежедневный job запускается через `systemd` в `06:00`;
-- последовательность фиксирована: `fetch_excel_from_smb.py` -> `so-uchet sync full`;
+- последовательность фиксирована: `fetch_excel_from_smb.py` -> `so-uchet sync full` -> `so-uchet snapshot create`;
 - выполнение не зависит от открытого терминала или VS Code;
 - Python-окружение живёт локально в проекте как `.venv`;
 - конфигурация берётся из основного `config.env`;
@@ -181,8 +181,10 @@ sudo systemctl start so-uchet-daily-sync.service
 
 1. `python scripts/services/fetch_excel_from_smb.py`
 2. `so-uchet sync full --log-level INFO`
+3. `so-uchet snapshot create --label daily_YYYYMMDD_HHMMSS --source daily_sync`
 
-Если `fetch` завершился с ошибкой, синхронизация не запускается.
+Каждый шаг выполняется только при успехе предыдущего (`set -Eeuo pipefail`).
+Snapshot создаётся автоматически после успешной синхронизации с меткой `daily_sync`.
 
 ## Логи
 
@@ -269,4 +271,5 @@ sudo ./scripts/host/install_host_runtime.sh --skip-pip-install
 so-uchet-host db test
 python scripts/services/fetch_excel_from_smb.py
 so-uchet-host sync full --log-level INFO
+so-uchet-host snapshot create --label manual_check
 ```

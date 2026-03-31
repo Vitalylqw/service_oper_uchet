@@ -182,6 +182,22 @@
 - `sync_sessions` содержит факт прогона;
 - read-модели и `event_store` отражают результат обработки.
 
+### 10. Автоматический snapshot после синхронизации
+
+При ежедневном запуске через systemd (`run_daily_fetch_and_sync.sh`), после успешного
+завершения sync автоматически создаётся DB snapshot:
+
+- вызывается `so-uchet snapshot create --label daily_YYYYMMDD_HHMMSS --source daily_sync`;
+- snapshot фиксирует агрегированные метрики `read_deals` и `read_positions`;
+- результат сохраняется в таблицу `db_snapshots`;
+- snapshot создаётся только при успехе синхронизации.
+
+Это позволяет:
+
+- отслеживать динамику данных день ко дню;
+- сравнивать snapshot-ы через `dashboard compare`;
+- быстро обнаруживать аномалии после sync.
+
 ## Что хранится в результате
 
 - `sync_sessions` — история запусков синхронизации;

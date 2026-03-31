@@ -218,6 +218,7 @@ source ./config.env
 set +a
 ./.venv/bin/python scripts/services/fetch_excel_from_smb.py
 so-uchet-host sync full --log-level INFO
+so-uchet-host snapshot create --label after_manual_sync --source manual
 ```
 
 ### Проверка результата после sync
@@ -225,7 +226,18 @@ so-uchet-host sync full --log-level INFO
 ```bash
 so-uchet-host sync status
 so-uchet-host sync list --limit 10
-so-uchet-host snapshot create --label after_manual_sync
+so-uchet-host snapshot list --limit 5
+```
+
+### Автоматический snapshot после daily sync
+
+При ежедневном запуске через systemd snapshot создаётся автоматически
+после успешной синхронизации с меткой `daily_YYYYMMDD_HHMMSS` и источником `daily_sync`.
+
+Посмотреть последние автоматические snapshot-ы:
+
+```bash
+so-uchet-host snapshot list --limit 10
 ```
 
 ## Что меняет состояние системы

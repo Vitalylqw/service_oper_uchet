@@ -88,3 +88,7 @@ run_command "${SO_UCHET_VENV}/bin/python" "${SO_UCHET_FETCH_SCRIPT}"
 log "Excel copy completed successfully"
 run_command "${SYNC_COMMAND[@]}"
 log "Synchronization completed successfully"
+run_command "${SO_UCHET_CLI_WRAPPER}" snapshot create \
+    --label "daily_$(date '+%Y%m%d_%H%M%S')" \
+    --source "daily_sync"
+log "Post-sync DB snapshot created"
