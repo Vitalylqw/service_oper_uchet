@@ -7,8 +7,8 @@ PROJECT_ROOT="$(cd "$(dirname "${SCRIPT_PATH}")/../.." && pwd)"
 SERVICE_NAME="so-uchet-daily-sync"
 INSTALL_USER="${SUDO_USER:-${USER}}"
 INSTALL_GROUP="$(id -gn "${INSTALL_USER}")"
-VENV_PATH="${PROJECT_ROOT}/.host-venv"
-ENV_FILE="${PROJECT_ROOT}/config.host.env"
+VENV_PATH="${PROJECT_ROOT}/.venv"
+ENV_FILE="${PROJECT_ROOT}/config.env"
 BIN_NAME="so-uchet-host"
 SKIP_PIP_INSTALL=0
 
@@ -142,7 +142,7 @@ main() {
 
     if [[ ! -f "${ENV_FILE}" ]]; then
         echo "Env file not found: ${ENV_FILE}" >&2
-        echo "Create it from ${PROJECT_ROOT}/config.host.env.example before installation." >&2
+        echo "Create or update ${PROJECT_ROOT}/config.env before installation." >&2
         exit 1
     fi
 

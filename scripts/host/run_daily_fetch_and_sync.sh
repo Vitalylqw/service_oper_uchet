@@ -3,8 +3,8 @@ set -Eeuo pipefail
 
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
 PROJECT_ROOT="$(cd "$(dirname "${SCRIPT_PATH}")/../.." && pwd)"
-SO_UCHET_VENV="${SO_UCHET_VENV:-${PROJECT_ROOT}/.host-venv}"
-SO_UCHET_ENV_FILE="${SO_UCHET_ENV_FILE:-${PROJECT_ROOT}/config.host.env}"
+SO_UCHET_VENV="${SO_UCHET_VENV:-${PROJECT_ROOT}/.venv}"
+SO_UCHET_ENV_FILE="${SO_UCHET_ENV_FILE:-${PROJECT_ROOT}/config.env}"
 SO_UCHET_FETCH_SCRIPT="${SO_UCHET_FETCH_SCRIPT:-${PROJECT_ROOT}/scripts/services/fetch_excel_from_smb.py}"
 SO_UCHET_CLI_WRAPPER="${SO_UCHET_CLI_WRAPPER:-${PROJECT_ROOT}/scripts/host/run_host_cli.sh}"
 SO_UCHET_SYNC_LOG_LEVEL="${SO_UCHET_SYNC_LOG_LEVEL:-INFO}"

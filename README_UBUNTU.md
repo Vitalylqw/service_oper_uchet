@@ -51,7 +51,7 @@ python scripts/test/test_sync_integration.py --sync-type full --log-level INFO
 
 Для постоянного запуска на текущей Ubuntu-машине добавлена отдельная host-обвязка:
 
-- host virtualenv `.host-venv`
+- локальный virtualenv проекта `.venv`
 - wrapper-команда `so-uchet-host`
 - `systemd` timer на 06:00
 - file logging в `/var/log/so-uchet/`
@@ -60,8 +60,10 @@ python scripts/test/test_sync_integration.py --sync-type full --log-level INFO
 Краткий сценарий:
 
 ```bash
-cp config.host.env.example config.host.env
-sudo apt-get install -y smbclient
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+sudo apt-get install -y python3-venv smbclient logrotate
 sudo ./scripts/host/install_host_runtime.sh
 so-uchet-host db test
 systemctl status so-uchet-daily-sync.timer

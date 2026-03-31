@@ -10,27 +10,25 @@
 - ежедневный job запускается через `systemd` в `06:00`;
 - последовательность фиксирована: `fetch_excel_from_smb.py` -> `so-uchet sync full`;
 - выполнение не зависит от открытого терминала или VS Code;
+- Python-окружение живёт локально в проекте как `.venv`;
+- конфигурация берётся из основного `config.env`;
 - логи пишутся в `/var/log/so-uchet/` и ротируются за 7 дней.
 
 ## Что добавлено в репозиторий
 
 - `scripts/host/run_host_cli.sh` - wrapper для запуска CLI в host-venv
+- `config.env` - основной runtime-конфиг для запуска с хоста
 - `scripts/host/run_daily_fetch_and_sync.sh` - daily pipeline fetch -> sync
 - `scripts/host/install_host_runtime.sh` - установка venv, wrapper, systemd timer и logrotate
 - `deploy/systemd/so-uchet-daily-sync.service.template`
 - `deploy/systemd/so-uchet-daily-sync.timer.template`
 - `deploy/logrotate/so-uchet.template`
-- `config.host.env.example`
 
 ## Подготовка
 
-### 1. Создать host env-файл
+### 1. Подготовить `config.env`
 
-```bash
-cp config.host.env.example config.host.env
-```
-
-Проверьте как минимум:
+Для хостового запуска в `config.env` должны быть как минимум:
 
 - `DB_HOST=127.0.0.1`
 - `DB_PORT=5432`
@@ -38,7 +36,7 @@ cp config.host.env.example config.host.env
 - `SMB_USERNAME`
 - `SMB_PASSWORD`
 
-`DB_HOST=127.0.0.1` нужен для запуска с хоста, потому что `config.env` ориентирован на docker hostname `so_pg`.
+`DB_HOST=127.0.0.1` нужен для запуска с хоста.
 
 ### 2. Проверить доступность PostgreSQL на хосте
 
@@ -59,7 +57,7 @@ sudo ./scripts/host/install_host_runtime.sh
 
 Что делает installer:
 
-- создаёт virtualenv `.host-venv`;
+- создаёт или использует локальный virtualenv `.venv`;
 - устанавливает проект в editable-режиме;
 - создаёт wrapper `/usr/local/bin/so-uchet-host`;
 - разворачивает `systemd` unit и timer;
@@ -78,7 +76,7 @@ so-uchet-host sync list --limit 20
 Если нужен другой env-файл или другой venv, можно переопределить:
 
 ```bash
-SO_UCHET_ENV_FILE=/path/to/config.host.env SO_UCHET_VENV=/path/to/venv so-uchet-host db test
+SO_UCHET_ENV_FILE=/path/to/config.env SO_UCHET_VENV=/path/to/venv so-uchet-host db test
 ```
 
 ## Управление расписанием
