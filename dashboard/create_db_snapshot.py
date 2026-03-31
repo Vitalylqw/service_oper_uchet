@@ -21,8 +21,12 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT / "dashboard"))
 
 from sqlalchemy import create_engine
+from cli.common import load_runtime_env
 from infrastructure.database.connection import DatabaseConfig
 from db_snapshot_service import collect_snapshot, save_snapshot
+
+# Load config.env and promote legacy DB env vars (DB_TYPE → DB_DB_TYPE, etc.)
+load_runtime_env()
 
 logging.basicConfig(
     level=logging.INFO,
