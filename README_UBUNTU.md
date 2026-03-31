@@ -60,10 +60,16 @@ python scripts/test/test_sync_integration.py --sync-type full --log-level INFO
 Краткий сценарий:
 
 ```bash
-python3 -m venv .venv
+python3 --version
+python3 -m venv --help >/dev/null
+smbclient --version
+logrotate --version
+
+test -d .venv || python3 -m venv .venv
 source .venv/bin/activate
-pip install -e .
-sudo apt-get install -y python3-venv smbclient logrotate
+./.venv/bin/so-uchet --help >/dev/null 2>&1 || pip install -e .
+
+ss -ltn | grep 5432 || true
 sudo ./scripts/host/install_host_runtime.sh
 so-uchet-host db test
 systemctl status so-uchet-daily-sync.timer
@@ -72,6 +78,7 @@ systemctl status so-uchet-daily-sync.timer
 Подробная инструкция:
 
 - `docs/HOST_RUNTIME.md`
+- `docs/CLI_USAGE.md`
 
 ## Snapshot и dashboard
 

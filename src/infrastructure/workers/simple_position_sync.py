@@ -59,7 +59,7 @@ class SimplePositionSync:
             Dict with sync statistics: {'deleted': N, 'inserted_deal': 1, 'inserted_positions': N}
         """
         deal_key = deal_context.get("deal_key", "")
-        logger.info(
+        logger.debug(
             f"Starting atomic deal sync for {deal_key} "
             f"with {len(deal.items)} positions"
         )
@@ -80,7 +80,7 @@ class SimplePositionSync:
             await self._insert_positions_batch(deal.items, deal_context)
             stats["inserted_positions"] = len(deal.items)
 
-        logger.info(f"Atomic deal sync completed for {deal_key}: {stats}")
+        logger.debug(f"Atomic deal sync completed for {deal_key}: {stats}")
         return stats
 
     async def _delete_deal(self, deal_id: uuid.UUID) -> bool:

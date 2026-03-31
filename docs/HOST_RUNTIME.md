@@ -16,7 +16,7 @@
 
 ## Что добавлено в репозиторий
 
-- `scripts/host/run_host_cli.sh` - wrapper для запуска CLI в host-venv
+- `scripts/host/run_host_cli.sh` - wrapper для запуска CLI в локальном `.venv`
 - `config.env` - основной runtime-конфиг для запуска с хоста
 - `scripts/host/run_daily_fetch_and_sync.sh` - daily pipeline fetch -> sync
 - `scripts/host/install_host_runtime.sh` - установка venv, wrapper, systemd timer и logrotate
@@ -26,7 +26,36 @@
 
 ## Подготовка
 
-### 1. Подготовить `config.env`
+### 1. Убедиться, что вы на хосте
+
+Проверьте текущий путь и пользователя:
+
+```bash
+pwd
+whoami
+```
+
+### 2. Проверить системные зависимости
+
+Проверьте наличие необходимых команд:
+
+```bash
+python3 --version
+python3 -m venv --help >/dev/null
+smbclient --version
+logrotate --version
+docker --version
+docker-compose --version
+```
+
+Если какой-то команды нет, установите только недостающий пакет. Например:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y python3-venv smbclient logrotate
+```
+
+### 3. Подготовить `config.env`
 
 Для хостового запуска в `config.env` должны быть как минимум:
 
@@ -38,18 +67,52 @@
 
 `DB_HOST=127.0.0.1` нужен для запуска с хоста.
 
-### 2. Проверить доступность PostgreSQL на хосте
+Проверить текущие значения можно так:
+
+```bash
+grep -E '^(DB_HOST|DB_PORT|DB_NAME|DB_USER|DB_PASSWORD|SMB_USERNAME|SMB_PASSWORD)=' config.env
+```
+
+### 4. Проверить локальное Python-окружение
+
+Если `.venv` уже существует, можно использовать его:
+
+```bash
+ls -ld .venv
+```
+
+Проверить, установлен ли CLI в окружении:
+
+```bash
+./.venv/bin/so-uchet --help
+```
+
+Если `.venv` отсутствует или CLI не запускается, installer создаст или обновит окружение.
+
+### 5. Проверить доступность PostgreSQL на хосте
 
 Если БД запущена через `docker-compose.db.yml`, порт уже опубликован как `127.0.0.1:5432`.
 
-### 3. Проверить наличие `smbclient`
+Проверьте, слушает ли порт:
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y smbclient
+ss -ltn | grep 5432
 ```
 
-## Установка host runtime
+Если порт не слушает, проверьте состояние контейнера:
+
+```bash
+docker ps --filter name=so_pg
+```
+
+Если контейнер не запущен, поднимите только то, чего не хватает:
+
+```bash
+docker network inspect devnet >/dev/null 2>&1 || docker network create devnet
+docker-compose -f docker-compose.db.yml up -d
+```
+
+## Установка и обновление runtime
 
 ```bash
 sudo ./scripts/host/install_host_runtime.sh
@@ -65,13 +128,33 @@ sudo ./scripts/host/install_host_runtime.sh
 - создаёт `/var/log/so-uchet`;
 - разворачивает `logrotate` с retention 7 дней.
 
+Проверить, что wrapper создан:
+
+```bash
+ls -l /usr/local/bin/so-uchet-host
+```
+
 ## Ручной запуск CLI
+
+Перед первым включением timer проверьте CLI вручную:
 
 ```bash
 so-uchet-host db test
 so-uchet-host sync status
 so-uchet-host sync list --limit 20
 ```
+
+Подробная инструкция по CLI:
+
+- `docs/CLI_USAGE.md`
+
+Если БД новая или схема могла измениться, сначала проверьте, нужны ли миграции:
+
+```bash
+so-uchet-host db migrate
+```
+
+Если команда завершается без новых действий или пишет, что всё уже на `head`, дополнительных действий не нужно.
 
 Если нужен другой env-файл или другой venv, можно переопределить:
 
@@ -109,6 +192,18 @@ sudo systemctl start so-uchet-daily-sync.service
 tail -f /var/log/so-uchet/daily-sync.log
 ```
 
+Статус последнего запуска сервиса:
+
+```bash
+systemctl status so-uchet-daily-sync.service
+```
+
+Последние записи systemd-журнала:
+
+```bash
+journalctl -u so-uchet-daily-sync.service -n 50 --no-pager
+```
+
 Ротация:
 
 - ежедневно;
@@ -121,6 +216,36 @@ tail -f /var/log/so-uchet/daily-sync.log
 ```bash
 sudo logrotate -d /etc/logrotate.d/so-uchet
 ```
+
+## Администрирование
+
+Отключить автозапуск:
+
+```bash
+sudo systemctl disable --now so-uchet-daily-sync.timer
+```
+
+Включить обратно:
+
+```bash
+sudo systemctl enable --now so-uchet-daily-sync.timer
+```
+
+Перезапустить только разовый job:
+
+```bash
+sudo systemctl restart so-uchet-daily-sync.service
+```
+
+Обновить runtime после `git pull`:
+
+```bash
+source .venv/bin/activate
+pip install -e .
+sudo ./scripts/host/install_host_runtime.sh --skip-pip-install
+```
+
+Если менялись зависимости и нужно обновить `.venv`, не используйте `--skip-pip-install`.
 
 ## Важный operational risk
 

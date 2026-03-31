@@ -299,7 +299,7 @@ class ReadModelBuilder:
             deal_data = event_data.get("deal", event_data)
             items_data = event_data.get("items", [])
 
-            logger.info(
+            logger.debug(
                 f"Starting atomic deal sync: "
                 f"{deal_data.get('deal_key', 'UNKNOWN')} "
                 f"with {len(items_data)} positions"
@@ -321,7 +321,7 @@ class ReadModelBuilder:
 
             await self._recalculate_totals(deal.id)
 
-            logger.info(
+            logger.debug(
                 f"Atomic deal sync completed: {deal.deal_key} - {sync_stats}"
             )
 
