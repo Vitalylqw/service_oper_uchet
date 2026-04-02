@@ -25,6 +25,8 @@
 - unit/integration тесты;
 - CLI-обёртка `so-uchet` в частично реализованном состоянии: группы `db` и `sync` уже есть,
   `snapshot/dashboard` остаются в отдельных скриптах.
+- подготовка отдельного поискового этапа по PostgreSQL read-side:
+  `plans/STAGE-SEARCH.md`.
 
 Вне активного scope:
 
@@ -45,6 +47,8 @@
 - `src/application/change_detector/detector.py` — сравнение Excel и текущего состояния БД.
 - `src/application/sync_orchestrator/orchestrator.py` — общий orchestration flow.
 - `src/infrastructure/database/models.py` — SQLAlchemy модели.
+- `src/infrastructure/database/repositories.py` — текущий репозиторный поиск и будущая точка
+  обновления поискового контура.
 - `src/infrastructure/workers/read_model_builder.py` — применение событий к read-моделям.
 - `src/infrastructure/workers/simple_position_sync.py` — упрощенная синхронизация позиций.
 - `src/cli/` — CLI-обёртка `so-uchet` (presentation layer, сейчас реализованы `db` и `sync`).
@@ -84,6 +88,10 @@ tests/                 # unit и integration тесты
 Это неидеально и должно учитываться при запуске скриптов: dashboard, миграции и БД ориентируются
 на `config.env`.
 
+Для runtime-потоков CLI и DB теперь используется общий loader `config.env`, вынесенный в
+`src/infrastructure/config/env_loader.py`. Он сохраняет совместимость с текущим форматом файла и
+преобразует legacy-переменные `DB_HOST/DB_PORT/...` в вид, который ожидает `DatabaseConfig`.
+
 ## Что открыть в первую очередь
 
 Для входа в проект:
@@ -98,5 +106,6 @@ tests/                 # unit и integration тесты
 
 - DDD и минимальные изменения в существующем поведении.
 - Проверка гипотез до утверждений.
+- Поиск проектируется под подтвержденные пользовательские сценарии и реальные данные БД.
 - Документация должна быть инженерной, а не маркетинговой.
 - История решений сохраняется, но historical docs не должны подменять active docs.

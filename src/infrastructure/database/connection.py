@@ -18,6 +18,8 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
+from ..config.env_loader import load_runtime_env
+
 
 class DatabaseConfig(BaseSettings):
     """Database configuration settings with SQLite and PostgreSQL support."""
@@ -211,6 +213,9 @@ class DatabaseManager:
             self._sync_engine.dispose()
         logger.info("Database connections closed")
 
+
+# Ensure config.env and legacy DB variable promotion are loaded before DatabaseConfig is created.
+load_runtime_env()
 
 # Global database manager instance
 _db_config = DatabaseConfig()

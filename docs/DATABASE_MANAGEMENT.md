@@ -53,7 +53,11 @@ DB_PASSWORD=so_pass
 
 Важно:
 
-- `DatabaseConfig` сейчас использует `config.env`;
+- `DatabaseConfig` использует `config.env` через общий runtime-loader;
+- общий loader находится в `src/infrastructure/config/env_loader.py`;
+- loader сохраняет совместимость с текущим форматом `config.env` и автоматически
+  промотирует `DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD` в переменные вида `DB_DB_*`,
+  которые ожидает `DatabaseConfig`;
 - часть других подсистем использует `.env`;
 - для операций с БД, миграциями и dashboard ориентируйтесь именно на `config.env`.
 

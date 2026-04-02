@@ -48,6 +48,11 @@ pip install -e ".[dev]"
 
 Для типовой локальной разработки достаточно актуального `config.env`.
 
+Для runtime-потоков БД и CLI используется общий loader `config.env`
+(`src/infrastructure/config/env_loader.py`), поэтому текущий legacy-формат переменных
+`DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD` продолжает работать без ручного дублирования
+`DB_DB_*`.
+
 Минимальный набор DB-параметров:
 
 ```env

@@ -7,11 +7,12 @@ Contains concrete implementations of domain repository interfaces.
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from typing import Any
 
 from loguru import logger
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, literal_column, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from domain.interfaces import DealRepository, ReadModelRepository, SyncSessionRepository
@@ -722,17 +723,51 @@ class ReadModelRepositoryImplementation(ReadModelRepository):
     ) -> dict[str, Any]:
         """Search deals with filters and pagination."""
         try:
+            normalized_query = query.strip()
+            bind = self.session.get_bind()
+            dialect_name = bind.dialect.name if bind is not None else ""
             # Build base query (no is_active field)
             base_query = select(ReadModelDeal)
 
-            # Add text search
-            if query:
-                search_condition = (
-                    ReadModelDeal.client_name.ilike(f"%{query}%")
-                    | ReadModelDeal.invoice_info.ilike(f"%{query}%")
-                    | ReadModelDeal.seller.ilike(f"%{query}%")
-                )
-                base_query = base_query.where(search_condition)
+            if normalized_query:
+                if dialect_name == "postgresql":
+                    weight_a = literal_column("'A'::\"char\"")
+                    weight_b = literal_column("'B'::\"char\"")
+                    deal_search_vector = (
+                        func.setweight(
+                            func.to_tsvector("russian", func.coalesce(ReadModelDeal.client_name, "")),
+                            weight_a,
+                        )
+                        .op("||")(
+                            func.setweight(
+                                func.to_tsvector("russian", func.coalesce(ReadModelDeal.seller, "")),
+                                weight_a,
+                            )
+                        )
+                        .op("||")(
+                            func.setweight(
+                                func.to_tsvector("russian", func.coalesce(ReadModelDeal.invoice_info, "")),
+                                weight_b,
+                            )
+                        )
+                    )
+                    search_conditions = [
+                        deal_search_vector.op("@@")(func.plainto_tsquery("russian", normalized_query))
+                    ]
+                else:
+                    search_conditions = [
+                        ReadModelDeal.client_name.ilike(f"%{normalized_query}%"),
+                        ReadModelDeal.invoice_info.ilike(f"%{normalized_query}%"),
+                        ReadModelDeal.seller.ilike(f"%{normalized_query}%"),
+                    ]
+
+                if re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", normalized_query):
+                    search_conditions.append(ReadModelDeal.invoice_date == normalized_query)
+
+                if len(normalized_query) <= 100:
+                    search_conditions.append(ReadModelDeal.invoice_number == normalized_query)
+
+                base_query = base_query.where(or_(*search_conditions))
 
             # Add filters
             if filters:
@@ -747,6 +782,18 @@ class ReadModelRepositoryImplementation(ReadModelRepository):
                 if "client_name" in filters:
                     base_query = base_query.where(
                         ReadModelDeal.client_name.ilike(f"%{filters['client_name']}%")
+                    )
+                if "seller" in filters:
+                    base_query = base_query.where(
+                        ReadModelDeal.seller.ilike(f"%{filters['seller']}%")
+                    )
+                if "invoice_number" in filters:
+                    base_query = base_query.where(
+                        ReadModelDeal.invoice_number == str(filters["invoice_number"])
+                    )
+                if "invoice_date" in filters:
+                    base_query = base_query.where(
+                        ReadModelDeal.invoice_date == str(filters["invoice_date"])
                     )
 
             # Count total
