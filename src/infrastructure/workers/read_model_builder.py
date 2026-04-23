@@ -381,8 +381,8 @@ class ReadModelBuilder:
 
         # Create Deal object
         deal = Deal(
-            id=deal_id,
-            deal_key=deal_key,
+            explicit_id=deal_id,
+            explicit_deal_key=deal_key,
             client_name=client_name,
             invoice_info=invoice_info,
             invoice_number=deal_data.get("invoice_number", ""),
@@ -400,7 +400,6 @@ class ReadModelBuilder:
             kickback_amount=kickback_amount,
             items=items,
         )
-        deal.set_id(deal_id)
         return deal
 
     async def _create_deal_item_from_data(

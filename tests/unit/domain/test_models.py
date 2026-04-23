@@ -156,6 +156,20 @@ class TestDeal:
         expected_key = "12345|01.05.2025|тестовый продавец|май 2025"
         assert deal.deal_key == expected_key
 
+    def test_deal_key_uses_explicit_override(self, sample_period):
+        """Test explicit synthetic deal key override."""
+        deal = Deal(
+            client_name="Test Client",
+            invoice_info="N/A",
+            seller="missing_seller",
+            period=sample_period,
+            period_month=sample_period.month,
+            period_year=sample_period.year,
+            explicit_deal_key="synthetic|2025|Май|row:42",
+        )
+
+        assert deal.deal_key == "synthetic|2025|май|row:42"
+
     def test_deal_validation_client_name(self, sample_period):
         """Test Deal validation for client name."""
         deal = Deal(
@@ -335,7 +349,7 @@ class TestSyncSession:
         session.start()
         session.complete_partial()
 
-        assert session.status == Status.COMPLETED
+        assert session.status == Status.PARTIAL
         assert session.result == SyncResult.PARTIAL
         assert session.finished_at is not None
 

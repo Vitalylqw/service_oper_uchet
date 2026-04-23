@@ -188,6 +188,72 @@ class TestExcelParserService:
         assert deal.period == period
 
     @pytest.mark.asyncio
+    async def test_parse_deals_skips_non_deal_row_with_warning(self, parser_service):
+        """Parser should skip comment-like master rows without creating pseudo-deals."""
+        period = Period(month="Февраль", year="2026", full_name="Февраль 2026")
+        df = pd.DataFrame(
+            [
+                ["ЛЕГЕНДА КОНСТРАКШН", None, None, None, None, None, None, None, None, None, 3915],
+                [None, None, None, None, None, None, None, None, None, None, 3916],
+            ],
+            columns=[
+                "Клиент",
+                "Номенклатурах",
+                "Кол/Отгр?",
+                "Цена вх/накл",
+                "цена исх/Оплач?",
+                "Выручка",
+                "Маржа",
+                "От кого Зак/Прод",
+                "Ст. Закупки",
+                "Поставщик/Откат",
+                "__excel_row_number__",
+            ],
+        )
+
+        deals = await parser_service._parse_deals(df, period, "Февраль 2026")
+
+        assert deals == []
+        assert parser_service.stats.errors == []
+        assert len(parser_service.stats.warnings) == 1
+        assert "Skipped non-deal row" in parser_service.stats.warnings[0]
+        assert "3915" in parser_service.stats.warnings[0]
+
+    @pytest.mark.asyncio
+    async def test_parse_deals_creates_synthetic_key_for_defective_real_deal(self, parser_service):
+        """Parser should preserve real defective deals with a synthetic key."""
+        period = Period(month="Май", year="2025", full_name="Май 2025")
+        df = pd.DataFrame(
+            [
+                ["Тест Клиент", "12345 от 01.05.2025", "да", "УПД-001", "да", 1500.00, 500.00, None, 1000.00, 0, 42],
+                [None, "Тестовый товар", 10, 100.00, 150.00, 1500.00, 500.00, None, 1000.00, "Поставщик", 43],
+            ],
+            columns=[
+                "Клиент",
+                "Номенклатурах",
+                "Кол/Отгр?",
+                "Цена вх/накл",
+                "цена исх/Оплач?",
+                "Выручка",
+                "Маржа",
+                "От кого Зак/Прод",
+                "Ст. Закупки",
+                "Поставщик/Откат",
+                "__excel_row_number__",
+            ],
+        )
+
+        deals = await parser_service._parse_deals(df, period, "Май 2025")
+
+        assert len(deals) == 1
+        assert deals[0].deal_key == "synthetic|2025|май|row:42"
+        assert deals[0].seller == "missing_seller"
+        assert len(deals[0].items) == 1
+        assert parser_service.stats.errors == []
+        assert len(parser_service.stats.warnings) == 1
+        assert "Synthetic key" in parser_service.stats.warnings[0]
+
+    @pytest.mark.asyncio
     async def test_create_item_from_row(self, parser_service):
         """Test item creation from row."""
         period = Period(month="Май", year="2025", full_name="Май 2025")

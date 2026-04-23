@@ -445,6 +445,7 @@ class ExcelParserService:
                     else None
                 )
                 rows = []
+                excel_row_numbers: list[int] = []
 
                 # Detect header row and total_* columns by header name
                 header_row_idx: int | None = None
@@ -626,9 +627,10 @@ class ExcelParserService:
                                             row_values.append(None)
 
                     rows.append(tuple(row_values))
+                    excel_row_numbers.append(row_idx)
 
                 if rows:
-                    df = pd.DataFrame(rows)
+                    df = pd.DataFrame(rows, index=excel_row_numbers)
                 else:
                     df = pd.DataFrame()
 
@@ -695,13 +697,15 @@ class ExcelParserService:
         try:
             # Set headers and data
             df.columns = df.iloc[header_row]
-            data_df = df.iloc[header_row + 1 :].reset_index(drop=True)
+            data_df = df.iloc[header_row + 1 :].copy()
+            data_df["__excel_row_number__"] = data_df.index
+            data_df = data_df.reset_index(drop=True)
         except Exception as e:
             logger.info(f"📋 Sheet '{sheet_name}' has invalid headers - skipping: {str(e)}")
             return []
 
         # Parse deals
-        return await self._parse_deals(data_df, period)
+        return await self._parse_deals(data_df, period, sheet_name)
 
     def _find_header_row(self, df: pd.DataFrame) -> int | None:
         """Find row containing headers."""
@@ -718,7 +722,7 @@ class ExcelParserService:
         except Exception:
             return None
 
-    async def _parse_deals(self, df: pd.DataFrame, period: Period) -> list[Deal]:
+    async def _parse_deals(self, df: pd.DataFrame, period: Period, sheet_name: str) -> list[Deal]:
         """Parse deals from DataFrame."""
         deals = []
         current_deal = None
@@ -737,9 +741,10 @@ class ExcelParserService:
 
             logger.info(f"Columns: {columns}")
 
-            for _, row in df.iterrows():
+            for row_index, row in df.iterrows():
                 row_counter += 1
                 try:
+                    excel_row_number = self._get_excel_row_number(row, row_counter)
                     client_value = row[client_col]
 
                     if pd.notna(client_value) and str(client_value).strip():
@@ -760,13 +765,34 @@ class ExcelParserService:
                             current_deal = await self._create_deal_from_row(row, columns, period)
                             self.stats.total_deals += 1
                         except Exception as e:
-                            self.stats.failed_deals += 1
-                            error_msg = f"Error creating deal from row {row_counter}: {str(e)}"
-                            self.stats.errors.append(error_msg)
-                            # Create minimal deal to maintain structure
-                            current_deal = self._create_error_deal(
-                                f"ERROR_ROW_{row_counter}", period
+                            classification = self._classify_invalid_master_row(
+                                df=df,
+                                row_index=row_index,
+                                row=row,
+                                columns=columns,
+                                client_col=client_col,
                             )
+                            if classification == "defective_real_deal":
+                                current_deal = await self._create_synthetic_deal_from_row(
+                                    row=row,
+                                    columns=columns,
+                                    period=period,
+                                    excel_row_number=excel_row_number,
+                                )
+                                self.stats.total_deals += 1
+                                warning_msg = (
+                                    f"Defective real deal at sheet '{sheet_name}' excel row "
+                                    f"{excel_row_number}: {str(e)}. Synthetic key: "
+                                    f"{current_deal.deal_key}"
+                                )
+                                self.stats.warnings.append(warning_msg)
+                            else:
+                                current_deal = None
+                                warning_msg = (
+                                    f"Skipped non-deal row at sheet '{sheet_name}' excel row "
+                                    f"{excel_row_number}: {str(e)}"
+                                )
+                                self.stats.warnings.append(warning_msg)
 
                     elif current_deal is not None:
                         # Detail record - item
@@ -822,6 +848,88 @@ class ExcelParserService:
             logger.error(error_msg)
             return deals
 
+    def _get_excel_row_number(self, row: pd.Series, fallback: int) -> int:
+        """Get absolute Excel row number preserved during workbook loading."""
+        raw_value = row.get("__excel_row_number__", fallback)
+        try:
+            if pd.isna(raw_value):
+                return fallback
+        except TypeError:
+            pass
+
+        try:
+            return int(raw_value)
+        except (TypeError, ValueError):
+            return fallback
+
+    def _get_row_value(
+        self,
+        row: pd.Series,
+        columns: list[str],
+        col_idx: int,
+        default=None,
+    ):
+        """Safely get row value by original column position."""
+        try:
+            if col_idx < len(columns) and columns[col_idx] in row.index:
+                val = row[columns[col_idx]]
+                return val if pd.notna(val) else default
+            return default
+        except (KeyError, TypeError):
+            return default
+
+    def _row_is_blank(self, row: pd.Series) -> bool:
+        """Check whether a row is effectively blank, excluding parser metadata."""
+        for column_name, value in row.items():
+            if str(column_name).startswith("__"):
+                continue
+            if pd.notna(value) and str(value).strip():
+                return False
+        return True
+
+    def _row_looks_like_detail(
+        self,
+        row: pd.Series,
+        columns: list[str],
+        client_col: str,
+    ) -> bool:
+        """Detect detail row candidate under the current master row."""
+        client_value = row.get(client_col)
+        if pd.notna(client_value) and str(client_value).strip():
+            return False
+
+        product_name = self._safe_string(self._get_row_value(row, columns, 1))
+        return bool(product_name)
+
+    def _classify_invalid_master_row(
+        self,
+        df: pd.DataFrame,
+        row_index: int,
+        row: pd.Series,
+        columns: list[str],
+        client_col: str,
+    ) -> str:
+        """Classify invalid master row as non-deal noise or defective real deal."""
+        master_hint_columns = (1, 2, 3, 4, 5, 6, 8, 9)
+        has_master_hints = any(
+            bool(self._safe_string(self._get_row_value(row, columns, col_idx)))
+            for col_idx in master_hint_columns
+        )
+        if has_master_hints:
+            return "defective_real_deal"
+
+        for next_row_index in range(row_index + 1, len(df)):
+            next_row = df.iloc[next_row_index]
+            next_client_value = next_row.get(client_col)
+            if pd.notna(next_client_value) and str(next_client_value).strip():
+                break
+            if self._row_is_blank(next_row):
+                break
+            if self._row_looks_like_detail(next_row, columns, client_col):
+                return "defective_real_deal"
+
+        return "non_deal_row"
+
     def _normalize_columns(self, columns) -> list[str]:
         """Normalize column names and handle NaN values."""
         normalized = []
@@ -836,74 +944,7 @@ class ExcelParserService:
         self, row: pd.Series, columns: list[str], period: Period
     ) -> Deal:
         """Create Deal from master record row using DealBuilder."""
-
-        def safe_get(col_idx: int, default=None):
-            try:
-                if col_idx < len(columns) and columns[col_idx] in row.index:
-                    val = row[columns[col_idx]]
-                    return val if pd.notna(val) else default
-                return default
-            except (KeyError, TypeError):
-                return default
-
-        # Basic fields
-        client_name = self._safe_string(safe_get(0)) or "UNKNOWN_CLIENT"
-        invoice_info_raw = self._safe_string(safe_get(1))
-        # Fallback to safe non-empty string if source absent in current layout
-        invoice_info = invoice_info_raw or "N/A"
-        invoice_number, invoice_date = self._parse_invoice_info(invoice_info_raw)
-
-        # Initialize builder
-        builder = DealBuilder(period=period)
-        builder.client_name = client_name
-        builder.invoice_info = invoice_info
-        builder.invoice_number = invoice_number
-        builder.invoice_date = invoice_date
-
-        # Optional/status fields
-        try:
-            if len(columns) > 2:
-                shipped_raw = self._safe_string(safe_get(2))
-                builder.is_shipped = Status.from_string(shipped_raw)
-
-            if len(columns) > 3:
-                builder.upd_number = self._safe_string(safe_get(3))
-
-            if len(columns) > 4:
-                paid_raw = self._safe_string(safe_get(4))
-                builder.is_paid = Status.from_string(paid_raw)
-
-            if len(columns) > 5:
-                revenue_val = safe_get(5)
-                d = self._safe_decimal(revenue_val)
-                if d is not None:
-                    builder.total_revenue = Money(amount=d)
-
-            if len(columns) > 6:
-                margin_val = safe_get(6)
-                d = self._safe_decimal(margin_val)
-                if d is not None:
-                    builder.total_margin = SignedMoney(amount=d)
-
-            if len(columns) > 7:
-                builder.seller = self._safe_string(safe_get(7))
-
-            if len(columns) > 8:
-                cost_val = safe_get(8)
-                d = self._safe_decimal(cost_val)
-                if d is not None:
-                    builder.total_cost = Money(amount=d)
-
-            if len(columns) > 9:
-                kickback_val = safe_get(9)
-                d = self._safe_decimal(kickback_val)
-                if d is not None:
-                    builder.kickback_amount = Money(amount=d)
-
-        except Exception as e:
-            warning_msg = f"Warning parsing optional fields for deal '{client_name}': {str(e)}"
-            self.stats.warnings.append(warning_msg)
-            logger.warning(warning_msg)
+        builder = self._build_deal_builder_from_row(row, columns, period)
 
         # Build only when everything required is present
         if not builder.is_ready():
@@ -917,6 +958,99 @@ class ExcelParserService:
             raise ValueError(missing_msg.strip())
 
         return builder.build()
+
+    def _build_deal_builder_from_row(
+        self,
+        row: pd.Series,
+        columns: list[str],
+        period: Period,
+        *,
+        seller_fallback: str | None = None,
+        explicit_deal_key: str | None = None,
+    ) -> DealBuilder:
+        """Build DealBuilder from raw master row with optional fallbacks."""
+        client_name = self._safe_string(self._get_row_value(row, columns, 0)) or "UNKNOWN_CLIENT"
+        invoice_info_raw = self._safe_string(self._get_row_value(row, columns, 1))
+        invoice_info = invoice_info_raw or "N/A"
+        invoice_number, invoice_date = self._parse_invoice_info(invoice_info_raw)
+
+        builder = DealBuilder(period=period)
+        builder.client_name = client_name
+        builder.invoice_info = invoice_info
+        builder.invoice_number = invoice_number
+        builder.invoice_date = invoice_date
+        builder.explicit_deal_key = explicit_deal_key
+
+        try:
+            if len(columns) > 2:
+                shipped_raw = self._safe_string(self._get_row_value(row, columns, 2))
+                builder.is_shipped = Status.from_string(shipped_raw)
+
+            if len(columns) > 3:
+                builder.upd_number = self._safe_string(self._get_row_value(row, columns, 3))
+
+            if len(columns) > 4:
+                paid_raw = self._safe_string(self._get_row_value(row, columns, 4))
+                builder.is_paid = Status.from_string(paid_raw)
+
+            if len(columns) > 5:
+                revenue_val = self._get_row_value(row, columns, 5)
+                d = self._safe_decimal(revenue_val)
+                if d is not None:
+                    builder.total_revenue = Money(amount=d)
+
+            if len(columns) > 6:
+                margin_val = self._get_row_value(row, columns, 6)
+                d = self._safe_decimal(margin_val)
+                if d is not None:
+                    builder.total_margin = SignedMoney(amount=d)
+
+            if len(columns) > 7:
+                builder.seller = self._safe_string(self._get_row_value(row, columns, 7))
+
+            if not builder.seller and seller_fallback:
+                builder.seller = seller_fallback
+
+            if len(columns) > 8:
+                cost_val = self._get_row_value(row, columns, 8)
+                d = self._safe_decimal(cost_val)
+                if d is not None:
+                    builder.total_cost = Money(amount=d)
+
+            if len(columns) > 9:
+                kickback_val = self._get_row_value(row, columns, 9)
+                d = self._safe_decimal(kickback_val)
+                if d is not None:
+                    builder.kickback_amount = Money(amount=d)
+
+        except Exception as e:
+            warning_msg = f"Warning parsing optional fields for deal '{client_name}': {str(e)}"
+            self.stats.warnings.append(warning_msg)
+            logger.warning(warning_msg)
+
+        return builder
+
+    async def _create_synthetic_deal_from_row(
+        self,
+        row: pd.Series,
+        columns: list[str],
+        period: Period,
+        excel_row_number: int,
+    ) -> Deal:
+        """Create a real-but-defective deal with a deterministic synthetic key."""
+        synthetic_key = self._build_synthetic_deal_key(period, excel_row_number)
+        builder = self._build_deal_builder_from_row(
+            row,
+            columns,
+            period,
+            seller_fallback="missing_seller",
+            explicit_deal_key=synthetic_key,
+        )
+        return builder.build()
+
+    def _build_synthetic_deal_key(self, period: Period, excel_row_number: int) -> str:
+        """Build deterministic synthetic deal key for a defective real deal."""
+        return f"synthetic|{period.year}|{period.month}|row:{excel_row_number}"
 
     async def _create_item_from_row(self, row: pd.Series, columns: list[str], position_number: int = 1, deal: Deal | None = None) -> DealItem | None:
         """Create DealItem from detail record row with deal context."""

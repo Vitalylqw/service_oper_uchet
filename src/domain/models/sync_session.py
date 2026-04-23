@@ -100,7 +100,7 @@ class SyncSession(BaseModel):
     
     def complete_partial(self) -> None:
         """Завершает сессию с частичным успехом."""
-        self.status = Status.COMPLETED
+        self.status = Status.PARTIAL
         self.result = SyncResult.PARTIAL
         self.finished_at = datetime.now()
     
@@ -159,7 +159,7 @@ class SyncSession(BaseModel):
     @property
     def is_completed(self) -> bool:
         """Проверяет, завершена ли сессия."""
-        return self.status in [Status.COMPLETED, Status.FAILED, Status.CANCELLED]
+        return self.status in [Status.COMPLETED, Status.PARTIAL, Status.FAILED, Status.CANCELLED]
     
     @field_serializer('id')
     def serialize_uuid(self, value: UUID) -> str:

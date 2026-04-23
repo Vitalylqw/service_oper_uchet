@@ -104,6 +104,8 @@ class SyncOrchestratorService:
                 result.add_warning(
                     f"Parsing completed with {len(result.parse_result.stats.errors)} errors"
                 )
+            if result.parse_result.has_warnings:
+                result.warnings.extend(result.parse_result.stats.warnings)
 
             logger.info(
                 f"✅ Parsing completed: {result.parse_result.total_deals} deals, "
@@ -243,7 +245,10 @@ class SyncOrchestratorService:
         """Complete sync session with result."""
         try:
             if success:
-                sync_session.complete_success()
+                if sync_session.stats.warnings or sync_session.stats.errors:
+                    sync_session.complete_partial()
+                else:
+                    sync_session.complete_success()
             else:
                 sync_session.complete_failed(error_message or "Unknown error")
 

@@ -37,6 +37,7 @@ class DealBuilder:
     client_name: Optional[str] = None
     invoice_info: Optional[str] = None
     seller: Optional[str] = None
+    explicit_deal_key: Optional[str] = None
 
     # Optional/basic
     invoice_number: Optional[str] = None
@@ -100,7 +101,7 @@ class DealBuilder:
             period_month=self.period.month,
             period_year=self.period.year,
             seller=self.seller,  # type: ignore[arg-type]
+            explicit_deal_key=self.explicit_deal_key,
         )
         return deal
-
 

@@ -650,6 +650,11 @@ class Deal(BaseModel):
             "Поле для явного задания ID (переопределяет детерминированный)"
         ),
     )
+    explicit_deal_key: Optional[str] = Field(
+        None,
+        max_length=255,
+        description="Поле для явного задания ключа сделки (например, synthetic key)",
+    )
 
     # Информация о клиенте и продавце
     client_name: Annotated[
@@ -756,6 +761,9 @@ class Deal(BaseModel):
         Returns:
             str: invoice_number|invoice_date|seller|period (all lowercased/trimmed)
         """
+        if self.explicit_deal_key is not None and self.explicit_deal_key.strip():
+            return self.explicit_deal_key.strip().lower()
+
         num = (self.invoice_number or "").strip().lower()
         date = (self.invoice_date or "").strip().lower()
         seller = (self.seller or "").strip().lower()
@@ -1000,6 +1008,7 @@ class Deal(BaseModel):
         "client_name",
         "invoice_info",
         "seller",
+        "explicit_deal_key",
         mode="before",
     )
     @classmethod

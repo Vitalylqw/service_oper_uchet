@@ -306,6 +306,19 @@ class TestSyncOrchestratorService:
         assert sync_session.finished_at is not None
         mock_sync_session_repository.save_visible.assert_called_once_with(sync_session)
 
+    async def test_complete_sync_session_partial(self, orchestrator, mock_sync_session_repository):
+        """Test sync session completion with warnings."""
+        sync_session = SyncSession(sync_type=SyncType.FULL)
+        sync_session.source_file_path = "test.xlsx"
+        sync_session.start()
+        sync_session.stats.warnings.append("Skipped non-deal row")
+
+        await orchestrator._complete_sync_session(sync_session, success=True)
+
+        assert sync_session.status == Status.PARTIAL
+        assert sync_session.finished_at is not None
+        mock_sync_session_repository.save_visible.assert_called_once_with(sync_session)
+
     async def test_complete_sync_session_failure(self, orchestrator, mock_sync_session_repository):
         """Test sync session completion with failure."""
         # Arrange

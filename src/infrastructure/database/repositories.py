@@ -243,6 +243,7 @@ class DealRepositoryImplementation(DealRepository):
         builder.client_name = model.client_name
         builder.invoice_info = model.invoice_info
         builder.seller = model.seller or "UNKNOWN"
+        builder.explicit_deal_key = model.deal_key
         builder.invoice_number = model.invoice_number or None
         builder.invoice_date = model.invoice_date or None
         builder.upd_number = model.upd_number or None
