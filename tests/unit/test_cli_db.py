@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import importlib
+import os
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -52,17 +54,20 @@ def test_load_runtime_env_promotes_legacy_db_variables(tmp_path, monkeypatch) ->
     ]:
         monkeypatch.delenv(key, raising=False)
 
-    monkeypatch.setattr(common, "_DOTENV_LOADED", False)
+    legacy_env_loader = importlib.import_module("infrastructure.config.env_loader")
+    src_env_loader = importlib.import_module("src.infrastructure.config.env_loader")
+    monkeypatch.setattr(legacy_env_loader, "_DOTENV_LOADED", False)
+    monkeypatch.setattr(src_env_loader, "_DOTENV_LOADED", False)
 
     loaded_path = common.load_runtime_env(str(env_file))
 
     assert loaded_path == Path(env_file).resolve()
-    assert common.os.environ["DB_DB_TYPE"] == "postgresql"
-    assert common.os.environ["DB_DB_HOST"] == "test-host"
-    assert common.os.environ["DB_DB_PORT"] == "15432"
-    assert common.os.environ["DB_DB_NAME"] == "test-db"
-    assert common.os.environ["DB_DB_USER"] == "test-user"
-    assert common.os.environ["DB_DB_PASSWORD"] == "test-pass"
+    assert os.environ["DB_DB_TYPE"] == "postgresql"
+    assert os.environ["DB_DB_HOST"] == "test-host"
+    assert os.environ["DB_DB_PORT"] == "15432"
+    assert os.environ["DB_DB_NAME"] == "test-db"
+    assert os.environ["DB_DB_USER"] == "test-user"
+    assert os.environ["DB_DB_PASSWORD"] == "test-pass"
 
 
 def test_cli_help_shows_db_group(monkeypatch) -> None:
