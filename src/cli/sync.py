@@ -27,6 +27,7 @@ try:
         SyncSessionRepositoryImplementation,
     )
     from infrastructure.workers.read_model_builder import ReadModelBuilder
+    from infrastructure.workers.source_location_refresher import SourceLocationRefresher
 except ImportError:  # pragma: no cover - fallback for repo-local imports
     from src.application.change_detector import ChangeDetectorService
     from src.application.excel_parser import ExcelParserService
@@ -39,6 +40,7 @@ except ImportError:  # pragma: no cover - fallback for repo-local imports
         SyncSessionRepositoryImplementation,
     )
     from src.infrastructure.workers.read_model_builder import ReadModelBuilder
+    from src.infrastructure.workers.source_location_refresher import SourceLocationRefresher
 
 DEFAULT_EXCEL_FILE = (
     Path(__file__).resolve().parents[2]
@@ -292,12 +294,14 @@ def _build_sync_orchestrator(session: Any, periods: list[str]) -> SyncOrchestrat
     sync_session_repo = SyncSessionRepositoryImplementation(session)
     parser = FilteredExcelParserService(ExcelParserService(), periods if periods else None)
     read_model_builder = ReadModelBuilder(session, event_store)
+    source_location_refresher = SourceLocationRefresher(session)
     return SyncOrchestratorService(
         excel_parser=parser,
         change_detector=change_detector,
         event_store=event_store,
         sync_session_repository=sync_session_repo,
         read_model_builder=read_model_builder,
+        source_location_refresher=source_location_refresher,
     )
 
 

@@ -169,6 +169,7 @@ class ReadModelDeal(Base):
     # Document fields
     upd_number: Mapped[str] = mapped_column(String(100), nullable=True)
     seller: Mapped[str] = mapped_column(String(300), nullable=True)
+    source_row_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Financial fields (stored as NUMERIC for precision)
     total_revenue_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=True)
@@ -203,6 +204,12 @@ class ReadModelDeal(Base):
         Index("ix_read_deals_seller", "seller"),
         Index("ix_read_deals_created_at", "created_at"),
         Index("ix_read_deals_hash_key", "hash_key"),
+        Index(
+            "ix_read_deals_period_source_row",
+            "period_year",
+            "period_month",
+            "source_row_number",
+        ),
         # Full-text search support
         Index("ix_read_deals_search", "client_name", "invoice_info", "seller"),
     )
@@ -249,6 +256,7 @@ class ReadModelPosition(Base):
     client_name: Mapped[str] = mapped_column(String(500), nullable=False)
     period_month: Mapped[str] = mapped_column(String(20), nullable=False)
     period_year: Mapped[str] = mapped_column(String(4), nullable=False)
+    source_row_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # System fields (simplified - no versioning)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
@@ -264,6 +272,7 @@ class ReadModelPosition(Base):
         Index("ix_read_positions_supplier", "supplier_name"),
         Index("ix_read_positions_client", "client_name"),
         Index("ix_read_positions_period", "period_year", "period_month"),
+        Index("ix_read_positions_deal_source_row", "deal_id", "source_row_number"),
         # SIMPLIFIED: Single unique constraint on hash_key (no versioning complexity)
         Index("ix_read_positions_hash_key", "hash_key", unique=True),
         # Composite indexes / constraints for performance and integrity
@@ -274,6 +283,13 @@ class ReadModelPosition(Base):
             name="uq_read_positions_deal_position",
         ),
         Index("ix_read_positions_deal_hash", "deal_id", "hash_key"),
+        Index(
+            "ix_read_positions_period_deal_position",
+            "period_year",
+            "period_month",
+            "deal_key",
+            "position_number",
+        ),
     )
 
 

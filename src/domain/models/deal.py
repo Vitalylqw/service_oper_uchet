@@ -131,6 +131,11 @@ class DealItem(BaseModel):
     # Операционная информация
     pickup_date: Optional[str] = Field(None, description="Дата забора товара у поставщика")
     position_number: int = Field(..., ge=1, description="Номер позиции товара в сделке")
+    source_row_number: Optional[int] = Field(
+        None,
+        ge=1,
+        description="Absolute Excel row number for source traceability",
+    )
 
     # Метаданные
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -711,6 +716,11 @@ class Deal(BaseModel):
         str,
         StringConstraints(strip_whitespace=True, min_length=1, max_length=100),
     ] = Field(..., description="Продавец")
+    source_row_number: Optional[int] = Field(
+        None,
+        ge=1,
+        description="Absolute Excel master-row number for source traceability",
+    )
 
     # Позиции товаров
     items: tuple[DealItem, ...] = Field(

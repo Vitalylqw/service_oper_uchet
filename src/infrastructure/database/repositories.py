@@ -75,7 +75,12 @@ class DealRepositoryImplementation(DealRepository):
             query = (
                 select(ReadModelDeal)
                 .where(ReadModelDeal.client_name.ilike(f"%{client_name}%"))
-                .order_by(ReadModelDeal.created_at.desc())
+                .order_by(
+                    ReadModelDeal.period_year,
+                    ReadModelDeal.period_month,
+                    ReadModelDeal.source_row_number.asc().nullslast(),
+                    ReadModelDeal.deal_key,
+                )
             )
 
             result = await self.session.execute(query)
@@ -100,7 +105,7 @@ class DealRepositoryImplementation(DealRepository):
                 select(ReadModelDeal)
                 .where(ReadModelDeal.period_month == period_month)
                 .where(ReadModelDeal.period_year == period_year)
-                .order_by(ReadModelDeal.created_at.desc())
+                .order_by(ReadModelDeal.source_row_number.asc().nullslast(), ReadModelDeal.deal_key)
             )
 
             result = await self.session.execute(query)
@@ -163,7 +168,12 @@ class DealRepositoryImplementation(DealRepository):
             total = total_result.scalar()
 
             # Apply pagination and ordering
-            query = query.order_by(ReadModelDeal.created_at.desc())
+            query = query.order_by(
+                ReadModelDeal.period_year,
+                ReadModelDeal.period_month,
+                ReadModelDeal.source_row_number.asc().nullslast(),
+                ReadModelDeal.deal_key,
+            )
             query = query.offset((page - 1) * limit).limit(limit)
 
             # Execute query
@@ -246,6 +256,7 @@ class DealRepositoryImplementation(DealRepository):
         builder.explicit_deal_key = model.deal_key
         builder.invoice_number = model.invoice_number or None
         builder.invoice_date = model.invoice_date or None
+        builder.source_row_number = model.source_row_number
         builder.upd_number = model.upd_number or None
         builder.is_shipped = Status.from_string(model.is_shipped) if model.is_shipped else None
         builder.is_paid = Status.from_string(model.is_paid) if model.is_paid else None
@@ -290,7 +301,10 @@ class DealRepositoryImplementation(DealRepository):
             query = (
                 select(ReadModelPosition)
                 .where(ReadModelPosition.deal_id == deal.id)
-                .order_by(ReadModelPosition.created_at.asc())
+                .order_by(
+                    ReadModelPosition.source_row_number.asc().nullslast(),
+                    ReadModelPosition.position_number.asc(),
+                )
             )
 
             result = await self.session.execute(query)
@@ -804,7 +818,14 @@ class ReadModelRepositoryImplementation(ReadModelRepository):
 
             # Get paginated results
             paginated_query = (
-                base_query.order_by(ReadModelDeal.created_at.desc()).limit(limit).offset(offset)
+                base_query.order_by(
+                    ReadModelDeal.period_year,
+                    ReadModelDeal.period_month,
+                    ReadModelDeal.source_row_number.asc().nullslast(),
+                    ReadModelDeal.deal_key,
+                )
+                .limit(limit)
+                .offset(offset)
             )
 
             result = await self.session.execute(paginated_query)
@@ -818,6 +839,7 @@ class ReadModelRepositoryImplementation(ReadModelRepository):
                     "deal_key": model.deal_key,
                     "client_name": model.client_name,
                     "invoice_info": model.invoice_info,
+                    "source_row_number": model.source_row_number,
                     "period_month": model.period_month,
                     "period_year": model.period_year,
                     "is_shipped": model.is_shipped,

@@ -387,6 +387,7 @@ class ReadModelBuilder:
             invoice_info=invoice_info,
             invoice_number=deal_data.get("invoice_number", ""),
             invoice_date=deal_data.get("invoice_date"),
+            source_row_number=deal_data.get("source_row_number"),
             period=period,
             period_month=period.month,
             period_year=period.year,
@@ -443,6 +444,7 @@ class ReadModelBuilder:
             seller=seller,
             invoice_info=invoice_info,
             position_number=item_data.get("position_number", 1),  # Add position_number from event data
+            source_row_number=item_data.get("source_row_number"),
         )
 
         item_id = item_data.get("item_id")
@@ -462,6 +464,7 @@ class ReadModelBuilder:
             "invoice_info": deal.invoice_info,
             "invoice_number": deal.invoice_number,
             "invoice_date": deal.invoice_date,
+            "source_row_number": deal.source_row_number,
             # Period
             "period_month": deal.period.month,
             "period_year": deal.period.year,
@@ -545,6 +548,7 @@ class ReadModelBuilder:
                 invoice_info=deal_data.get("invoice_info", ""),
                 invoice_number=deal_data.get("invoice_number", ""),
                 invoice_date=deal_data.get("invoice_date"),
+                source_row_number=deal_data.get("source_row_number"),
                 period=period,
                 period_month=period.month,
                 period_year=period.year,
@@ -570,6 +574,7 @@ class ReadModelBuilder:
                 "invoice_info": deal.invoice_info,
                 "invoice_number": deal.invoice_number,
                 "invoice_date": deal.invoice_date,
+                "source_row_number": deal.source_row_number,
                 # Period
                 "period_month": period.month,
                 "period_year": period.year,
@@ -810,6 +815,7 @@ class ReadModelBuilder:
                 seller=deal_context.get("seller", ""),
                 invoice_info=deal_context.get("invoice_info", ""),
                 position_number=item_data.get("position_number", 1),  # Add position_number from event data
+                source_row_number=item_data.get("source_row_number"),
             )
             item.set_id(uuid.UUID(str(item_id_raw)))
 
@@ -821,6 +827,7 @@ class ReadModelBuilder:
                 "deal_key": deal_key,
                 # Item info with position number and full hash key
                 "position_number": item.position_number if item.position_number is not None else 1,
+                "source_row_number": item.source_row_number,
                 "hash_key": str(item.get_full_hash_key(deal_key)),
                 "product_name": item.product_name,
                 "supplier_name": item.supplier_name,
@@ -961,6 +968,7 @@ class ReadModelBuilder:
                 seller=deal_context.get("seller", ""),
                 invoice_info=deal_context.get("invoice_info", ""),
                 position_number=item_data.get("position_number", 1),
+                source_row_number=item_data.get("source_row_number"),
             )
             item.set_id(uuid.UUID(str(item_id_raw)))
 
@@ -983,6 +991,7 @@ class ReadModelBuilder:
                     "product_name": item.product_name,
                     "supplier_name": item.supplier_name,
                     "pickup_date": item.pickup_date,
+                    "source_row_number": item.source_row_number,
                     "quantity": item.quantity,
                     "purchase_price_amount": item.purchase_price.amount if item.purchase_price else None,
                     "sale_price_amount": item.sale_price.amount if item.sale_price else None,
@@ -1033,6 +1042,7 @@ class ReadModelBuilder:
                     "deal_id": item.deal_id,
                     "deal_key": deal_context.get("deal_key", ""),
                     "position_number": current.position_number,
+                    "source_row_number": item.source_row_number,
                     "hash_key": new_hash_key,
                     "product_name": item.product_name,
                     "supplier_name": item.supplier_name,

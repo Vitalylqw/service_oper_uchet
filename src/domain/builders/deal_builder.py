@@ -8,9 +8,7 @@ ensuring domain invariants at creation time.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from decimal import Decimal
-from typing import Optional
+from dataclasses import dataclass
 
 from ..models.deal import Deal
 from ..value_objects.common import Money, Period, SignedMoney, Status
@@ -34,23 +32,24 @@ class DealBuilder:
     period: Period
 
     # Required at build time
-    client_name: Optional[str] = None
-    invoice_info: Optional[str] = None
-    seller: Optional[str] = None
-    explicit_deal_key: Optional[str] = None
+    client_name: str | None = None
+    invoice_info: str | None = None
+    seller: str | None = None
+    explicit_deal_key: str | None = None
+    source_row_number: int | None = None
 
     # Optional/basic
-    invoice_number: Optional[str] = None
-    invoice_date: Optional[str] = None
-    upd_number: Optional[str] = None
-    is_shipped: Optional[Status] = None
-    is_paid: Optional[Status] = None
+    invoice_number: str | None = None
+    invoice_date: str | None = None
+    upd_number: str | None = None
+    is_shipped: Status | None = None
+    is_paid: Status | None = None
 
     # Optional totals
-    total_revenue: Optional[Money] = None
-    total_margin: Optional[SignedMoney] = None
-    total_cost: Optional[Money] = None
-    kickback_amount: Optional[Money] = None
+    total_revenue: Money | None = None
+    total_margin: SignedMoney | None = None
+    total_cost: Money | None = None
+    kickback_amount: Money | None = None
 
     def is_ready(self) -> bool:
         """Return True if enough data is provided to build a Deal.
@@ -102,6 +101,6 @@ class DealBuilder:
             period_year=self.period.year,
             seller=self.seller,  # type: ignore[arg-type]
             explicit_deal_key=self.explicit_deal_key,
+            source_row_number=self.source_row_number,
         )
         return deal
-

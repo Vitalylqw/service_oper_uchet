@@ -135,6 +135,7 @@ class SimplePositionSync:
             "invoice_info": deal.invoice_info,
             "invoice_number": deal.invoice_number,
             "invoice_date": deal.invoice_date,
+            "source_row_number": deal.source_row_number,
             "period_month": deal.period.month,
             "period_year": deal.period.year,
             "period_full_name": str(deal.period),
@@ -196,6 +197,7 @@ class SimplePositionSync:
             "position_number": (
                 item.position_number if item.position_number is not None else 1
             ),
+            "source_row_number": item.source_row_number,
             "hash_key": str(item.get_full_hash_key(deal_key)),
             "product_name": item.product_name,
             "supplier_name": item.supplier_name,

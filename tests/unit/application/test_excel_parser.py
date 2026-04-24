@@ -173,6 +173,7 @@ class TestExcelParserService:
             "col_7": "Продавец",
             "col_8": 1000.00,
             "col_9": 0,
+            "__excel_row_number__": 17,
         }
 
         row = pd.Series(row_data)
@@ -186,6 +187,7 @@ class TestExcelParserService:
         assert deal.seller == "Продавец"
         assert deal.total_revenue.amount == Decimal("1500.00")
         assert deal.period == period
+        assert deal.source_row_number == 17
 
     @pytest.mark.asyncio
     async def test_parse_deals_skips_non_deal_row_with_warning(self, parser_service):
@@ -247,8 +249,10 @@ class TestExcelParserService:
 
         assert len(deals) == 1
         assert deals[0].deal_key == "synthetic|2025|май|row:42"
+        assert deals[0].source_row_number == 42
         assert deals[0].seller == "missing_seller"
         assert len(deals[0].items) == 1
+        assert deals[0].items[0].source_row_number == 43
         assert parser_service.stats.errors == []
         assert len(parser_service.stats.warnings) == 1
         assert "Synthetic key" in parser_service.stats.warnings[0]
@@ -275,6 +279,7 @@ class TestExcelParserService:
             "col_8": 1050.00,
             "col_9": "Поставщик Тест",
             "col_10": 15,
+            "__excel_row_number__": 22,
         }
 
         row = pd.Series(row_data)
@@ -289,6 +294,7 @@ class TestExcelParserService:
         assert item.sale_price.amount == Decimal("150.00")
         assert item.supplier_name == "Поставщик Тест"
         assert item.pickup_date == "15"
+        assert item.source_row_number == 22
 
     @pytest.mark.asyncio
     async def test_create_item_from_row_empty_product(self, parser_service):

@@ -762,7 +762,11 @@ class ExcelParserService:
                         # Create new deal and reset position counter
                         position_counter = 0  # Reset position counter for new deal
                         try:
-                            current_deal = await self._create_deal_from_row(row, columns, period)
+                            current_deal = await self._create_deal_from_row(
+                                row,
+                                columns,
+                                period,
+                            )
                             self.stats.total_deals += 1
                         except Exception as e:
                             classification = self._classify_invalid_master_row(
@@ -814,6 +818,7 @@ class ExcelParserService:
                             error_item = DealItem(
                                 product_name=f"ERROR_ROW_{row_counter}",
                                 position_number=position_counter,
+                                source_row_number=excel_row_number,
                                 client_name=current_deal.client_name,
                                 period_month=current_deal.period_month,
                                 period_year=current_deal.period_year,
@@ -861,6 +866,11 @@ class ExcelParserService:
             return int(raw_value)
         except (TypeError, ValueError):
             return fallback
+
+    def _get_optional_excel_row_number(self, row: pd.Series) -> int | None:
+        """Get positive absolute Excel row number, or None when unavailable."""
+        row_number = self._get_excel_row_number(row, 0)
+        return row_number if row_number > 0 else None
 
     def _get_row_value(
         self,
@@ -980,6 +990,7 @@ class ExcelParserService:
         builder.invoice_number = invoice_number
         builder.invoice_date = invoice_date
         builder.explicit_deal_key = explicit_deal_key
+        builder.source_row_number = self._get_optional_excel_row_number(row)
 
         try:
             if len(columns) > 2:
@@ -1076,6 +1087,7 @@ class ExcelParserService:
         item = DealItem(
             product_name=product_name,
             position_number=position_number,
+            source_row_number=self._get_optional_excel_row_number(row),
             client_name=deal.client_name,
             period_month=deal.period_month,
             period_year=deal.period_year,

@@ -135,6 +135,66 @@ class TestChangeDetectorService:
         assert result.deletion_count == 0
         assert not result.has_changes
 
+    async def test_detect_changes_ignores_source_row_only_changes(
+        self, change_detector, mock_deal_repository, sample_period
+    ):
+        """Changing only Excel row metadata must not create business updates."""
+        db_deal = build_test_deal(
+            period=sample_period,
+            explicit_id=uuid.uuid4(),
+            client_name="Тестовый клиент 1",
+            invoice_info="Счет 001 от 15.01.2024",
+            invoice_number="001",
+            invoice_date="15.01.2024",
+            seller="Продавец 1",
+            is_shipped=Status.COMPLETED,
+            is_paid=Status.PENDING,
+            total_revenue=Money(amount=Decimal("100000.00")),
+            source_row_number=10,
+        )
+        db_item = build_test_item(
+            deal=db_deal,
+            explicit_id=uuid.uuid4(),
+            position_number=1,
+            product_name="Товар 1",
+            quantity=Decimal("10"),
+            sale_price=Money(amount=Decimal("10000.00")),
+            supplier_name="Поставщик 1",
+            source_row_number=11,
+        )
+        db_deal.add_item(db_item)
+
+        excel_deal = build_test_deal(
+            period=sample_period,
+            explicit_id=db_deal.id,
+            client_name=db_deal.client_name,
+            invoice_info=db_deal.invoice_info,
+            invoice_number=db_deal.invoice_number,
+            invoice_date=db_deal.invoice_date,
+            seller=db_deal.seller,
+            is_shipped=db_deal.is_shipped,
+            is_paid=db_deal.is_paid,
+            total_revenue=db_deal.total_revenue,
+            source_row_number=20,
+        )
+        excel_item = build_test_item(
+            deal=excel_deal,
+            explicit_id=db_item.id,
+            position_number=db_item.position_number,
+            product_name=db_item.product_name,
+            quantity=db_item.quantity,
+            sale_price=db_item.sale_price,
+            supplier_name=db_item.supplier_name,
+            source_row_number=21,
+        )
+        excel_deal.add_item(excel_item)
+
+        mock_deal_repository.find_by_period.return_value = [db_deal]
+
+        result = await change_detector.detect_changes([excel_deal], sync_period_months=3)
+
+        assert result.total_changes == 0
+
     async def test_detect_changes_deal_updated(
         self, change_detector, mock_deal_repository, sample_deal_1, sample_period
     ):

@@ -323,12 +323,14 @@ def _render_duplicates(report: PeriodHealthReport) -> str:
     if not report.duplicates:
         return '<p class="empty">Дублей не обнаружено</p>'
     rows = "".join(
-        f"<tr><td>{d.deal_key}</td><td class='num'>{d.count}</td></tr>"
+        f"<tr><td class='num'>{d.source_row_number or '—'}</td>"
+        f"<td>{d.deal_key}</td><td class='num'>{d.count}</td></tr>"
         for d in report.duplicates
     )
     return (
         '<div class="tbl-wrap"><table>'
-        "<thead><tr><th>deal_key</th><th class='num'>Кол-во вхождений</th></tr></thead>"
+        "<thead><tr><th class='num'>row</th><th>deal_key</th>"
+        "<th class='num'>Кол-во вхождений</th></tr></thead>"
         f"<tbody>{rows}</tbody></table></div>"
     )
 
@@ -349,6 +351,7 @@ def _render_totals_issues(
         lvl_badge = f'<span class="badge {i.level.lower()}">{i.level}</span>'
         rows.append(
             f"<tr>"
+            f"<td class='num'>{i.source_row_number or '—'}</td>"
             f"<td>{i.deal_key}</td>"
             f"<td>{field_labels.get(i.field, i.field)}</td>"
             f"<td class='num'>{_fmt(i.master_value)}</td>"
@@ -360,7 +363,7 @@ def _render_totals_issues(
     return (
         '<div class="tbl-wrap"><table>'
         "<thead><tr>"
-        "<th>deal_key</th><th>Поле</th>"
+        "<th class='num'>row</th><th>deal_key</th><th>Поле</th>"
         "<th class='num'>Значение мастер-строки</th><th class='num'>Сумма позиций</th>"
         "<th class='num'>Δ</th><th>Уровень</th>"
         "</tr></thead>"
@@ -464,6 +467,7 @@ def _render_one_side_table(deals: list[OnlySideDeal], side: str) -> str:
         return f'<p class="empty">Нет сделок только в {side}</p>'
     rows = "".join(
         f"<tr>"
+        f"<td class='num'>{d.source_row_number or '—'}</td>"
         f"<td>{d.deal_key}</td>"
         f"<td class='num'>{_fmt(d.revenue)}</td>"
         f"<td class='num'>{_fmt(d.margin)}</td>"
@@ -473,7 +477,7 @@ def _render_one_side_table(deals: list[OnlySideDeal], side: str) -> str:
     )
     return (
         '<div class="tbl-wrap"><table>'
-        "<thead><tr><th>deal_key</th>"
+        "<thead><tr><th class='num'>row</th><th>deal_key</th>"
         "<th class='num'>Выручка</th><th class='num'>Маржа</th><th class='num'>Себестоимость</th></tr></thead>"
         f"<tbody>{rows}</tbody></table></div>"
     )
@@ -500,6 +504,8 @@ def _render_diffs_table(
     for diff in diffs:
         rows.append(
             f"<tr>"
+            f"<td class='num'>{diff.source_row_number_excel or '—'}</td>"
+            f"<td class='num'>{diff.source_row_number_db or '—'}</td>"
             f"<td>{diff.deal_key}</td>"
             f"<td class='num'>{_fmt(diff.revenue_excel)}</td>"
             f"<td class='num'>{_fmt(diff.revenue_db)}</td>"
@@ -515,7 +521,7 @@ def _render_diffs_table(
     return (
         '<div class="tbl-wrap"><table>'
         "<thead><tr>"
-        "<th>deal_key</th>"
+        "<th class='num'>row Excel</th><th class='num'>row БД</th><th>deal_key</th>"
         "<th class='num'>Выручка Excel</th><th class='num'>Выручка БД</th><th class='num'>Δ Выручка</th>"
         "<th class='num'>Маржа Excel</th><th class='num'>Маржа БД</th><th class='num'>Δ Маржа</th>"
         "<th class='num'>Себест. Excel</th><th class='num'>Себест. БД</th><th class='num'>Δ Себест.</th>"

@@ -7,5 +7,6 @@ Contains workers for:
 """
 
 from .read_model_builder import ReadModelBuilder
+from .source_location_refresher import SourceLocationRefresher
 
-__all__ = ["ReadModelBuilder"]
+__all__ = ["ReadModelBuilder", "SourceLocationRefresher"]

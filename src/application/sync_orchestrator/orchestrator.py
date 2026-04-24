@@ -18,6 +18,7 @@ from loguru import logger
 from domain.interfaces import EventStore, SyncSessionRepository
 from domain.models import SyncSession, SyncType
 from infrastructure.workers.read_model_builder import ReadModelBuilder
+from infrastructure.workers.source_location_refresher import SourceLocationRefresher
 
 from ..change_detector import ChangeDetectorService
 from ..excel_parser import ExcelParserService
@@ -44,6 +45,7 @@ class SyncOrchestratorService:
         event_store: EventStore,
         sync_session_repository: SyncSessionRepository,
         read_model_builder: ReadModelBuilder | None = None,
+        source_location_refresher: SourceLocationRefresher | None = None,
     ) -> None:
         """Initialize orchestrator with required services."""
         self.excel_parser = excel_parser
@@ -51,6 +53,7 @@ class SyncOrchestratorService:
         self.event_store = event_store
         self.sync_session_repository = sync_session_repository
         self.read_model_builder = read_model_builder
+        self.source_location_refresher = source_location_refresher
         self.active_session_id: str | None = None
 
     async def execute_sync(self, file_path: str, config: SyncConfiguration) -> SyncResult:
@@ -292,9 +295,43 @@ class SyncOrchestratorService:
                 else:
                     logger.warning("Read model builder not configured, skipping read model updates")
 
+                await self._refresh_source_locations(result)
+
         except Exception as e:
             logger.error(f"Failed to apply changes to database: {e}")
             raise
+
+    async def _refresh_source_locations(self, result: SyncResult) -> None:
+        """Refresh Excel source row metadata without creating business events."""
+        if not self.source_location_refresher:
+            logger.debug("Source location refresher not configured, skipping")
+            return
+        if not result.parse_result:
+            logger.debug("No parse result available, skipping source location refresh")
+            return
+
+        try:
+            refresh_result = await self.source_location_refresher.refresh(
+                result.parse_result.deals
+            )
+        except Exception as exc:  # noqa: BLE001
+            warning = (
+                "Business sync completed, but source row metadata refresh failed: "
+                f"{exc}"
+            )
+            logger.warning(warning)
+            self._add_source_location_warning(result, warning)
+            return
+
+        for warning in refresh_result.warnings:
+            self._add_source_location_warning(result, warning)
+
+    def _add_source_location_warning(self, result: SyncResult, warning: str) -> None:
+        """Add source-location warning to result and sync-session stats."""
+        result.add_warning(warning)
+        sync_session = result.parse_result.sync_session if result.parse_result else None
+        if sync_session is not None and hasattr(sync_session, "stats"):
+            sync_session.stats.warnings.append(warning)
 
     async def _create_full_sync_events(self, result: SyncResult) -> list[dict[str, Any]]:
         """Create events for full synchronization."""
@@ -315,6 +352,7 @@ class SyncOrchestratorService:
                     "invoice_info": deal.invoice_info,
                     "invoice_number": deal.invoice_number,
                     "invoice_date": deal.invoice_date,
+                    "source_row_number": deal.source_row_number,
                     "period": {
                         "month": deal.period.month,
                         "year": deal.period.year,
@@ -360,6 +398,7 @@ class SyncOrchestratorService:
                         "pickup_date": item.pickup_date,
                         "quantity": str(item.quantity) if item.quantity else None,
                         "position_number": item.position_number,  # Add position_number to event data
+                        "source_row_number": item.source_row_number,
                         "prices": {
                             "purchase": str(item.purchase_price.amount)
                             if item.purchase_price
@@ -416,6 +455,7 @@ class SyncOrchestratorService:
                 "pickup_date": item.pickup_date,
                 "quantity": str(item.quantity) if item.quantity else None,
                 "position_number": item.position_number,
+                "source_row_number": item.source_row_number,
                 "prices": {
                     "purchase": (
                         str(item.purchase_price.amount)
@@ -448,6 +488,7 @@ class SyncOrchestratorService:
                     "invoice_info": deal.invoice_info,
                     "invoice_number": deal.invoice_number,
                     "invoice_date": deal.invoice_date,
+                    "source_row_number": deal.source_row_number,
                     "period": {
                         "month": deal.period.month,
                         "year": deal.period.year,

@@ -21,6 +21,11 @@ from .db_reader import DbPeriodData
 _DEFAULT_THRESHOLD = AuditConfig().threshold
 
 
+def _source_sort_key(source_row_number: int | None, deal_key: str) -> tuple[int, str]:
+    """Sort rows by Excel row first, keeping missing rows at the end."""
+    return (source_row_number if source_row_number is not None else 10**12, deal_key)
+
+
 @dataclass
 class PeriodAggregates:
     """Sum of declared totals for one side (Excel or DB) of a period."""
@@ -38,6 +43,7 @@ class OnlySideDeal:
 
     deal_key: str
     period_name: str
+    source_row_number: int | None
     revenue: Decimal | None
     margin: Decimal | None
     cost: Decimal | None
@@ -49,6 +55,8 @@ class DealDiff:
 
     deal_key: str
     period_name: str
+    source_row_number_excel: int | None
+    source_row_number_db: int | None
     revenue_excel: Decimal | None
     revenue_db: Decimal | None
     margin_excel: Decimal | None
@@ -127,11 +135,15 @@ def compare_period(
         OnlySideDeal(
             deal_key=k,
             period_name=period_name,
+            source_row_number=excel_by_key[k].source_row_number,
             revenue=excel_by_key[k].total_revenue.amount if excel_by_key[k].total_revenue else None,
             margin=excel_by_key[k].total_margin.amount if excel_by_key[k].total_margin else None,
             cost=excel_by_key[k].total_cost.amount if excel_by_key[k].total_cost else None,
         )
-        for k in sorted(excel_keys - db_keys)
+        for k in sorted(
+            excel_keys - db_keys,
+            key=lambda key: _source_sort_key(excel_by_key[key].source_row_number, key),
+        )
     ]
 
     # --- Deals present only in DB ---
@@ -139,17 +151,24 @@ def compare_period(
         OnlySideDeal(
             deal_key=k,
             period_name=period_name,
+            source_row_number=db_by_key[k].source_row_number,
             revenue=db_by_key[k].total_revenue,
             margin=db_by_key[k].total_margin,
             cost=db_by_key[k].total_cost,
         )
-        for k in sorted(db_keys - excel_keys)
+        for k in sorted(
+            db_keys - excel_keys,
+            key=lambda key: _source_sort_key(db_by_key[key].source_row_number, key),
+        )
     ]
 
     # --- Deals in both with value differences ---
     # Compare Excel declared totals (total_revenue) vs DB total_revenue_amount.
     diffs: list[DealDiff] = []
-    for key in sorted(excel_keys & db_keys):
+    for key in sorted(
+        excel_keys & db_keys,
+        key=lambda item: _source_sort_key(excel_by_key[item].source_row_number, item),
+    ):
         xl = excel_by_key[key]
         db = db_by_key[key]
 
@@ -166,6 +185,8 @@ def compare_period(
                 DealDiff(
                     deal_key=key,
                     period_name=period_name,
+                    source_row_number_excel=xl.source_row_number,
+                    source_row_number_db=db.source_row_number,
                     revenue_excel=xl_rev,
                     revenue_db=db.total_revenue,
                     margin_excel=xl_mar,

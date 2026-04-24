@@ -14,6 +14,7 @@
 - change detection на основе hash-comparison;
 - event store и обработка событий в read-модели;
 - упрощенная синхронизация позиций без `is_active/version`;
+- трассировка строк Excel через nullable `source_row_number` в read-моделях;
 - snapshot/dashboard-контур для проверки целостности БД;
 - unit и integration тесты в `tests/`.
 
@@ -30,6 +31,150 @@
 - 1С-интеграция как рабочий контур.
 
 ## Что сделано недавно
+
+### 2026-04-24
+
+- реализована source-row traceability для поиска сделок в Excel и сортировки отчетов
+  в порядке исходного файла;
+- принято проектное решение: `source_row_number` не входит в `deal_key` и бизнес-`hash_key`;
+- добавлен отдельный read-side refresh для номеров строк, чтобы массовый сдвиг строк не создавал
+  `DealWithPositionsCreated` для всех сделок периода;
+- первая миграция оставляет `source_row_number` nullable и без unique constraint, а ошибки
+  уникальности/отсутствия строки фиксируются как warnings и в отчетах.
+- добавлена миграция `0004_add_source_row_numbers.py`: поля `source_row_number` в
+  `read_deals` и `read_positions`, плюс неуникальные индексы для поиска/сортировки;
+- обновлены parser, domain models, read-model builders, repositories и dashboard/audit reports,
+  чтобы номер строки проходил от Excel до отчетов;
+- контрольный sync по периоду `Апрель 2026` подтвердил заполнение:
+  `641/641` сделок и `3405/3405` позиций имеют `source_row_number`, дублей строк не найдено.
+
+## Памятка по проверке и частые ловушки
+
+Этот блок нужен как рабочая памятка, чтобы не повторять ошибки, обнаруженные при реализации
+`source_row_number`.
+
+### Запуск sync
+
+Правильный CLI-запуск точечной синхронизации:
+
+```bash
+PYTHONPATH=src ./.venv/bin/so-uchet --log-level INFO sync periods \
+  --file data/real_data_for_testing/Data_source_excel.xlsx \
+  --periods "Апрель 2026" \
+  --log-level INFO
+```
+
+Не использовать для проверки sync:
+
+```bash
+PYTHONPATH=src ./.venv/bin/python -m cli.main sync periods ...
+```
+
+Причина: `src/cli/main.py` сейчас не содержит прямой точки запуска вида
+`if __name__ == "__main__": cli()`, поэтому команда через `python -m cli.main ...` может
+завершиться без реального выполнения Click-команды.
+
+### Проверки после sync
+
+После контрольной синхронизации source-row обязательно проверять БД, а не только лог:
+
+```sql
+select 'deals' as table_name, count(*) as total, count(source_row_number) as with_source_row
+from read_deals
+where period_month = 'Апрель' and period_year = '2026'
+union all
+select 'positions', count(*), count(source_row_number)
+from read_positions
+where period_month = 'Апрель' and period_year = '2026';
+```
+
+И отдельно проверять дубли:
+
+```sql
+with deal_dups as (
+    select source_row_number
+    from read_deals
+    where period_month = 'Апрель'
+      and period_year = '2026'
+      and source_row_number is not null
+    group by source_row_number
+    having count(*) > 1
+),
+position_dups as (
+    select deal_key, source_row_number
+    from read_positions
+    where period_month = 'Апрель'
+      and period_year = '2026'
+      and source_row_number is not null
+    group by deal_key, source_row_number
+    having count(*) > 1
+)
+select
+    (select count(*) from deal_dups) as duplicate_deal_rows,
+    (select count(*) from position_dups) as duplicate_position_rows;
+```
+
+### PostgreSQL / asyncpg bulk `VALUES`
+
+При bulk `UPDATE ... FROM (VALUES ...)` через `asyncpg` нельзя полагаться на автоматический вывод
+типов для смешанных текстовых и integer-полей.
+
+Ошибки, на которые уже наткнулись:
+
+- `operator does not exist: integer = text`;
+- `invalid input for query argument ... expected str, got int`.
+
+Для PostgreSQL-ветки `SourceLocationRefresher` integer metadata-поля (`position_number`,
+`source_row_number`) передаются стабильно и приводятся в SQL через `::integer`. Если менять этот код,
+нужно проверять именно реальным PostgreSQL sync, потому что unit-тесты на mock/session такие ошибки
+типизации не ловят.
+
+### Имена полей в change detection
+
+У `ChangeDetectionResult` правильные свойства:
+
+- `insertion_count`;
+- `update_count`;
+- `deletion_count`;
+- списки `insertions`, `updates`, `deletions`.
+
+Неправильно:
+
+- `insertions_count`;
+- `updates_count`;
+- `result.changes`.
+
+### Текущая известная неидемпотентность
+
+Повторный sync по `Апрель 2026` может показывать `~641 updates`. Диагностика показала, что причина
+не в `source_row_number`, а в существующей нормализации бизнес-данных:
+
+- пример `upd_number`: `None -> ""`;
+- расхождения точности позиции после записи/чтения БД, например Excel `338.37736` против
+  read-model `338.38000`.
+
+Это отдельный вопрос бизнес-правил точности и сравнения. Его нельзя исправлять как часть
+source-row traceability без отдельного решения по финансовому округлению.
+
+### Локальные ограничения команд
+
+В sandbox прямой `psql` к локальному PostgreSQL может падать с:
+
+```text
+Operation not permitted
+```
+
+Это не обязательно ошибка БД. Для такой проверки нужен разрешенный запуск команды в окружении с
+доступом к локальному сокету/порту PostgreSQL.
+
+Полный `tests/unit` на момент этой записи упирался в несвязанный legacy-тест
+`tests/unit/test_cli_db.py::test_load_runtime_env_promotes_legacy_db_variables`
+из-за отсутствующего `_DOTENV_LOADED` в `src.cli.common`. Для проверки source-row изменения
+использовался:
+
+```bash
+./.venv/bin/python -m pytest -q tests/unit --ignore=tests/unit/test_cli_db.py
+```
 
 ### 2026-04-02
 
@@ -128,6 +273,8 @@
 - завершить актуализацию документации и архивирование historical files;
 - зафиксировать канонические документы проекта;
 - проверить поведение `has_totals_error` для сценариев с `NULL` totals;
+- после полной пересинхронизации проверить качество заполнения `source_row_number` и решить,
+  нужна ли вторая миграция с `NOT NULL`/unique constraints;
 - проверить причину избыточного количества событий в `event_store` в отдельных сценариях;
 - при необходимости расширить drift-check для других legacy-инстансов PostgreSQL.
 - проверить legacy upgrade path после уже добавленной миграции `0002_drop_read_audit.py`.
@@ -148,6 +295,8 @@
 - в legacy-БД `read_audit` ещё может присутствовать до применения отдельной миграции удаления.
 - поисковый этап нельзя расширять до fuzzy search и `pg_trgm` до базовых замеров времени sync
   и проверки реальных пользовательских сценариев.
+- `source_row_number` пока является диагностическим nullable-полем; жесткие DB constraints
+  откладываются до проверки реальных данных после полной пересинхронизации.
 
 ## Что дальше
 

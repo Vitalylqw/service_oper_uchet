@@ -26,6 +26,7 @@ class DuplicateIssue:
 
     deal_key: str
     period_name: str
+    source_row_number: int | None
     count: int  # number of occurrences
 
 
@@ -35,6 +36,7 @@ class TotalsIssue:
 
     deal_key: str
     period_name: str
+    source_row_number: int | None
     field: str          # "revenue" | "margin" | "cost"
     master_value: Decimal   # value declared in the master row (formula result)
     calc_value: Decimal     # sum calculated from item rows
@@ -80,8 +82,14 @@ def find_duplicate_keys(deals: list[Any], period_name: str) -> list[DuplicateIss
         list[DuplicateIssue]: One entry per duplicated deal_key.
     """
     counts = Counter(d.deal_key for d in deals)
+    first_by_key = {d.deal_key: d for d in deals}
     issues = [
-        DuplicateIssue(deal_key=key, period_name=period_name, count=cnt)
+        DuplicateIssue(
+            deal_key=key,
+            period_name=period_name,
+            source_row_number=first_by_key[key].source_row_number,
+            count=cnt,
+        )
         for key, cnt in counts.items()
         if cnt > 1
     ]
@@ -130,6 +138,7 @@ def check_totals_consistency(
                 TotalsIssue(
                     deal_key=deal.deal_key,
                     period_name=period_name,
+                    source_row_number=deal.source_row_number,
                     field=field_name,
                     master_value=master.amount,
                     calc_value=calc.amount,

@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Infrastructure mappers for converting data sources to DealItem."""
+
+from __future__ import annotations
 
 from decimal import Decimal
 from typing import Any
@@ -44,6 +44,7 @@ def from_read_position(position: ReadModelPosition, deal: Deal) -> DealItem:
             period_year=deal.period_year,
             seller=deal.seller,
             invoice_info=deal.invoice_info,
+            source_row_number=position.source_row_number,
         )
     except Exception as e:
         logger.error(
@@ -83,6 +84,7 @@ def from_event(item_data: dict[str, Any], deal: Deal) -> DealItem:
         period_year=deal.period_year,
         seller=deal.seller,
         invoice_info=deal.invoice_info,
+        source_row_number=item_data.get("source_row_number"),
     )
 
     explicit_id = item_data.get("item_id")

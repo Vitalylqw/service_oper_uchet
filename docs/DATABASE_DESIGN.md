@@ -56,6 +56,7 @@ Excel
 Ключевые поля:
 
 - идентификация: `id`, `deal_key`, `hash_key`
+- трассировка источника: `source_row_number`
 - период: `period_month`, `period_year`, `period_full_name`
 - статусы: `is_shipped`, `is_paid`
 - totals из Excel:
@@ -86,6 +87,7 @@ Excel
 - `deal_id`
 - `deal_key`
 - `position_number`
+- `source_row_number`
 - `hash_key`
 - `product_name`
 - `supplier_name`
@@ -107,6 +109,51 @@ Excel
 - таблица не использует `is_active` и `version`;
 - хранится только актуальное состояние позиции;
 - история изменений уходит в `event_store`.
+
+### Excel source row metadata
+
+`source_row_number` хранит абсолютный номер строки в Excel-листе:
+
+- в `read_deals` — строку мастер-записи сделки;
+- в `read_positions` — строку позиции.
+
+Это поле используется для:
+
+- быстрого поиска строки в Excel при разборе ошибок;
+- сортировки отчетов в порядке исходного файла;
+- диагностики неполной или неоднозначной трассировки источника.
+
+Важно:
+
+- `source_row_number` не входит в `deal_key`;
+- `source_row_number` не входит в основной бизнес-`hash_key`;
+- перенос сделки по листу не считается бизнес-изменением сделки;
+- обновление номеров строк выполняется отдельным read-side refresh после основной синхронизации.
+
+В первой версии поле nullable и не имеет unique constraint. Это сделано намеренно:
+
+- старые записи до повторной синхронизации могут не иметь номера строки;
+- Excel может содержать ошибки структуры;
+- диагностическое поле не должно обрушивать бизнес-синхронизацию.
+
+Уникальность строк проверяется на уровне health/reporting. Жесткие DB constraints
+можно рассмотреть второй волной после полной пересинхронизации и проверки реальных данных.
+
+Реализация:
+
+- миграция `0004_add_source_row_numbers.py` добавляет nullable-поля:
+  - `read_deals.source_row_number`;
+  - `read_positions.source_row_number`;
+- добавлены неуникальные индексы:
+  - `ix_read_deals_period_source_row`;
+  - `ix_read_positions_deal_source_row`;
+  - `ix_read_positions_period_deal_position`;
+- `SourceLocationRefresher` выполняет отдельный read-side refresh после обработки событий.
+
+При изменении PostgreSQL bulk-refresh нужно помнить про `asyncpg`: `UPDATE ... FROM (VALUES ...)`
+может неверно вывести типы параметров для integer-полей. Для `position_number` и
+`source_row_number` нужна явная стабильная типизация/приведение, а проверять это следует реальным
+PostgreSQL sync, не только unit-тестами.
 
 ### `sync_sessions`
 
@@ -184,3 +231,5 @@ Excel
   - `migrations/versions/*.py`
 - старые описания схемы с `users`, API-layer или versioned read positions не считаются актуальными;
 - перед изменением схемы нужно обновлять и миграции, и активную документацию.
+- диагностические поля source-location нельзя добавлять в `deal_key`, бизнес-`hash_key` или
+  unique constraints без отдельной миграционной волны и проверки реальных данных.

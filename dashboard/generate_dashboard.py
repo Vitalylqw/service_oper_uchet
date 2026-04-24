@@ -31,10 +31,10 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT / "dashboard"))
 
+from excel_audit.config import AuditConfig  # noqa: E402
 from period_utils import sort_period_dicts, sort_period_items, sort_periods  # noqa: E402
 from sqlalchemy import create_engine, text  # noqa: E402
 
-from excel_audit.config import AuditConfig  # noqa: E402
 from infrastructure.database.connection import DatabaseConfig  # noqa: E402
 
 logging.basicConfig(
@@ -520,7 +520,7 @@ def _render_deal_periods_table(
         norm_period = _normalize_period_key(period_name)
         href = links.get(norm_period)
         html += "<tr>"
-        for label, key in cols:
+        for _label, key in cols:
             val = p.get(key, 0)
             if key == "period_full_name":
                 html += f"<td><strong>{val}</strong></td>"
@@ -586,7 +586,7 @@ def _render_position_periods_table(
     totals: dict[str, Any] = {}
     for p in periods:
         html += "<tr>"
-        for label, key in cols:
+        for _label, key in cols:
             val = p.get(key, 0)
             if key == "period_key":
                 html += f"<td><strong>{val}</strong></td>"
@@ -750,9 +750,8 @@ def _generate_detail_html(
 <div class="summary">{summary_text}</div>
 """
 
-    pos_cols = ["#", "Product", "Supplier", "Qty", "Revenue", "Margin", "Cost"]
     deal_cols = [
-        "deal_key", "client", "D:Rev", "P:Rev", "dRev",
+        "row", "deal_key", "client", "D:Rev", "P:Rev", "dRev",
         "D:Mrg", "P:Mrg", "dMrg", "D:Cost", "P:Cost", "dCost",
         "D:Qty", "P:Qty", "dQty",
     ]
@@ -787,6 +786,7 @@ def _generate_detail_html(
         ]
 
         html += '<tr class="deal-header">'
+        html += f"<td>{deal.get('source_row_number') or '—'}</td>"
         html += f"<td>{deal.get('deal_key', '?')}</td>"
         html += f"<td>{deal.get('client_name', '?')}</td>"
         for _, d_val, p_val in deltas:
@@ -804,6 +804,7 @@ def _generate_detail_html(
             # Revenue->col3(P:Rev), Margin->col6(P:Mrg),
             # Cost->col9(P:Cost), Qty->col12(P:Qty)
             html += "<tr>"
+            html += "<td><strong>row</strong></td>"
             html += "<td><strong>#</strong></td>"
             html += "<td><strong>Product</strong></td>"
             html += "<td><strong>Supplier</strong></td>"
@@ -833,6 +834,7 @@ def _generate_detail_html(
                 sub_cost += cost
 
                 html += "<tr>"
+                html += f"<td>{pos.get('source_row_number') or '—'}</td>"
                 html += f"<td>{pos.get('position_number', '')}</td>"
                 html += f"<td>{pos.get('product_name', '')}</td>"
                 html += f"<td>{pos.get('supplier_name', '')}</td>"
@@ -844,10 +846,10 @@ def _generate_detail_html(
                 html += "<td colspan='2'></td>"
                 html += f"<td>{_fmt(qty)}</td>"
                 html += "<td></td>"
-                html += "</tr>"
+            html += "</tr>"
 
             html += '<tr class="subtotal">'
-            html += "<td colspan='3'>SUBTOTAL</td>"
+            html += "<td colspan='4'>SUBTOTAL</td>"
             html += f"<td>{_fmt(sub_rev)}</td>"
             html += "<td colspan='2'></td>"
             html += f"<td>{_fmt(sub_mrg)}</td>"

@@ -62,6 +62,7 @@
 - читает листы книги;
 - извлекает период из имени листа;
 - строит `Deal` и вложенные `DealItem`;
+- проставляет `source_row_number` из абсолютного номера строки Excel для сделки и позиции;
 - собирает статистику парсинга.
 
 Результат:
@@ -84,6 +85,8 @@
 - hash сделки учитывает и сами позиции внутри сделки;
 - любое изменение позиции в рабочем sync path должно поднимать `deal UPDATE`;
 - удаление определяется как отсутствие сущности из Excel в текущей выборке БД по тем же периодам.
+- `source_row_number` не участвует в бизнес-сравнении: перенос строки в Excel сам по себе
+  не должен создавать событие изменения сделки.
 
 Результат:
 
@@ -101,6 +104,7 @@
 
 - `event_data.deal` — все поля сделки;
 - `event_data.items` — все позиции сделки;
+- `source_row_number` — диагностическое поле source-location для сделки и каждой позиции;
 - `metadata` — `sync_session_id`, `sync_type`, `change_type`, `source`.
 
 Отдельный метод `_create_full_sync_events()` в коде есть, но `execute_sync()` в текущем пути его не
@@ -155,6 +159,44 @@
 - позиции не версионируются;
 - старый подход с `is_active/version` больше не является рабочей моделью.
 
+### 7.1. Refresh source row metadata
+
+После обработки событий read-моделей выполняется отдельный read-side refresh номеров строк Excel.
+
+Зачем это выделено отдельно:
+
+- номер строки нужен для поиска в Excel и сортировки отчетов;
+- номер строки не является бизнес-идентичностью сделки;
+- массовый сдвиг строк в Excel не должен создавать `DealWithPositionsCreated` для всех сделок периода.
+
+Текущий контракт:
+
+- `source_row_number` не входит в `deal_key`;
+- `source_row_number` не входит в бизнес-`hash_key`;
+- изменение только `source_row_number` не создает business `UPDATE`;
+- `SourceLocationRefresher` обновляет только `read_deals.source_row_number` и
+  `read_positions.source_row_number` bulk-операциями;
+- ошибки качества source-row metadata фиксируются как warnings и в отчетах, но не останавливают sync.
+
+Для PostgreSQL refresh использует chunked bulk `UPDATE ... FROM (VALUES ...)`.
+Для fallback/dev-сценариев используется generic update по строкам.
+
+Практическая проверка после изменения этого участка должна включать реальный PostgreSQL sync хотя бы
+по одному периоду. Mock/unit-тесты не ловят все ошибки типизации `asyncpg` в bulk `VALUES`.
+Критичные симптомы, которые уже встречались:
+
+- `operator does not exist: integer = text`;
+- `invalid input for query argument ... expected str, got int`.
+
+Контрольный признак успешного refresh в логе:
+
+```text
+Source row refresh completed: ... warnings=0
+```
+
+После этого нужно проверить заполненность и дубли `source_row_number` прямым SQL по
+`read_deals`/`read_positions`.
+
 ### 8. Пересчет агрегатов сделки
 
 `_recalculate_totals(deal_id)`:
@@ -208,6 +250,20 @@
 
 ## Важные текущие нюансы
 
+### 0. Проверять sync нужно через `so-uchet`
+
+Для ручной проверки использовать CLI entrypoint:
+
+```bash
+PYTHONPATH=src ./.venv/bin/so-uchet --log-level INFO sync periods \
+  --file data/real_data_for_testing/Data_source_excel.xlsx \
+  --periods "Апрель 2026" \
+  --log-level INFO
+```
+
+Команда вида `python -m cli.main sync periods ...` не является надежной проверкой, потому что
+`cli.main` сейчас не запускает Click-приложение напрямую при вызове через `-m`.
+
 ### 1. Основной поток уже не использует old versioning model
 
 Старые описания с `is_active`, `version`, soft-delete для `read_positions` не соответствуют
@@ -244,6 +300,7 @@
 - количество строк в `read_deals` и `read_positions`;
 - количество и типы событий в `event_store`;
 - флаг `has_totals_error`;
+- наличие и дубли `source_row_number` в рамках периодов/сделок;
 - snapshot/dashboard отчеты из `dashboard/`.
 
 Рабочие сценарии:

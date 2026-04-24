@@ -27,6 +27,7 @@ class DbDealRow:
     """Single deal row as read from read_deals for a period."""
 
     deal_key: str
+    source_row_number: int | None
     total_revenue: Decimal | None
     total_margin: Decimal | None
     total_cost: Decimal | None
@@ -102,10 +103,15 @@ def get_db_period_data(
     # --- Per-deal rows ---
     deal_rows = conn.execute(
         text("""
-            SELECT deal_key, total_revenue_amount, total_margin_amount, total_cost_amount
+            SELECT
+                deal_key,
+                source_row_number,
+                total_revenue_amount,
+                total_margin_amount,
+                total_cost_amount
             FROM read_deals
             WHERE period_month = :month AND period_year = :year
-            ORDER BY deal_key
+            ORDER BY source_row_number NULLS LAST, deal_key
         """),
         params,
     ).fetchall()
@@ -113,6 +119,7 @@ def get_db_period_data(
     deals = [
         DbDealRow(
             deal_key=row.deal_key,
+            source_row_number=row.source_row_number,
             total_revenue=_to_decimal(row.total_revenue_amount),
             total_margin=_to_decimal(row.total_margin_amount),
             total_cost=_to_decimal(row.total_cost_amount),
