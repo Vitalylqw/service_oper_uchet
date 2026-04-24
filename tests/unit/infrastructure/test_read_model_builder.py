@@ -14,7 +14,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.interfaces import EventStore
-from domain.value_objects import Money, Period, Status
+from domain.value_objects import Money, Money5, Period, SignedMoney5, Status
 from infrastructure.workers.read_model_builder import ReadModelBuilder
 from tests.conftest import build_test_deal, build_test_item
 
@@ -177,6 +177,40 @@ class TestReadModelBuilder:
         assert result == 1
         mock_process.assert_called_once_with(sample_deal_event)
         mock_session.commit.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_create_deal_item_from_event_preserves_five_decimal_money(
+        self,
+        read_model_builder: ReadModelBuilder,
+    ):
+        """DealWithPositionsCreated event reconstruction must preserve 5-decimal fields."""
+        item = await read_model_builder._create_deal_item_from_data(
+            item_data={
+                "item_id": str(uuid.uuid4()),
+                "product_name": "Товар",
+                "supplier_name": "Поставщик",
+                "pickup_date": "1",
+                "quantity": "21.2",
+                "position_number": 1,
+                "prices": {
+                    "purchase": "338.37736",
+                    "sale": "373.65",
+                    "revenue": "7921.38",
+                    "margin": "747.78000",
+                    "cost": "7173.60",
+                },
+            },
+            deal_id=uuid.uuid4(),
+            deal_key="deal-key",
+            client_name="Клиент",
+            period_month="Апрель",
+            period_year="2026",
+            seller="Продавец",
+            invoice_info="Счет",
+        )
+
+        assert item.purchase_price == Money5(amount=Decimal("338.37736"))
+        assert item.margin == SignedMoney5(amount=Decimal("747.78000"))
 
     @pytest.mark.asyncio
     async def test_process_events_error_handling(

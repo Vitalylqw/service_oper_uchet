@@ -261,31 +261,47 @@ class DealRepositoryImplementation(DealRepository):
         builder.is_shipped = Status.from_string(model.is_shipped) if model.is_shipped else None
         builder.is_paid = Status.from_string(model.is_paid) if model.is_paid else None
         # Money fields from read model
-        builder.total_revenue = Money(amount=model.total_revenue_amount) if model.total_revenue_amount else None
-        builder.total_margin = SignedMoney(amount=model.total_margin_amount) if model.total_margin_amount else None
-        builder.total_cost = Money(amount=model.total_cost_amount) if model.total_cost_amount else None
-        builder.kickback_amount = Money(amount=model.kickback_amount_value) if model.kickback_amount_value else None
+        builder.total_revenue = (
+            Money(amount=model.total_revenue_amount)
+            if model.total_revenue_amount is not None
+            else None
+        )
+        builder.total_margin = (
+            SignedMoney(amount=model.total_margin_amount)
+            if model.total_margin_amount is not None
+            else None
+        )
+        builder.total_cost = (
+            Money(amount=model.total_cost_amount)
+            if model.total_cost_amount is not None
+            else None
+        )
+        builder.kickback_amount = (
+            Money(amount=model.kickback_amount_value)
+            if model.kickback_amount_value is not None
+            else None
+        )
 
         deal = builder.build()
         deal.set_id(model.id)
 
         # Set money fields
-        if model.total_revenue_amount:
+        if model.total_revenue_amount is not None:
             deal.total_revenue = Money(
                 amount=model.total_revenue_amount
             )
 
-        if model.total_margin_amount:
+        if model.total_margin_amount is not None:
             deal.total_margin = SignedMoney(
                 amount=model.total_margin_amount
             )
 
-        if model.total_cost_amount:
+        if model.total_cost_amount is not None:
             deal.total_cost = Money(
                 amount=model.total_cost_amount
             )
 
-        if model.kickback_amount_value:
+        if model.kickback_amount_value is not None:
             deal.kickback_amount = Money(
                 amount=model.kickback_amount_value
             )

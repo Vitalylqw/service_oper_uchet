@@ -8,6 +8,7 @@ and identifying changes for incremental synchronization.
 from __future__ import annotations
 
 import time
+from decimal import Decimal
 from typing import Any
 
 from loguru import logger
@@ -330,6 +331,27 @@ class ChangeDetectorService:
         """Generate unique key for deal item using full hash with deal_key and position_number."""
         return item.get_full_hash_key(deal.deal_key).value
 
+    @staticmethod
+    def _normalize_optional_string(value: Any) -> Any:
+        """Normalize empty strings to None for semantic field comparisons."""
+        if value is None:
+            return None
+        if isinstance(value, str):
+            stripped = value.strip()
+            return stripped if stripped else None
+        return value
+
+    @staticmethod
+    def _normalize_decimal_string(value: Any) -> str | None:
+        """Normalize numeric values for comparison without preserving DB scale."""
+        if value is None:
+            return None
+
+        decimal_value = Decimal(str(value))
+        if decimal_value == 0:
+            return "0"
+        return format(decimal_value.normalize(), "f")
+
     def _compare_deal_fields(self, old_deal: Deal, new_deal: Deal) -> dict[str, dict[str, Any]]:
         """Compare deal fields and return changes."""
         changes = {}
@@ -356,7 +378,10 @@ class ChangeDetectorService:
             if hasattr(new_value, "value"):
                 new_value = new_value.value
 
-            if old_value != new_value:
+            old_compare = self._normalize_optional_string(old_value)
+            new_compare = self._normalize_optional_string(new_value)
+
+            if old_compare != new_compare:
                 changes[field] = {"old_value": old_value, "new_value": new_value}
 
         # Compare money fields
@@ -365,8 +390,8 @@ class ChangeDetectorService:
             old_money = getattr(old_deal, field, None)
             new_money = getattr(new_deal, field, None)
 
-            old_amount = str(old_money.amount) if old_money else None
-            new_amount = str(new_money.amount) if new_money else None
+            old_amount = self._normalize_decimal_string(old_money.amount) if old_money else None
+            new_amount = self._normalize_decimal_string(new_money.amount) if new_money else None
 
             if old_amount != new_amount:
                 changes[field] = {"old_value": old_amount, "new_value": new_amount}
@@ -398,12 +423,23 @@ class ChangeDetectorService:
             old_value = getattr(old_item, field, None)
             new_value = getattr(new_item, field, None)
 
-            if old_value != new_value:
+            old_compare = self._normalize_optional_string(old_value)
+            new_compare = self._normalize_optional_string(new_value)
+
+            if old_compare != new_compare:
                 changes[field] = {"old_value": old_value, "new_value": new_value}
 
         # Compare quantity
-        old_qty = str(old_item.quantity) if old_item.quantity else None
-        new_qty = str(new_item.quantity) if new_item.quantity else None
+        old_qty = (
+            self._normalize_decimal_string(old_item.quantity)
+            if old_item.quantity is not None
+            else None
+        )
+        new_qty = (
+            self._normalize_decimal_string(new_item.quantity)
+            if new_item.quantity is not None
+            else None
+        )
 
         if old_qty != new_qty:
             changes["quantity"] = {"old_value": old_qty, "new_value": new_qty}
@@ -414,8 +450,8 @@ class ChangeDetectorService:
             old_money = getattr(old_item, field, None)
             new_money = getattr(new_item, field, None)
 
-            old_amount = str(old_money.amount) if old_money else None
-            new_amount = str(new_money.amount) if new_money else None
+            old_amount = self._normalize_decimal_string(old_money.amount) if old_money else None
+            new_amount = self._normalize_decimal_string(new_money.amount) if new_money else None
 
             if old_amount != new_amount:
                 changes[field] = {"old_value": old_amount, "new_value": new_amount}

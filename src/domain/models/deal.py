@@ -6,30 +6,51 @@ Contains main business entities for deals and deal items.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Optional, Any
-from typing_extensions import Annotated
+from typing import Annotated, Any, Optional
 from uuid import UUID, uuid5
-import logging
 
 from pydantic import (
     BaseModel,
-    Field,
-    computed_field,
-    field_validator,
-    field_serializer,
-    model_validator,
     ConfigDict,
-    StringConstraints,
+    Field,
     PrivateAttr,
+    StringConstraints,
+    computed_field,
+    field_serializer,
+    field_validator,
+    model_validator,
 )
 
-from ..value_objects import Money, Money5, SignedMoney, SignedMoney5, Period, HashKey, Status
+from ..value_objects import HashKey, Money, Money5, Period, SignedMoney, SignedMoney5, Status
 
 THRESHOLD_DECIMAL = Decimal("0.01")
+QUANTITY_HASH_QUANT = Decimal("0.001")
+MONEY_HASH_QUANT = Decimal("0.01")
+MONEY5_HASH_QUANT = Decimal("0.00001")
 
 logger = logging.getLogger(__name__)
+
+
+def _canonical_optional_string(value: str | None) -> str | None:
+    """Return stripped string or None for empty values."""
+    if value is None:
+        return None
+    stripped = value.strip()
+    return stripped if stripped else None
+
+
+def _canonical_decimal(value: Decimal | int | str | None, quantum: Decimal) -> str | None:
+    """Format decimals for stable business hashing independent of DB scale."""
+    if value is None:
+        return None
+
+    decimal_value = Decimal(str(value)).quantize(quantum)
+    if decimal_value == 0:
+        return "0"
+    return format(decimal_value.normalize(), "f")
 
 
 def _truncate_to_field_max(cls: type, field_name: str, value: str | None) -> str | None:
@@ -193,14 +214,22 @@ class DealItem(BaseModel):
             HashKey: Hash of important fields.
         """
         data = {
-            "deal_key": self.deal_key if self.deal_key else None,
+            "deal_key": _canonical_optional_string(self.deal_key),
             "position_number": str(self.position_number),
             "product_name": self.product_name,
-            "supplier_name": self.supplier_name if self.supplier_name else None,
-            "quantity": str(self.quantity) if self.quantity is not None else None,
-            "purchase_price": str(self.purchase_price.amount) if self.purchase_price else None,
-            "sale_price": str(self.sale_price.amount) if self.sale_price else None,
-            "pickup_date": self.pickup_date if self.pickup_date else None,
+            "supplier_name": _canonical_optional_string(self.supplier_name),
+            "quantity": _canonical_decimal(self.quantity, QUANTITY_HASH_QUANT),
+            "purchase_price": (
+                _canonical_decimal(self.purchase_price.amount, MONEY5_HASH_QUANT)
+                if self.purchase_price
+                else None
+            ),
+            "sale_price": (
+                _canonical_decimal(self.sale_price.amount, MONEY_HASH_QUANT)
+                if self.sale_price
+                else None
+            ),
+            "pickup_date": _canonical_optional_string(self.pickup_date),
         }
         return HashKey.from_dict(data)
 
@@ -222,14 +251,34 @@ class DealItem(BaseModel):
         data = {
             "position_number": str(self.position_number) if self.position_number else "1",
             "product_name": self.product_name,
-            "supplier_name": self.supplier_name or "",
-            "pickup_date": self.pickup_date or "",
-            "quantity": str(self.quantity) if self.quantity else "",
-            "purchase_price": str(self.purchase_price.amount) if self.purchase_price else "",
-            "sale_price": str(self.sale_price.amount) if self.sale_price else "",
-            "revenue": str(self.revenue.amount) if self.revenue else "",
-            "margin": str(self.margin.amount) if self.margin else "",
-            "cost": str(self.cost.amount) if self.cost else "",
+            "supplier_name": _canonical_optional_string(self.supplier_name),
+            "pickup_date": _canonical_optional_string(self.pickup_date),
+            "quantity": _canonical_decimal(self.quantity, QUANTITY_HASH_QUANT),
+            "purchase_price": (
+                _canonical_decimal(self.purchase_price.amount, MONEY5_HASH_QUANT)
+                if self.purchase_price
+                else None
+            ),
+            "sale_price": (
+                _canonical_decimal(self.sale_price.amount, MONEY_HASH_QUANT)
+                if self.sale_price
+                else None
+            ),
+            "revenue": (
+                _canonical_decimal(self.revenue.amount, MONEY_HASH_QUANT)
+                if self.revenue
+                else None
+            ),
+            "margin": (
+                _canonical_decimal(self.margin.amount, MONEY5_HASH_QUANT)
+                if self.margin
+                else None
+            ),
+            "cost": (
+                _canonical_decimal(self.cost.amount, MONEY_HASH_QUANT)
+                if self.cost
+                else None
+            ),
             "deal_key": deal_key,
         }
         return HashKey.from_dict(data)
@@ -789,49 +838,61 @@ class Deal(BaseModel):
         """
         data = {
             "client_name": self.client_name,
-            "upd_number": self.upd_number or None,
+            "upd_number": _canonical_optional_string(self.upd_number),
             "is_shipped": self.is_shipped.value if self.is_shipped else None,
             "is_paid": self.is_paid.value if self.is_paid else None,
             "invoice_number": (
-                self.invoice_number.strip().lower() if self.invoice_number else None
+                _canonical_optional_string(self.invoice_number.lower())
+                if self.invoice_number
+                else None
             ),
             "invoice_date": (
-                self.invoice_date.strip().lower() if self.invoice_date else None
+                _canonical_optional_string(self.invoice_date.lower())
+                if self.invoice_date
+                else None
             ),
-            "seller": (self.seller.strip().lower() if self.seller else None),
-            "period": (str(self.period).lower() if self.period is not None else None),
+            "seller": (
+                _canonical_optional_string(self.seller.lower())
+                if self.seller
+                else None
+            ),
+            "period": (
+                _canonical_optional_string(str(self.period).lower())
+                if self.period is not None
+                else None
+            ),
             "kickback_amount": (
-                str(self.kickback_amount.amount)
+                _canonical_decimal(self.kickback_amount.amount, MONEY_HASH_QUANT)
                 if self.kickback_amount is not None
                 else None
             ),
             "total_revenue": (
-                str(self.total_revenue.amount)
+                _canonical_decimal(self.total_revenue.amount, MONEY_HASH_QUANT)
                 if self.total_revenue is not None
                 else None
             ),
             "total_margin": (
-                str(self.total_margin.amount)
+                _canonical_decimal(self.total_margin.amount, MONEY_HASH_QUANT)
                 if self.total_margin is not None
                 else None
             ),
             "total_cost": (
-                str(self.total_cost.amount)
+                _canonical_decimal(self.total_cost.amount, MONEY_HASH_QUANT)
                 if self.total_cost is not None
                 else None
             ),
             "total_calc_revenue_amount": (
-                str(self.calc_revenue_amount.amount)
+                _canonical_decimal(self.calc_revenue_amount.amount, MONEY_HASH_QUANT)
                 if self.calc_revenue_amount is not None
                 else None
             ),
             "total_calc_margin_amount": (
-                str(self.calc_margin_amount.amount)
+                _canonical_decimal(self.calc_margin_amount.amount, MONEY_HASH_QUANT)
                 if self.calc_margin_amount is not None
                 else None
             ),
             "total_calc_cost_amount": (
-                str(self.calc_cost_amount.amount)
+                _canonical_decimal(self.calc_cost_amount.amount, MONEY_HASH_QUANT)
                 if self.calc_cost_amount is not None
                 else None
             ),
@@ -846,7 +907,7 @@ class Deal(BaseModel):
                 else None
             ),
             "total_quantity": (
-                str(self.total_quantity)
+                _canonical_decimal(self.total_quantity, QUANTITY_HASH_QUANT)
                 if self.total_quantity is not None
                 else None
             ),

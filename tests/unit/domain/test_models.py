@@ -9,8 +9,8 @@ import pytest
 
 from src.domain.models import Deal, DealItem
 from src.domain.models.sync_session import SyncResult, SyncType
-from src.domain.value_objects import Money, Status
-from tests.conftest import build_test_item
+from src.domain.value_objects import Money, Money5, SignedMoney5, Status
+from tests.conftest import build_test_deal, build_test_item
 
 
 @pytest.mark.unit
@@ -50,12 +50,48 @@ class TestDealItem:
         assert len(hash_key.value) == 32  # MD5 hash length
         assert hash_key.algorithm == "md5"
 
+    def test_deal_item_hash_key_ignores_decimal_scale(self):
+        """Test DealItem hash key treats numerically equal decimals as equal."""
+        item_a = build_test_item(
+            quantity=Decimal("10.000"),
+            purchase_price=Money5(amount=Decimal("338.377360")),
+            sale_price=Money(amount=Decimal("373.650")),
+        )
+        item_b = build_test_item(
+            quantity=Decimal("10"),
+            purchase_price=Money5(amount=Decimal("338.37736")),
+            sale_price=Money(amount=Decimal("373.65")),
+        )
+
+        assert item_a.hash_key == item_b.hash_key
+
     def test_deal_item_key(self, sample_deal_item):
         """Test DealItem full hash key generation."""
         item = sample_deal_item
         full_hash = item.get_full_hash_key("deal-key")
         assert len(full_hash.value) == 32
         assert full_hash.algorithm == "md5"
+
+    def test_deal_item_full_hash_key_ignores_decimal_scale(self):
+        """Test full position hash is stable across DB Decimal scale differences."""
+        item_a = build_test_item(
+            quantity=Decimal("21.200"),
+            purchase_price=Money5(amount=Decimal("338.377360")),
+            sale_price=Money(amount=Decimal("373.650")),
+            revenue=Money(amount=Decimal("7921.380")),
+            margin=SignedMoney5(amount=Decimal("747.780000")),
+            cost=Money(amount=Decimal("7173.600")),
+        )
+        item_b = build_test_item(
+            quantity=Decimal("21.2"),
+            purchase_price=Money5(amount=Decimal("338.37736")),
+            sale_price=Money(amount=Decimal("373.65")),
+            revenue=Money(amount=Decimal("7921.38")),
+            margin=SignedMoney5(amount=Decimal("747.78")),
+            cost=Money(amount=Decimal("7173.60")),
+        )
+
+        assert item_a.get_full_hash_key("deal-key") == item_b.get_full_hash_key("deal-key")
 
     def test_deal_item_validation_product_name(self):
         """Test DealItem validation for product name."""
@@ -149,6 +185,36 @@ class TestDeal:
         hash_key = deal.hash_key
         assert len(hash_key.value) == 32  # MD5 hash length
         assert hash_key.algorithm == "md5"
+
+    def test_deal_hash_key_ignores_decimal_scale(self, sample_period):
+        """Test Deal hash remains stable across Excel/DB Decimal scale differences."""
+        deal_a = build_test_deal(
+            period=sample_period,
+            total_revenue=Money(amount=Decimal("100.000")),
+        )
+        deal_a.add_item(
+            build_test_item(
+                deal=deal_a,
+                quantity=Decimal("10.000"),
+                purchase_price=Money5(amount=Decimal("5.00000")),
+                sale_price=Money(amount=Decimal("10.000")),
+            )
+        )
+
+        deal_b = build_test_deal(
+            period=sample_period,
+            total_revenue=Money(amount=Decimal("100")),
+        )
+        deal_b.add_item(
+            build_test_item(
+                deal=deal_b,
+                quantity=Decimal("10"),
+                purchase_price=Money5(amount=Decimal("5")),
+                sale_price=Money(amount=Decimal("10")),
+            )
+        )
+
+        assert deal_a.hash_key == deal_b.hash_key
 
     def test_deal_key(self, sample_deal):
         """Test Deal unique key generation."""

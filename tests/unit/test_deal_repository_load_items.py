@@ -8,7 +8,7 @@ import pytest
 
 from domain.models import Deal
 from domain.value_objects import Period
-from infrastructure.database.models import ReadModelPosition
+from infrastructure.database.models import ReadModelDeal, ReadModelPosition
 from infrastructure.database.repositories import DealRepositoryImplementation
 
 
@@ -79,3 +79,43 @@ async def test_load_deal_items_uses_mapper() -> None:
     assert item.deal_id == deal.id
     assert item.client_name == deal.client_name
     assert item.position_number == 1
+
+
+@pytest.mark.asyncio
+async def test_read_model_to_domain_preserves_zero_totals() -> None:
+    """Read-model reconstruction must not convert numeric zeros to None."""
+    period = Period(month="Январь", year="2025", full_name="Январь 2025")
+    deal_id = uuid4()
+    deal_model = ReadModelDeal(
+        id=deal_id,
+        deal_key="001|01.01.2025|продавец|январь 2025",
+        hash_key="hash",
+        client_name="ООО Тест",
+        invoice_info="001 от 01.01.2025",
+        invoice_number="001",
+        invoice_date="01.01.2025",
+        period_month=period.month,
+        period_year=period.year,
+        period_full_name=period.full_name,
+        is_shipped=None,
+        is_paid=None,
+        upd_number=None,
+        seller="Продавец",
+        total_revenue_amount=Decimal("0.00"),
+        total_margin_amount=Decimal("0.00"),
+        total_cost_amount=Decimal("0.00"),
+        kickback_amount_value=Decimal("0.00"),
+    )
+
+    repository = DealRepositoryImplementation(session=FakeSession([]))
+
+    deal = await repository._read_model_to_domain(deal_model)
+
+    assert deal.total_revenue is not None
+    assert deal.total_revenue.amount == Decimal("0.00")
+    assert deal.total_margin is not None
+    assert deal.total_margin.amount == Decimal("0.00")
+    assert deal.total_cost is not None
+    assert deal.total_cost.amount == Decimal("0.00")
+    assert deal.kickback_amount is not None
+    assert deal.kickback_amount.amount == Decimal("0.00")

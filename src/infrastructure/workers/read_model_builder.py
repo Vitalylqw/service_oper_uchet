@@ -416,14 +416,22 @@ class ReadModelBuilder:
     ) -> DealItem:
         """Create DealItem object from event data."""
         from domain.models import DealItem
-        from domain.value_objects import Money, SignedMoney
+        from domain.value_objects import Money, Money5, SignedMoney5
 
         # Extract prices
         prices = item_data.get("prices", {})
-        purchase_price = Money(amount=Decimal(prices["purchase"])) if prices.get("purchase") else None
+        purchase_price = (
+            Money5(amount=Decimal(prices["purchase"]))
+            if prices.get("purchase")
+            else None
+        )
         sale_price = Money(amount=Decimal(prices["sale"])) if prices.get("sale") else None
         revenue = Money(amount=Decimal(prices["revenue"])) if prices.get("revenue") else None
-        margin = SignedMoney(amount=Decimal(prices["margin"])) if prices.get("margin") else None
+        margin = (
+            SignedMoney5(amount=Decimal(prices["margin"]))
+            if prices.get("margin")
+            else None
+        )
         cost = Money(amount=Decimal(prices["cost"])) if prices.get("cost") else None
 
         item = DealItem(
@@ -775,14 +783,18 @@ class ReadModelBuilder:
                 return
 
             from domain.models import DealItem
-            from domain.value_objects import Money, SignedMoney
+            from domain.value_objects import Money, Money5, SignedMoney5
 
             # Extract prices data
             prices = item_data.get("prices", {})
 
             # Create Money objects for pricing data
             purchase_data = prices.get("purchase")
-            purchase_price = Money(amount=Decimal(purchase_data)) if purchase_data else None
+            purchase_price = (
+                Money5(amount=Decimal(purchase_data))
+                if purchase_data
+                else None
+            )
 
             sale_data = prices.get("sale")
             sale_price = Money(amount=Decimal(sale_data)) if sale_data else None
@@ -791,7 +803,7 @@ class ReadModelBuilder:
             revenue = Money(amount=Decimal(revenue_data)) if revenue_data else None
 
             margin_data = prices.get("margin")
-            margin = SignedMoney(amount=Decimal(margin_data)) if margin_data else None
+            margin = SignedMoney5(amount=Decimal(margin_data)) if margin_data else None
 
             cost_data = prices.get("cost")
             cost = Money(amount=Decimal(cost_data)) if cost_data else None
@@ -932,11 +944,15 @@ class ReadModelBuilder:
                 )
                 return
 
-            from domain.value_objects import Money, SignedMoney
+            from domain.value_objects import Money, Money5, SignedMoney5
 
             prices = item_data.get("prices", {})
             purchase_data = prices.get("purchase")
-            purchase_price = Money(amount=Decimal(purchase_data)) if purchase_data else None
+            purchase_price = (
+                Money5(amount=Decimal(purchase_data))
+                if purchase_data
+                else None
+            )
 
             sale_data = prices.get("sale")
             sale_price = Money(amount=Decimal(sale_data)) if sale_data else None
@@ -945,7 +961,7 @@ class ReadModelBuilder:
             revenue = Money(amount=Decimal(revenue_data)) if revenue_data else None
 
             margin_data = prices.get("margin")
-            margin = SignedMoney(amount=Decimal(margin_data)) if margin_data else None
+            margin = SignedMoney5(amount=Decimal(margin_data)) if margin_data else None
 
             cost_data = prices.get("cost")
             cost = Money(amount=Decimal(cost_data)) if cost_data else None

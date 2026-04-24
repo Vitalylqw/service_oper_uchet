@@ -394,6 +394,54 @@ class TestChangeDetectorService:
         # Assert
         assert len(changes) == 0
 
+    async def test_compare_deal_fields_ignores_empty_optional_strings(
+        self, change_detector, sample_period
+    ):
+        """Test empty optional strings are equivalent to missing values."""
+        old_deal = build_test_deal(
+            period=sample_period,
+            client_name="Клиент",
+            invoice_info="Счет 001 от 15.01.2024",
+            invoice_number="001",
+            invoice_date="15.01.2024",
+            seller="Продавец",
+            upd_number=None,
+        )
+        new_deal = build_test_deal(
+            period=sample_period,
+            client_name=old_deal.client_name,
+            invoice_info=old_deal.invoice_info,
+            invoice_number=old_deal.invoice_number,
+            invoice_date=old_deal.invoice_date,
+            seller=old_deal.seller,
+            upd_number="",
+        )
+
+        changes = change_detector._compare_deal_fields(old_deal, new_deal)
+
+        assert "upd_number" not in changes
+
+    async def test_compare_item_fields_ignores_decimal_scale(self, change_detector):
+        """Test detailed item comparison ignores DB Decimal scale differences."""
+        old_item = build_test_item(
+            position_number=1,
+            product_name="Товар 1",
+            quantity=Decimal("10.000"),
+            sale_price=Money(amount=Decimal("1000.00")),
+            supplier_name="Поставщик 1",
+        )
+        new_item = build_test_item(
+            position_number=1,
+            product_name="Товар 1",
+            quantity=Decimal("10"),
+            sale_price=Money(amount=Decimal("1000")),
+            supplier_name="Поставщик 1",
+        )
+
+        changes = change_detector._compare_item_fields(old_item, new_item)
+
+        assert changes == {}
+
     async def test_compare_deal_fields_with_changes(
         self, change_detector, sample_deal_1, sample_period
     ):
