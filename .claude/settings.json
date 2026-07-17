@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3:*)",
+      "Bash(find /workspaces/service_oper_uchet/dashboard/reports -type f \\\\\\(-name *.css -o -name *.js \\\\\\))",
+      "Bash(ls -la /workspaces/service_oper_uchet/dashboard/*.py)",
+      "Bash(wc -l /workspaces/service_oper_uchet/dashboard/*.py)",
+      "Read(//tmp/**)"
+    ],
+    "additionalDirectories": [
+      "/tmp"
+    ]
+  }
+}
